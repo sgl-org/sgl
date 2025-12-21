@@ -56,6 +56,7 @@
 #include "widgets/scroll/sgl_scroll.h"
 #include "widgets/dropdown/sgl_dropdown.h"
 #include "widgets/scope/sgl_scope.h"
+#include "widgets/polygon/sgl_polygon.h"
 
 
 #endif // __SGL_H__
