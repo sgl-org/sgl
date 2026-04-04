@@ -39,7 +39,7 @@ static void sgl_textline_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
     SGL_ASSERT(textline->font != NULL);
 
     if(evt->type == SGL_EVENT_DRAW_MAIN) {
-        sgl_obj_set_height(obj, sgl_font_get_string_height(obj->coords.x2 - obj->coords.x1 + 1, textline->text, textline->font, textline->line_margin) + obj->radius * 2);
+        obj->coords.y2 = obj->coords.y1 + (sgl_font_get_string_height(obj->coords.x2 - obj->coords.x1 + 1, textline->text, textline->font, textline->line_margin) + obj->radius * 2) - 1;
         sgl_area_clip(&obj->parent->area, &obj->coords, &obj->area);
 
         text_area.x1 = obj->coords.x1 + obj->radius;
