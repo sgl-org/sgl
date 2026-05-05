@@ -38,7 +38,7 @@
  extern "C" {
  #endif
  
-#define SGL_SCOPE_MAX_CHANNELS    4
+#define SGL_SCOPE_MAX_CHANNELS 4
 
 typedef struct {
     sgl_obj_t obj;
