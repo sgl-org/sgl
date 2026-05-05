@@ -23,8 +23,6 @@
  */
 #include "sgl_polygon.h"
 
-#define SGL_POLYGON_AA_SAMPLES 4
-
 static void sgl_polygon_blend_pixel(sgl_surf_t *surf, const sgl_area_t *clip, int16_t x, int16_t y, sgl_color_t color, uint8_t alpha)
 {
     if (surf == NULL || clip == NULL || alpha == 0 || x < clip->x1 || x > clip->x2 || y < clip->y1 || y > clip->y2) {
@@ -132,47 +130,68 @@ static void sgl_polygon_draw_border_line(sgl_surf_t *surf,
     }
 }
 
-static bool sgl_polygon_point_inside_samples(const sgl_polygon_pos_t *vertices, uint16_t vertex_count, int32_t x_fp, int32_t y_fp)
+static void sgl_polygon_fill_scanline(sgl_surf_t *surf,
+                                      const sgl_area_t *clip,
+                                      sgl_polygon_t *polygon,
+                                      sgl_obj_t *obj)
 {
-    bool inside = false;
+    int16_t intersections[SGL_POLYGON_VERTEX_MAX];
+    bool solid_alpha = (polygon->alpha == SGL_ALPHA_MAX);
 
-    for (uint16_t i = 0, j = vertex_count - 1; i < vertex_count; j = i++) {
-        int32_t xi = ((int32_t)vertices[i].x << 8) + 128;
-        int32_t yi = ((int32_t)vertices[i].y << 8) + 128;
-        int32_t xj = ((int32_t)vertices[j].x << 8) + 128;
-        int32_t yj = ((int32_t)vertices[j].y << 8) + 128;
+    for (int16_t y = clip->y1; y <= clip->y2; y++) {
+        uint16_t hit_count = 0;
+        int32_t scan_y = (((int32_t)y - obj->coords.y1) << 8) + 128;
 
-        if ((yi > y_fp) != (yj > y_fp)) {
-            int64_t lhs = ((int64_t)(xj - xi) * (y_fp - yi));
-            int64_t rhs = ((int64_t)(x_fp - xi) * (yj - yi));
-            if (((yj - yi) > 0) ? (rhs < lhs) : (rhs > lhs)) {
-                inside = !inside;
+        for (uint16_t i = 0, j = polygon->vertex_count - 1; i < polygon->vertex_count; j = i++) {
+            int32_t x1 = ((int32_t)polygon->vertices[j].x << 8) + 128;
+            int32_t y1 = ((int32_t)polygon->vertices[j].y << 8) + 128;
+            int32_t x2 = ((int32_t)polygon->vertices[i].x << 8) + 128;
+            int32_t y2 = ((int32_t)polygon->vertices[i].y << 8) + 128;
+
+            if ((y1 > scan_y) == (y2 > scan_y) || y1 == y2) {
+                continue;
+            }
+
+            intersections[hit_count++] = obj->coords.x1 +
+                                         (int16_t)((x1 + (int32_t)(((int64_t)(scan_y - y1) * (x2 - x1)) / (y2 - y1)) - 128) >> 8);
+        }
+
+        if (hit_count < 2) {
+            continue;
+        }
+
+        for (uint16_t i = 0; i + 1 < hit_count; i++) {
+            for (uint16_t j = i + 1; j < hit_count; j++) {
+                if (intersections[j] < intersections[i]) {
+                    int16_t tmp = intersections[i];
+                    intersections[i] = intersections[j];
+                    intersections[j] = tmp;
+                }
+            }
+        }
+
+        sgl_color_t *buf = sgl_surf_get_buf(surf, clip->x1 - surf->x1, y - surf->y1);
+        for (uint16_t i = 0; i + 1 < hit_count; i += 2) {
+            int16_t x_start = sgl_max((int16_t)(intersections[i] + 1), clip->x1);
+            int16_t x_end = sgl_min((int16_t)(intersections[i + 1] - 1), clip->x2);
+            uint32_t len;
+
+            if (x_start > x_end) {
+                continue;
+            }
+
+            len = (uint32_t)(x_end - x_start + 1);
+
+            if (solid_alpha) {
+                sgl_color_set(buf + (x_start - clip->x1), polygon->fill_color, len);
+            } else {
+                sgl_color_t *blend = buf + (x_start - clip->x1);
+                for (uint32_t x = 0; x < len; x++) {
+                    blend[x] = sgl_color_mixer(polygon->fill_color, blend[x], polygon->alpha);
+                }
             }
         }
     }
-
-    return inside;
-}
-
-static uint8_t sgl_polygon_get_pixel_coverage(const sgl_polygon_pos_t *vertices,
-                                              uint16_t vertex_count,
-                                              int16_t obj_x1,
-                                              int16_t obj_y1,
-                                              int16_t abs_x,
-                                              int16_t abs_y)
-{
-    static const uint8_t sample_offsets[SGL_POLYGON_AA_SAMPLES] = {32, 96, 160, 224};
-    uint16_t inside_count = 0;
-
-    for (uint8_t sy = 0; sy < SGL_POLYGON_AA_SAMPLES; sy++) {
-        for (uint8_t sx = 0; sx < SGL_POLYGON_AA_SAMPLES; sx++) {
-            int32_t x_fp = ((int32_t)(abs_x - obj_x1) << 8) + sample_offsets[sx];
-            int32_t y_fp = ((int32_t)(abs_y - obj_y1) << 8) + sample_offsets[sy];
-            inside_count += sgl_polygon_point_inside_samples(vertices, vertex_count, x_fp, y_fp) ? 1 : 0;
-        }
-    }
-
-    return (uint8_t)((inside_count * SGL_ALPHA_MAX) / (SGL_POLYGON_AA_SAMPLES * SGL_POLYGON_AA_SAMPLES));
 }
 
 
@@ -204,32 +223,7 @@ static void sgl_polygon_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event
     if (polygon->fill_color.full != 0) {
         sgl_area_t clip;
         if (sgl_surf_clip(surf, &obj->area, &clip)) {
-            for (int16_t y = clip.y1; y <= clip.y2; y++) {
-                sgl_color_t *buf = sgl_surf_get_buf(surf, clip.x1 - surf->x1, y - surf->y1);
-
-                for (int16_t x = clip.x1; x <= clip.x2; x++) {
-                    uint8_t coverage = sgl_polygon_get_pixel_coverage(polygon->vertices,
-                                                                     polygon->vertex_count,
-                                                                     obj->coords.x1,
-                                                                     obj->coords.y1,
-                                                                     x,
-                                                                     y);
-
-                    if (coverage == 0) {
-                        continue;
-                    }
-
-                    if (polygon->alpha == SGL_ALPHA_MAX && coverage == SGL_ALPHA_MAX) {
-                        buf[x - clip.x1] = polygon->fill_color;
-                    } else {
-                        uint8_t mix_alpha = (uint8_t)(((uint16_t)coverage * polygon->alpha) >> 8);
-                        if (mix_alpha == 0 && coverage != 0 && polygon->alpha != 0) {
-                            mix_alpha = 1;
-                        }
-                        buf[x - clip.x1] = sgl_color_mixer(polygon->fill_color, buf[x - clip.x1], mix_alpha);
-                    }
-                }
-            }
+            sgl_polygon_fill_scanline(surf, &clip, polygon, obj);
         }
     }
     
