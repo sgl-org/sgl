@@ -25,7 +25,6 @@
 #define  CONFIG_SGL_THEME_DARK                             0      
 #define  CONFIG_SGL_HEAP_ALGO                              lwmem  
 #define  CONFIG_SGL_HEAP_MEMORY_SIZE                       10240
-#define  CONFIG_SGL_LABEL_ROTATION                         0
 #define  CONFIG_SGL_FONT_SONG23                            0      
 #define  CONFIG_SGL_FONT_CONSOLAS14                        1      
 #define  CONFIG_SGL_FONT_CONSOLAS23                        0      
