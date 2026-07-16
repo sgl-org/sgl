@@ -46,13 +46,13 @@ void sgl_boot_logo(void);
 #endif // ! CONFIG_SGL_BOOT_LOGO
 
 #if (CONFIG_SGL_MONITOR_TRACE)
-#define  SGL_MONITOR_COORDS_WIDTH       (81)
-#define  SGL_MONITOR_COORDS_HEIGHT      (30)
+#define  SGL_MONITOR_COORDS_WIDTH       CONFIG_SGL_MONITOR_COORDS_WIDTH
+#define  SGL_MONITOR_COORDS_HEIGHT      CONFIG_SGL_MONITOR_COORDS_HEIGHT
 #define  SGL_MONITOR_COORDS_X           (SGL_SCREEN_WIDTH - SGL_MONITOR_COORDS_WIDTH)
 #define  SGL_MONITOR_COORDS_Y           (SGL_SCREEN_HEIGHT - SGL_MONITOR_COORDS_HEIGHT)
-#define  SGL_MONITOR_COLOR              (SGL_COLOR_BLACK)
-#define  SGL_MONITOR_TEXT_COLOR         (SGL_COLOR_WHITE)
-#define  SGL_MONITOR_ALPHA              (128)
+#define  SGL_MONITOR_COLOR              CONFIG_SGL_MONITOR_COLOR
+#define  SGL_MONITOR_TEXT_COLOR         CONFIG_SGL_MONITOR_TEXT_COLOR
+#define  SGL_MONITOR_ALPHA              CONFIG_SGL_MONITOR_ALPHA
 
 #define  SGL_MONITOR_COORDS             (sgl_area_t){.x1 = SGL_MONITOR_COORDS_X,     \
                                                      .x2 = SGL_MONITOR_COORDS_X + SGL_MONITOR_COORDS_WIDTH - 1,     \
@@ -61,7 +61,7 @@ void sgl_boot_logo(void);
                                                     }
 
 void sgl_monitor_trace(sgl_surf_t *surf);
-#endif
+#endif // ! CONFIG_SGL_MONITOR_TRACE
 
 /**
  * @brief Count number of options in \n-separated text
