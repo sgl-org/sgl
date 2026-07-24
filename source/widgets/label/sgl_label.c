@@ -197,7 +197,7 @@ void sgl_label_set_text_fmt_dynamic(sgl_obj_t* obj, const char *fmt, ...)
     va_copy(args_copy, args);
     len = sgl_vsnprintf(NULL, 0, fmt, args_copy);
     va_end(args_copy);
-    cap = ((size_t)len + 2) & ~(size_t)1;
+    cap = ((size_t)len + 4) & ~(size_t)3;
 
     sgl_label_update_area(label, label->text, &area);
 
