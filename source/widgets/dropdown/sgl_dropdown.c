@@ -157,7 +157,7 @@ static void sgl_dropdown_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_even
         {
             const int icon_y_off = dropdown->is_open ? 2 : 0;
             sgl_draw_icon(surf, &obj->area, obj->coords.x2 - dropdown_icon.width - obj->radius,
-                          obj->coords.y1 + (item_height - dropdown_icon.height + 1) / 2 + icon_y_off,
+                          obj->coords.y1 + (dropdown->option_h - dropdown_icon.height + 1) / 2 + icon_y_off,
                           dropdown->text_color, dropdown->alpha, &dropdown_icon);
         }
 
@@ -252,7 +252,8 @@ static void sgl_dropdown_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_even
             if (can_move) {
                 dropdown->pos_y += evt->distance;
             }
-            sgl_obj_set_dirty(obj);
+            bg_coords.y1 += dropdown->option_h;
+            sgl_obj_update_area(&bg_coords);
         }
         break;
 
@@ -278,7 +279,8 @@ static void sgl_dropdown_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_even
     case SGL_EVENT_RELEASED:
         if (dropdown->is_open) {
             sgl_dropdown_clamp_pos_y(dropdown, list_h, item_height);
-            sgl_obj_set_dirty(obj);
+            bg_coords.y1 += dropdown->option_h;
+            sgl_obj_update_area(&bg_coords);
         }
         break;
 
@@ -306,7 +308,8 @@ static void sgl_dropdown_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_even
         if (dropdown->is_open) {
             sgl_dropdown_ensure_visible(dropdown, list_h, dropdown->option_h);
         }
-        sgl_obj_set_dirty(obj);
+        bg_coords.y1 += dropdown->option_h;
+        sgl_obj_update_area(&bg_coords);
     } break;
 
     default:
