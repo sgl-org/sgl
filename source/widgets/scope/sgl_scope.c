@@ -203,6 +203,17 @@ static void scope_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *ev
 
         sgl_draw_rect(surf, &obj->area, &obj->coords, &bg_rect);
 
+        sgl_area_t plot_area = obj->coords;
+        if (scope->border_width > 0) {
+            plot_area.x1 += scope->border_width;
+            plot_area.y1 += scope->border_width;
+            plot_area.x2 -= scope->border_width;
+            plot_area.y2 -= scope->border_width;
+        }
+        if (plot_area.x1 > plot_area.x2 || plot_area.y1 > plot_area.y2) {
+            return;
+        }
+
         // Compute waveform display parameters
         int16_t display_min = scope->min_value;
         int16_t display_max = scope->max_value;
@@ -253,51 +264,51 @@ static void scope_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *ev
         }
         
         // Draw grid lines
-        int16_t width = obj->coords.x2 - obj->coords.x1;
-        int16_t height = obj->coords.y2 - obj->coords.y1;
-        int16_t x_center = (obj->coords.x1 + obj->coords.x2) / 2;
-        int16_t y_center = obj->coords.y1 + (int32_t)(height * (display_max - (display_min + display_max) / 2)) / (display_max - display_min);
+        int16_t width = plot_area.x2 - plot_area.x1;
+        int16_t height = plot_area.y2 - plot_area.y1;
+        int16_t x_center = (plot_area.x1 + plot_area.x2) / 2;
+        int16_t y_center = plot_area.y1 + (int32_t)(height * (display_max - (display_min + display_max) / 2)) / (display_max - display_min);
         
         // Draw horizontal center line (midpoint of display range)
         if (scope->grid_style) {
             // Draw dashed line
-            draw_dashed_line(surf, &obj->area, obj->coords.x1, y_center, obj->coords.x2, y_center, scope->grid_style, scope->grid_color);
+            draw_dashed_line(surf, &plot_area, plot_area.x1, y_center, plot_area.x2, y_center, scope->grid_style, scope->grid_color);
         } else {
             // Draw solid line
-            sgl_draw_fill_hline(surf, &obj->area, y_center, obj->coords.x1, obj->coords.x2, 1, scope->grid_color, scope->alpha);
+            sgl_draw_fill_hline(surf, &plot_area, y_center, plot_area.x1, plot_area.x2, 1, scope->grid_color, scope->alpha);
         }
 
         // Draw vertical center line
         if (scope->grid_style) {
             // Draw dashed line
-            draw_dashed_line(surf, &obj->area, x_center, obj->coords.y1, x_center, obj->coords.y2, scope->grid_style, scope->grid_color);
+            draw_dashed_line(surf, &plot_area, x_center, plot_area.y1, x_center, plot_area.y2, scope->grid_style, scope->grid_color);
         } else {
             // Draw solid line
-            sgl_draw_fill_vline(surf, &obj->area, x_center, obj->coords.y1, obj->coords.y2, 1, scope->grid_color, scope->alpha);
+            sgl_draw_fill_vline(surf, &plot_area, x_center, plot_area.y1, plot_area.y2, 1, scope->grid_color, scope->alpha);
         }
 
         // Draw vertical grid lines (10 divisions)
         for (int i = 1; i < 10; i++) {
-            int16_t x_pos = obj->coords.x1 + (width * i / 10);
+            int16_t x_pos = plot_area.x1 + (width * i / 10);
 
             if (scope->grid_style) {
                 // Draw dashed line
-                draw_dashed_line(surf, &obj->area, x_pos, obj->coords.y1, x_pos, obj->coords.y2, scope->grid_style, scope->grid_color);
+                draw_dashed_line(surf, &plot_area, x_pos, plot_area.y1, x_pos, plot_area.y2, scope->grid_style, scope->grid_color);
             } else {
                 // Draw solid line
-                sgl_draw_fill_vline(surf, &obj->area, x_pos, obj->coords.y1, obj->coords.y2, 1, scope->grid_color, scope->alpha);
+                sgl_draw_fill_vline(surf, &plot_area, x_pos, plot_area.y1, plot_area.y2, 1, scope->grid_color, scope->alpha);
             }
         }
         
         // Draw horizontal grid lines (10 divisions)
         for (int i = 1; i < 10; i++) {
-            int16_t y_pos = obj->coords.y1 + (height * i / 10); 
+            int16_t y_pos = plot_area.y1 + (height * i / 10); 
             if (scope->grid_style) {
                 // Draw dashed line
-                draw_dashed_line(surf, &obj->area, obj->coords.x1, y_pos, obj->coords.x2, y_pos, scope->grid_style, scope->grid_color);
+                draw_dashed_line(surf, &plot_area, plot_area.x1, y_pos, plot_area.x2, y_pos, scope->grid_style, scope->grid_color);
             } else {
                 // Draw solid line
-                sgl_draw_fill_hline(surf, &obj->area, y_pos, obj->coords.x1, obj->coords.x2, 1, scope->grid_color, scope->alpha);
+                sgl_draw_fill_hline(surf, &plot_area, y_pos, plot_area.x1, plot_area.x2, 1, scope->grid_color, scope->alpha);
             }
         }
 
@@ -321,8 +332,8 @@ static void scope_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *ev
                 if (last_value < display_min) last_value = display_min;
                 if (last_value > display_max) last_value = display_max;
                 
-                start.x = obj->coords.x2;  // Rightmost X position
-                start.y = obj->coords.y2 - ((int32_t)(last_value - display_min) * height) / (display_max - display_min);
+                start.x = plot_area.x2;  // Rightmost X position
+                start.y = plot_area.y2 - ((int32_t)(last_value - display_min) * height) / (display_max - display_min);
                 
                 // Draw waveform from right to left
                 for (uint32_t i = 1; i < data_points; i++) {
@@ -333,10 +344,10 @@ static void scope_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *ev
                     // Clamp value to display range
                     current_value = sgl_clamp(current_value, display_min, display_max);
 
-                    end.x = obj->coords.x2 - (i * width / (data_points - 1));  // Move leftward
-                    end.y = obj->coords.y2 - ((int32_t)(current_value - display_min) * height) / (display_max - display_min);
+                    end.x = plot_area.x2 - (i * width / (data_points - 1));  // Move leftward
+                    end.y = plot_area.y2 - ((int32_t)(current_value - display_min) * height) / (display_max - display_min);
 
-                    custom_draw_line(surf, &obj->area, start, end, scope->waveform_colors[ch], scope->line_width);
+                    custom_draw_line(surf, &plot_area, start, end, scope->waveform_colors[ch], scope->line_width);
 
                     start = end;
                 }
