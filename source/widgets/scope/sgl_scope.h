@@ -41,12 +41,12 @@
  #define SCOPE_MAGIC 0xDEADBEEF
 
 typedef struct {
+    sgl_obj_t obj;
     int16_t  **data_buffers;          // array of channel data buffers
     sgl_color_t *waveform_colors;      // array of waveform colors per channel
     uint16_t *display_counts;          // array of display counts per channel
     const sgl_font_t *y_label_font;    // font of Y axis labels
-    uint32_t *current_indices;         // array of current indices per channel
-    sgl_obj_t obj;
+    uint32_t *current_indices;         // array of current indices per channel    
     sgl_color_t bg_color;              // background color
     sgl_color_t grid_color;            // grid line color
     sgl_color_t border_color;          // border color
