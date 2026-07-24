@@ -110,25 +110,7 @@ static inline uint8_t arc_get_dot(sgl_arc_dot_t *dot,int ax, int ay)
  */
 void sgl_draw_fill_arc(sgl_surf_t *surf, sgl_area_t *area, sgl_draw_arc_t *desc)
 {
-    int y2 = 0, real_r2 = 0, edge_alpha = 0;
-    int in_r2 = sgl_pow2(desc->radius_in);
-    int out_r2 = sgl_pow2(desc->radius_out);
-    int inv_inner = 0, inv_outer = 0;
-    sgl_arc_dot_t arc_dot[2];
-
-    int in_r2_max = sgl_pow2(desc->radius_in - 1);
-    int out_r2_max = sgl_pow2(desc->radius_out + 1);
-    int32_t rate = (0xff00) / (in_r2 - in_r2_max);
-    int32_t rate2 = (0xff00) / (out_r2_max - out_r2);
-
-    sgl_color_t *buf = NULL, *blend = NULL;
-    int32_t dx, dy;
-    uint8_t flag = 0xff, in_range;
-    int32_t ds = 0, de = 0, sd = 0, ed = 0;
-    int32_t sx = 0, sy = 0, ex = 0, ey = 0;
-    sgl_color_t tmp_color;
     sgl_area_t clip = SGL_AREA_MAX;
-
     sgl_surf_clip_area_return(surf, area, &clip);
 
     sgl_area_t c_rect = {
@@ -142,106 +124,146 @@ void sgl_draw_fill_arc(sgl_surf_t *surf, sgl_area_t *area, sgl_draw_arc_t *desc)
         return;
     }
 
-    if (desc->start_angle != 0 || desc->end_angle != 360) {
-        /* Compute arc span with wrap-around support (e.g. start=315 end=45 => span=90°) */
+    const int32_t in_r2 = sgl_pow2(desc->radius_in);
+    const int32_t out_r2 = sgl_pow2(desc->radius_out);
+    const int32_t in_r2_max = sgl_pow2(desc->radius_in - 1);
+    const int32_t out_r2_max = sgl_pow2(desc->radius_out + 1);
+
+    const int32_t rate_in = (in_r2 != in_r2_max) ? ((0xff00) / (in_r2 - in_r2_max)) : 0;
+    const int32_t rate_out = (out_r2_max != out_r2) ? ((0xff00) / (out_r2_max - out_r2)) : 0;
+
+    const bool is_full_circle = (desc->start_angle == 0 && desc->end_angle == 360);
+    uint8_t flag = 0xff;
+    int32_t sx = 0, sy = 0, ex = 0, ey = 0;
+
+    sgl_arc_dot_t arc_dot[2];
+
+    if (!is_full_circle) {
         int16_t arc_span = desc->end_angle - desc->start_angle;
         if (arc_span < 0) arc_span += 360;
         flag = (arc_span > 180) ? 1 : 0;
-        sx = sgl_sin(desc->start_angle);
-        sy = -sgl_cos(desc->start_angle);
-        ex = sgl_sin(desc->end_angle);
-        ey = -sgl_cos(desc->end_angle);
+
+        sx = sgl_sin(desc->start_angle) >> 7;
+        sy = -sgl_cos(desc->start_angle) >> 7;
+        ex = sgl_sin(desc->end_angle) >> 7;
+        ey = -sgl_cos(desc->end_angle) >> 7;
 
         if (desc->mode == SGL_ARC_MODE_NORMAL_SMOOTH || desc->mode == SGL_ARC_MODE_RING_SMOOTH) {
-            arc_dot_sin_cos(desc->cx, desc->cy, desc->radius_in, desc->radius_out, &arc_dot[0], sx, sy);
-            arc_dot_sin_cos(desc->cx, desc->cy, desc->radius_in, desc->radius_out, &arc_dot[1], ex, ey);
+            arc_dot_sin_cos(desc->cx, desc->cy, desc->radius_in, desc->radius_out, &arc_dot[0], sgl_sin(desc->start_angle), -sgl_cos(desc->start_angle));
+            arc_dot_sin_cos(desc->cx, desc->cy, desc->radius_in, desc->radius_out, &arc_dot[1], sgl_sin(desc->end_angle), -sgl_cos(desc->end_angle));
         }
-
-        sx = sx >> 7;
-        sy = sy >> 7;
-        ex = ex >> 7;
-        ey = ey >> 7;
     }
 
-    buf = sgl_surf_get_buf(surf, clip.x1 - surf->x1, clip.y1 - surf->y1);
-    for (int y = clip.y1; y <= clip.y2; y++) {
-        dy = y - desc->cy;
-        y2 = sgl_pow2(dy);
-        blend = buf;
+    sgl_color_t *line_buf = sgl_surf_get_buf(surf, clip.x1 - surf->x1, clip.y1 - surf->y1);
+    const int32_t stride = surf->w;
+    const sgl_color_t color = desc->color;
+    const uint8_t global_alpha = desc->alpha;
 
-        for (int x = clip.x1; x <= clip.x2; x++, blend++) {
-            dx = x - desc->cx;
-            real_r2 = sgl_pow2(x - desc->cx) + y2;
+    for (int32_t y = clip.y1; y <= clip.y2; y++) {
+        const int32_t dy = y - desc->cy;
+        const int32_t y2 = dy * dy;
+
+        const int32_t ds_base = -dy * sx;
+        const int32_t de_base =  dy * ex;
+
+        sgl_color_t *blend = line_buf;
+
+        int32_t dx = clip.x1 - desc->cx;
+        int32_t x2 = dx * dx;
+        int32_t dx2_inc = (dx << 1) + 1;
+
+        int32_t ds = dx * sy + ds_base;
+        int32_t de = -dx * ey + de_base;
+
+        for (int32_t x = clip.x1; x <= clip.x2; x++, blend++) {
+            int32_t real_r2 = x2 + y2;
 
             if (real_r2 >= out_r2_max) {
-                if (x > desc->cx) {
-                    blend++;
+                if (dx > 0) {
                     break;
                 }
-                continue;
+                goto NEXT_X;
             }
+
             if (real_r2 < in_r2_max) {
-                if (x < desc->cx) {
-                    blend += ((desc->cx - x) * 2);
-                    x = desc->cx * 2 - x;
+                if (dx < 0) {
+                    int32_t skip = -dx * 2; 
+
+                    if (skip > 0) {
+                        int32_t target_x = x + skip;
+                        if (target_x > clip.x2) {
+                            break; 
+                        }
+
+                        x = target_x - 1;
+                        blend += (skip - 1);
+
+                        dx = x - desc->cx;
+                        x2 = dx * dx;
+                        dx2_inc = (dx << 1) + 1;
+                        ds = dx * sy + ds_base;
+                        de = -dx * ey + de_base;
+
+                        goto NEXT_X;
+                    }
                 }
-                continue;
+                goto NEXT_X;
             }
-            if (real_r2 < in_r2 ) {
-                if(inv_inner == 0) {
-                    inv_inner = rate;
-                }
-                edge_alpha  = (real_r2 - in_r2_max) * inv_inner >> 8;
-            }
-            else if (real_r2 > out_r2) {
-                if(inv_outer == 0) {
-                    inv_outer = rate2;
-                }
-                edge_alpha = (out_r2_max - real_r2) * inv_outer >> 8;
-            }
-            else {
+
+            uint8_t edge_alpha;
+            if (real_r2 < in_r2) {
+                edge_alpha = (uint8_t)((real_r2 - in_r2_max) * rate_in >> 8);
+            } else if (real_r2 > out_r2) {
+                edge_alpha = (uint8_t)((out_r2_max - real_r2) * rate_out >> 8);
+            } else {
                 edge_alpha = SGL_ALPHA_MAX;
             }
 
-            tmp_color = desc->color;
-            if (flag != 255) {
-                ds = (dx *  sy - dy *  sx);
-                de = (dy *  ex - dx *  ey);
-                in_range =  flag > 0 ? (ds > 0 || de >0) : (ds >= 0 && de >= 0);
+            sgl_color_t tmp_color = color;
+
+            if (flag != 0xff) {
+                bool in_range = flag > 0 ? (ds > 0 || de > 0) : (ds >= 0 && de >= 0);
                 if (!in_range) {
-
-                    switch (desc->mode) {
-                    case SGL_ARC_MODE_NORMAL:
-                        sd = sgl_xy_has_component(dx,dy, sx, sy) ? sgl_abs(ds) : 256;
-                        ed = sgl_xy_has_component(dx,dy, ex, ey) ? sgl_abs(de) : 256;
-                        dx =  sgl_min(sd, ed);
-                        tmp_color = (dx < SGL_ALPHA_MAX) ? sgl_color_mixer(desc->color, *blend, sgl_min(255 - dx, edge_alpha)) : *blend;
-                        break;
-
-                    case SGL_ARC_MODE_RING:
-                        sd = sgl_xy_has_component(dx,dy, sx, sy) ? sgl_abs(ds) : 256;
-                        ed = sgl_xy_has_component(dx,dy, ex, ey) ? sgl_abs(de) : 256;
-                        dx =  sgl_min(sd, ed);
-                        tmp_color = (dx < SGL_ALPHA_MAX) ? sgl_color_mixer(desc->color, desc->bg_color, sgl_min(255 - dx, edge_alpha)) : desc->bg_color;
-                        break;
-
-                    case SGL_ARC_MODE_NORMAL_SMOOTH:
-                        dx = arc_get_dot(arc_dot, x, y);
-                        tmp_color = (dx < SGL_ALPHA_MAX) ? sgl_color_mixer(desc->color, *blend, dx) : desc->color;
-                        break;
-
-                    case SGL_ARC_MODE_RING_SMOOTH:
-                        dx = arc_get_dot(arc_dot, x, y);
-                        tmp_color = (dx < SGL_ALPHA_MAX) ? sgl_color_mixer(desc->color, desc->bg_color, dx) : desc->color;
-                        break;
-
-                    default: break;
+                    if (desc->mode == SGL_ARC_MODE_NORMAL) {
+                        int32_t sd = sgl_xy_has_component(dx, dy, sx, sy) ? sgl_abs(ds) : 256;
+                        int32_t ed = sgl_xy_has_component(dx, dy, ex, ey) ? sgl_abs(de) : 256;
+                        int32_t d_min = sgl_min(sd, ed);
+                        if (d_min < SGL_ALPHA_MAX) {
+                            tmp_color = sgl_color_mixer(color, *blend, sgl_min(255 - d_min, edge_alpha));
+                        } else {
+                            goto NEXT_X;
+                        }
+                    } else if (desc->mode == SGL_ARC_MODE_RING) {
+                        int32_t sd = sgl_xy_has_component(dx, dy, sx, sy) ? sgl_abs(ds) : 256;
+                        int32_t ed = sgl_xy_has_component(dx, dy, ex, ey) ? sgl_abs(de) : 256;
+                        int32_t d_min = sgl_min(sd, ed);
+                        tmp_color = (d_min < SGL_ALPHA_MAX) ? sgl_color_mixer(color, desc->bg_color, sgl_min(255 - d_min, edge_alpha)) : desc->bg_color;
+                    } else if (desc->mode == SGL_ARC_MODE_NORMAL_SMOOTH || desc->mode == SGL_ARC_MODE_RING_SMOOTH) {
+                        uint8_t dot_alpha = arc_get_dot(arc_dot, x, y);
+                        sgl_color_t bg = (desc->mode == SGL_ARC_MODE_RING_SMOOTH) ? desc->bg_color : *blend;
+                        tmp_color = (dot_alpha < SGL_ALPHA_MAX) ? sgl_color_mixer(color, bg, dot_alpha) : color;
                     }
                 }
             }
 
-            *blend = desc->alpha == SGL_ALPHA_MAX ? sgl_color_mixer(tmp_color, *blend, edge_alpha) : sgl_color_mixer(sgl_color_mixer(tmp_color, *blend, edge_alpha), *blend, desc->alpha);
+            if (edge_alpha == SGL_ALPHA_MAX && global_alpha == SGL_ALPHA_MAX) {
+                *blend = tmp_color;
+            } else {
+                if (global_alpha == SGL_ALPHA_MAX) {
+                    *blend = sgl_color_mixer(tmp_color, *blend, edge_alpha);
+                } else {
+                    *blend = sgl_color_mixer(sgl_color_mixer(tmp_color, *blend, edge_alpha), *blend, global_alpha);
+                }
+            }
+
+NEXT_X:
+            x2 += dx2_inc;
+            dx2_inc += 2;
+            dx++;
+            ds += sy;
+            de -= ey;
         }
-        buf += surf->w;
+
+        line_buf += stride;
     }
 }
