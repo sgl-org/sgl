@@ -75,15 +75,15 @@ typedef struct sgl_block_dev {
 int sgl_block_dev_ioctl(const sgl_block_dev_t *dev, uint8_t cmd, void *param);
 
 /* W25Q16 chip information */
-extern sgl_block_dev_info_t sgl_w25q16_info;
+extern const sgl_block_dev_info_t sgl_w25q16_info;
 /* W25Q32 chip information */
-extern sgl_block_dev_info_t sgl_w25q32_info;
+extern const sgl_block_dev_info_t sgl_w25q32_info;
 /* W25Q64 chip information */
-extern sgl_block_dev_info_t sgl_w25q64_info;
+extern const sgl_block_dev_info_t sgl_w25q64_info;
 /* W25Q128 chip information */
-extern sgl_block_dev_info_t sgl_w25q128_info;
+extern const sgl_block_dev_info_t sgl_w25q128_info;
 /* W25Q256 chip information */
-extern sgl_block_dev_info_t sgl_w25q256_info;
+extern const sgl_block_dev_info_t sgl_w25q256_info;
 
 
 #endif // __SGL_BLOCK_H__
