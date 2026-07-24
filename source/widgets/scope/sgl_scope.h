@@ -42,30 +42,30 @@
 
 typedef struct {
     sgl_obj_t obj;
-    uint32_t  magic;                  // magic number for validity check
     int16_t  **data_buffers;          // array of channel data buffers
-     uint32_t  data_len;                // data length per channel
-     uint8_t   channel_count;           // number of channels (1-4)
-     sgl_color_t *waveform_colors;      // array of waveform colors per channel
-     sgl_color_t bg_color;              // background color
-     sgl_color_t grid_color;            // grid line color
-     sgl_color_t border_color;          // border color
-     int16_t min_value;                 // min value of data
-     int16_t max_value;                 // max value of data
-     int16_t running_min;               // min value of runtime
-     int16_t running_max;               // max value of runtime
-     uint8_t auto_scale : 1;            // whether to automatically scale
-     uint8_t show_y_labels : 1;         // whether to show Y axis labels
-     uint8_t border_width;              // outer border width
-     uint8_t line_width;                // width of waveform line
-     uint8_t *display_counts;           // array of display counts per channel
-     uint32_t max_display_points;       // max display points
-     uint8_t alpha;                     // aplha of waveform
-     uint8_t grid_style;                // grid line style（0-solid line，other: dashed line
-     const sgl_font_t *y_label_font;    // font of Y axis labels
-     sgl_color_t y_label_color;         // color of Y axis labels
-     uint32_t *current_indices;         // array of current indices per channel
- } sgl_scope_t;
+    sgl_color_t *waveform_colors;      // array of waveform colors per channel
+    uint16_t *display_counts;          // array of display counts per channel
+    const sgl_font_t *y_label_font;    // font of Y axis labels
+    uint32_t *current_indices;         // array of current indices per channel    
+    sgl_color_t bg_color;              // background color
+    sgl_color_t grid_color;            // grid line color
+    sgl_color_t border_color;          // border color
+    sgl_color_t y_label_color;         // color of Y axis labels
+    uint32_t  magic;                   // magic number for validity check
+    uint32_t  data_len;                // data length per channel
+    uint32_t  max_display_points;      // max display points
+    int16_t   min_value;               // min value of data
+    int16_t   max_value;               // max value of data
+    int16_t   running_min;             // min value of runtime
+    int16_t   running_max;             // max value of runtime
+    uint8_t   channel_count;           // number of channels (1-4)
+    uint8_t   border_width;            // outer border width
+    uint8_t   line_width;              // width of waveform line
+    uint8_t   alpha;                   // aplha of waveform
+    uint8_t   grid_style;              // grid line style（0-solid line，other: dashed line
+    uint8_t   auto_scale : 1;          // whether to automatically scale
+    uint8_t   show_y_labels : 1;       // whether to show Y axis labels
+} sgl_scope_t;
  
  
  /**
