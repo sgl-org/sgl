@@ -115,6 +115,9 @@ typedef struct {
     sgl_block_dev_t *dev;
     uint8_t  vol_id;
 
+    /* Partition offset in sectors (0 for non-MBR) */
+    uint32_t part_offset;
+
     /* BPB derived values */
     uint16_t sector_size;
     uint8_t  cluster_size;       /* sectors per cluster */
@@ -262,12 +265,12 @@ static sgl_fatfs_config_t fatfs_default_cfg = {
 
 static int fat_read_sector(fat_ctx_t *ctx, uint32_t sector, uint8_t *buf)
 {
-    return ctx->dev->read_sectors(ctx->dev, sector, buf, 1);
+    return ctx->dev->read_sectors(ctx->dev, sector + ctx->part_offset, buf, 1);
 }
 
 static int fat_write_sector(fat_ctx_t *ctx, uint32_t sector, const uint8_t *buf)
 {
-    return ctx->dev->write_sectors(ctx->dev, sector, buf, 1);
+    return ctx->dev->write_sectors(ctx->dev, sector + ctx->part_offset, buf, 1);
 }
 
 /* Cached sector read */
@@ -1008,6 +1011,49 @@ static int fatfs_mount(void **fs, sgl_block_dev_t *dev,
     }
 
     uint8_t *bpb = ctx->sec_buf;
+
+    /* Check if sector 0 is an MBR (partition table) instead of a FAT VBR.
+     * MBR signature is also 0x55AA at offset 510, but the partition table
+     * starts at offset 446. If offset 450 (partition type of 1st entry) is
+     * a valid FAT type, we treat it as MBR and follow the first partition. */
+    {
+        uint8_t ptype = bpb[450]; /* partition type of 1st entry */
+        int is_mbr = 0;
+
+        /* Check for MBR signature AND a valid FAT partition type */
+        if (bpb[510] == 0x55 && bpb[511] == 0xAA) {
+            if (ptype == 0x01 || ptype == 0x04 || ptype == 0x06 ||
+                ptype == 0x0B || ptype == 0x0C || ptype == 0x0E ||
+                ptype == 0x1B || ptype == 0x1C || ptype == 0x0F) {
+                is_mbr = 1;
+            }
+        }
+
+        if (is_mbr) {
+            /* Parse the first partition entry at offset 446 */
+            uint32_t part_lba = rd32(&bpb[454]); /* LBA of first partition */
+            SGL_LOG_INFO(FAT_FS_NAME " MBR detected, first partition at LBA 0x%x", (unsigned)part_lba);
+
+            if (part_lba == 0) {
+                SGL_LOG_ERROR(FAT_FS_NAME " mount: MBR partition LBA is 0");
+                sgl_free(ctx->sec_buf); sgl_free(ctx);
+                return FAT_ERR_INVALID;
+            }
+
+            /* Set partition offset so all subsequent sector reads are relative
+             * to the partition start. Read VBR using global address first. */
+            ctx->part_offset = part_lba;
+
+            /* Read the VBR (volume boot record) from the partition start */
+            if (fat_read_sector(ctx, 0, ctx->sec_buf) != 0) {
+                SGL_LOG_ERROR(FAT_FS_NAME " mount: read VBR at LBA %u failed", (unsigned)part_lba);
+                sgl_free(ctx->sec_buf); sgl_free(ctx);
+                return FAT_ERR_IO;
+            }
+            bpb = ctx->sec_buf;
+        }
+    }
+
     if (bpb[510] != 0x55 || bpb[511] != 0xAA) {
         SGL_LOG_ERROR(FAT_FS_NAME " invalid boot signature");
         sgl_free(ctx->sec_buf); sgl_free(ctx); return FAT_ERR_INVALID;
@@ -1017,6 +1063,11 @@ static int fatfs_mount(void **fs, sgl_block_dev_t *dev,
     }
 
     ctx->sector_size = rd16(&bpb[11]);
+    if (ctx->sector_size == 0 || (ctx->sector_size & (ctx->sector_size - 1)) != 0) {
+        SGL_LOG_ERROR(FAT_FS_NAME " mount: invalid sector_size=%d (Device unformatted or read error)", ctx->sector_size);
+        return FAT_ERR_INVALID;
+    }
+
     ctx->cluster_size = bpb[13];
     ctx->num_fats = bpb[16];
     ctx->root_entry_count = rd16(&bpb[17]);

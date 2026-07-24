@@ -26,6 +26,7 @@
 #define __SGL_FS_H__
 
 #include <sgl_core.h>
+#include <sgl_block.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -45,20 +46,6 @@ extern "C" {
 #define SGL_O_CREAT                 (0x040)    /* create file if it does not exist */
 #define SGL_O_TRUNC                 (0x200)    /* truncate file to zero length */
 #define SGL_O_APPEND                (0x400)    /* append mode */
-
-/* Block device ioctl commands */
-#define SGL_BLK_CTRL_SYNC           (0)        /* Flush pending writes */
-#define SGL_BLK_GET_SECTOR_COUNT    (1)        /* Get total sector count */
-#define SGL_BLK_GET_SECTOR_SIZE     (2)        /* Get sector size in bytes */
-#define SGL_BLK_GET_BLOCK_SIZE      (3)        /* Get erase block size (sectors) */
-#define SGL_BLK_CTRL_TRIM           (4)        /* Trim unused sectors */
-
-/* Block device ioctl result codes */
-#define SGL_BLK_RES_OK              (0)        /* success */
-#define SGL_BLK_RES_ERROR           (1)        /* generic error */
-#define SGL_BLK_RES_WRPRT           (2)        /* write protected */
-#define SGL_BLK_RES_NOTRDY          (3)        /* not ready */
-#define SGL_BLK_RES_PARERR          (4)        /* parity error */
 
 #define SGL_MAX_FD                  (8)        /* max file descriptor */
 #define SGL_MAX_DD                  (4)        /* max directory descriptor */
@@ -104,31 +91,6 @@ typedef struct {
     uint32_t f_files;
     uint32_t f_ffree;
 } sgl_statvfs_t;
-
-typedef struct sgl_block_dev_info {
-    uint32_t sector_count;      /* total logical sectors */
-    uint32_t sector_size;       /* bytes per sector */
-    uint32_t block_size;        /* erase block size in sectors */
-    uint32_t erase_block_size;  /* erase block size in bytes */
-    uint32_t page_size;         /* programming/page size in bytes */
-} sgl_block_dev_info_t;
-
-/**
- * @brief File system device
- * @init: init disk device
- * @read_sectors: read sectors from disk devices
- * @write_sector: write sector to disk devices
- * @ioctl: ioctl command, it is optional
- * @status: status command, it is optional
- */
-typedef struct sgl_block_dev {
-    int (*init)(struct sgl_block_dev *dev);
-    int (*read_sectors)(struct sgl_block_dev *dev, uint32_t sector, uint8_t *buf, uint32_t count);
-    int (*write_sectors)(struct sgl_block_dev *dev, uint32_t sector, const uint8_t *buf, uint32_t count);
-    int (*ioctl)(struct sgl_block_dev *dev, uint8_t cmd, void *param);
-    int (*status)(struct sgl_block_dev *dev);
-    sgl_block_dev_info_t *info;
-} sgl_block_dev_t;
 
 /**
  * @brief File system operations
@@ -217,15 +179,6 @@ typedef struct {
     int16_t  local_dd;
     sgl_mount_point_t *mp;
 } sgl_dd_ctrl_t;
-
-/**
- * @brief Block device IO control
- * @param dev Block device pointer
- * @param cmd IO control command
- * @param param IO control parameter
- * @return 0 on success, -1 on failure
- */
-int sgl_block_dev_ioctl(sgl_block_dev_t *dev, uint8_t cmd, void *param);
 
 /**
  * @brief Register a file system type

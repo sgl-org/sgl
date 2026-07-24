@@ -31,6 +31,7 @@
 #include <sgl_misc.h>
 #include <sgl_types.h>
 #include <sgl_font.h>
+#include <sgl_fs.h>
 #include "widgets/line/sgl_line.h"
 #include "widgets/rect/sgl_rect.h"
 #include "widgets/rect_ext/sgl_rect_ext.h"
@@ -80,7 +81,6 @@
 #include "fs/fatfs/sgl_fatfs.h"
 #include "fs/littlefs/sgl_littlefs.h"
 #include "fs/ramfs/sgl_ramfs.h"
-#include "fs/sgl_blkdev_info.h"
 #include "components/timer/sgl_timer.h"
 #include "components/3dvortex/sgl_3dvortex.h"
 

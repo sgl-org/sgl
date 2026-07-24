@@ -36,56 +36,6 @@ static sgl_dd_ctrl_t g_dd_table[SGL_MAX_DD];
 #define FS_LOG_TAG    "fs: "
 
 /**
- * @brief Block device IO control
- * @param dev Block device pointer
- * @param cmd IO control command
- * @param param IO control parameter
- * @return 0 on success, -1 on failure
- */
-int sgl_block_dev_ioctl(sgl_block_dev_t *dev, uint8_t cmd, void *param)
-{
-    if (!dev || !param) {
-        SGL_LOG_ERROR(FS_LOG_TAG"block device or parameter is NULL");
-        return -1;
-    }
-
-    if (dev->info) {
-        switch (cmd)
-        {
-        case SGL_BLK_CTRL_SYNC: return 0;
-        case SGL_BLK_GET_SECTOR_SIZE:
-            if (dev->info->sector_size != 0) {
-                *(uint32_t *)param = dev->info->sector_size;
-                return 0;
-            }
-            break;
-
-        case SGL_BLK_GET_BLOCK_SIZE:
-            if (dev->info->block_size != 0) {
-                *(uint32_t *)param = dev->info->block_size;
-                return 0;
-            }
-            break;
-
-        case SGL_BLK_GET_SECTOR_COUNT:
-            if (dev->info->sector_count != 0) {
-                *(uint32_t *)param = dev->info->sector_count;
-                return 0;
-            }
-            break;
-
-        default:
-            break;
-        }
-    }
-
-    if (dev->ioctl) {
-        return dev->ioctl(dev, cmd, param);
-    }
-    return -1;
-}
-
-/**
  * @brief Find a file system type by name
  * @param name File system type name
  * @return File system type pointer, or NULL if not found
