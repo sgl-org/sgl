@@ -1395,7 +1395,9 @@ sgl_pos_t sgl_get_align_pos(sgl_size_t *parent_size, sgl_size_t *size, sgl_align
         ret.y = (parent_size->h - size->h) / 2;
     break;
 
-    default: break;
+    default:
+        SGL_LOG_WARN("invalid align type");
+    break;
     }
     return ret;
 }
@@ -1544,7 +1546,7 @@ void sgl_obj_set_pos_align_ref(sgl_obj_t *ref, sgl_obj_t *obj, sgl_align_type_t 
     break;
 
     case SGL_ALIGN_VERT_RIGHT:
-        obj->coords.x1 = ref->coords.x2 - obj_w;
+        obj->coords.x1 = ref->coords.x2 - obj_w + 1;
         obj->coords.x2 = obj->coords.x1 + obj_w - 1;
     break;
 
@@ -1559,7 +1561,7 @@ void sgl_obj_set_pos_align_ref(sgl_obj_t *ref, sgl_obj_t *obj, sgl_align_type_t 
     break;
 
     case SGL_ALIGN_HORIZ_BOT:
-        obj->coords.y1 = ref->coords.y2 - obj_h;
+        obj->coords.y1 = ref->coords.y2 - obj_h + 1;
         obj->coords.y2 = obj->coords.y1 + obj_h - 1;
     break;
 
