@@ -62,22 +62,23 @@ typedef enum {
 
 typedef struct sgl_battery {
     sgl_obj_t              obj;
-    uint8_t                level;
+    const sgl_font_t       *font;
+    sgl_battery_dir_t      direction;
+    sgl_battery_cap_pos_t  cap_pos;
     sgl_color_t            border_color;
     sgl_color_t            fill_color;
     sgl_color_t            low_color;
     sgl_color_t            medium_color;
     sgl_color_t            high_color;
     sgl_color_t            bg_color;
-    uint8_t                num_cells;
-    sgl_battery_dir_t      direction;
-    uint8_t                cap_size;
-    sgl_battery_cap_pos_t  cap_pos;
-    uint8_t                charging : 1;
     sgl_color_t            charging_color;
-    uint8_t                show_percentage : 1;
-    const sgl_font_t       *font;
     sgl_color_t            text_color;
+    uint8_t                level;
+    uint8_t                num_cells;
+    uint8_t                cap_size;
+    uint8_t                charging        : 1;
+    uint8_t                show_percentage : 1;
+    uint8_t                reserved        : 6;
 } sgl_battery_t;
 
 
