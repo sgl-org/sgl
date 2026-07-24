@@ -551,8 +551,9 @@ void sgl_dropdown_add_option(sgl_obj_t *obj, const char *text)
 
     int add_len = (int)strlen(text);
     int old_len = dropdown->opt_text ? (int)strlen(dropdown->opt_text) : 0;
-    /* Need: old text + new text + '\n' + '\0' */
-    int new_len = old_len + add_len + 1;
+    int need_sep = old_len > 0;
+    /* Need: old text + optional '\n' + new text + '\0' */
+    int new_len = old_len + need_sep + add_len;
 
     char *new_text = sgl_malloc(new_len + 1);
     if (!new_text) {
@@ -563,8 +564,10 @@ void sgl_dropdown_add_option(sgl_obj_t *obj, const char *text)
     if (dropdown->opt_text && old_len > 0) {
         memcpy(new_text, dropdown->opt_text, old_len);
     }
-    memcpy(new_text + old_len, text, add_len);
-    new_text[old_len + add_len] = '\n';
+    if (need_sep) {
+        new_text[old_len] = '\n';
+    }
+    memcpy(new_text + old_len + need_sep, text, add_len);
     new_text[new_len] = '\0';
 
     /* Free old dynamic text */
