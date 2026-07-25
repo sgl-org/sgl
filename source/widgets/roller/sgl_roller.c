@@ -40,6 +40,21 @@ static inline int roller_draw_height(const sgl_roller_t *roller, int item_h)
     return sgl_max(widget_h, 3 * item_h);
 }
 
+static int roller_wrap_index(int idx, int item_num)
+{
+    if (item_num <= 0) return 0;
+    idx %= item_num;
+    if (idx < 0) idx += item_num;
+    return idx;
+}
+
+static int roller_text_offset_for_index(const sgl_roller_t *roller, int idx)
+{
+    if (!roller->opt_text || roller->item_num == 0) return 0;
+    return sgl_string_option_get_offset(roller->opt_text,
+                                        (uint16_t)roller_wrap_index(idx, roller->item_num));
+}
+
 /** Free dynamic text buffer if owned */
 static void roller_free_dynamic_text(sgl_roller_t *roller)
 {
@@ -62,6 +77,10 @@ static void roller_update_item_count(sgl_roller_t *roller)
 /** Clamp scroll_y so the content stays within bounds */
 static void roller_clamp_scroll(sgl_roller_t *roller, int item_h)
 {
+    if (roller->circular || roller->item_num == 0) {
+        return;
+    }
+
     /* scroll_y = -idx * item_h, so:
      * max scroll: idx=0 → scroll_y = 0
      * min scroll: idx=item_num-1 → scroll_y = -(item_num-1) * item_h */
@@ -82,11 +101,15 @@ static void roller_snap(sgl_roller_t *roller, int item_h)
     } else {
         idx = (-roller->scroll_y - item_h / 2) / item_h;
     }
-    if (idx < 0) idx = 0;
-    if (idx >= (int)roller->item_num) idx = (int)roller->item_num - 1;
+    if (roller->circular) {
+        idx = roller_wrap_index(idx, roller->item_num);
+    } else {
+        if (idx < 0) idx = 0;
+        if (idx >= (int)roller->item_num) idx = (int)roller->item_num - 1;
+    }
 
     roller->item_selected = (int16_t)idx;
-    roller->text_offset = (uint16_t)sgl_string_option_get_offset(roller->opt_text, roller->item_selected);
+    roller->text_offset = (uint16_t)roller_text_offset_for_index(roller, idx);
     roller->scroll_y = (int16_t)(-idx * item_h);
 }
 
@@ -141,36 +164,66 @@ static void sgl_roller_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
         const int text_y_off = (item_h - font_h) / 2;
 
         /* Items start so that item 0 aligns with band when scroll_y == 0 */
-        int item_idx = 0;
-        int offset = 0;
-        int16_t item_draw_y = band_y1 + roller->scroll_y;
+        if (roller->circular) {
+            int idx_base = 0;
+            int16_t item_draw_y = band_y1 + roller->scroll_y;
 
-        while (roller->opt_text[offset] != '\0') {
-            /* Skip items above visible area */
-            if (item_draw_y + item_h < draw_y1) {
+            if (item_draw_y > draw_y1) {
+                int delta = (item_draw_y - draw_y1 + item_h - 1) / item_h;
+                idx_base -= delta;
+                item_draw_y -= (int16_t)(delta * item_h);
+            } else if (item_draw_y + item_h < draw_y1) {
+                int delta = (draw_y1 - (item_draw_y + item_h) + item_h - 1) / item_h + 1;
+                idx_base += delta;
+                item_draw_y += (int16_t)(delta * item_h);
+            }
+
+            while (item_draw_y <= draw_y2) {
+                int offset = roller_text_offset_for_index(roller, idx_base);
                 int len = sgl_string_option_get_text_len(roller->opt_text, offset);
+                int copy_len = len < (int)sizeof(text_buf) - 1 ? len : (int)sizeof(text_buf) - 1;
+                memcpy(text_buf, roller->opt_text + offset, copy_len);
+                text_buf[copy_len] = '\0';
+
+                sgl_draw_string(surf, &obj->area, obj->coords.x1 + obj->radius + 2,
+                                item_draw_y + text_y_off, text_buf,
+                                roller->text_color, roller->alpha, roller->font);
+
+                idx_base++;
+                item_draw_y += item_h;
+            }
+        } else {
+            int item_idx = 0;
+            int offset = 0;
+            int16_t item_draw_y = band_y1 + roller->scroll_y;
+
+            while (roller->opt_text[offset] != '\0') {
+                /* Skip items above visible area */
+                if (item_draw_y + item_h < draw_y1) {
+                    int len = sgl_string_option_get_text_len(roller->opt_text, offset);
+                    offset += len;
+                    if (roller->opt_text[offset] == '\n') offset++;
+                    item_idx++;
+                    item_draw_y += item_h;
+                    continue;
+                }
+                /* Stop if below visible area */
+                if (item_draw_y > draw_y2) break;
+
+                int len = sgl_string_option_get_text_len(roller->opt_text, offset);
+                int copy_len = len < (int)sizeof(text_buf) - 1 ? len : (int)sizeof(text_buf) - 1;
+                memcpy(text_buf, roller->opt_text + offset, copy_len);
+                text_buf[copy_len] = '\0';
+
+                sgl_draw_string(surf, &obj->area, obj->coords.x1 + obj->radius + 2,
+                                item_draw_y + text_y_off, text_buf,
+                                roller->text_color, roller->alpha, roller->font);
+
                 offset += len;
                 if (roller->opt_text[offset] == '\n') offset++;
                 item_idx++;
                 item_draw_y += item_h;
-                continue;
             }
-            /* Stop if below visible area */
-            if (item_draw_y > draw_y2) break;
-
-            int len = sgl_string_option_get_text_len(roller->opt_text, offset);
-            int copy_len = len < (int)sizeof(text_buf) - 1 ? len : (int)sizeof(text_buf) - 1;
-            memcpy(text_buf, roller->opt_text + offset, copy_len);
-            text_buf[copy_len] = '\0';
-
-            sgl_draw_string(surf, &obj->area, obj->coords.x1 + obj->radius + 2,
-                            item_draw_y + text_y_off, text_buf,
-                            roller->text_color, roller->alpha, roller->font);
-
-            offset += len;
-            if (roller->opt_text[offset] == '\n') offset++;
-            item_idx++;
-            item_draw_y += item_h;
         }
     } break;
 
@@ -201,14 +254,23 @@ static void sgl_roller_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
     case SGL_EVENT_KEY_DOWN:
     case SGL_EVENT_KEY_RIGHT:
         if (roller->item_num == 0) break;
-        if (roller->item_selected > 0 || roller->item_selected < (int)roller->item_num - 1) {
-            if (evt->type == SGL_EVENT_KEY_UP || evt->type == SGL_EVENT_KEY_LEFT) {
+        if (evt->type == SGL_EVENT_KEY_UP || evt->type == SGL_EVENT_KEY_LEFT) {
+            if (roller->circular) {
+                roller->item_selected = (int16_t)roller_wrap_index(roller->item_selected - 1, roller->item_num);
+            } else if (roller->item_selected > 0) {
                 roller->item_selected--;
             }
-            else {
+        }
+        else {
+            if (roller->circular) {
+                roller->item_selected = (int16_t)roller_wrap_index(roller->item_selected + 1, roller->item_num);
+            } else if (roller->item_selected < (int)roller->item_num - 1) {
                 roller->item_selected++;
             }
-            roller->text_offset = (uint16_t)sgl_string_option_get_offset(roller->opt_text, roller->item_selected);
+        }
+
+        if (roller->item_selected >= 0 && roller->item_selected < (int)roller->item_num) {
+            roller->text_offset = (uint16_t)roller_text_offset_for_index(roller, roller->item_selected);
             roller_scroll_to_selected(roller, item_h);
         }
         sgl_obj_set_dirty(obj);
@@ -252,6 +314,7 @@ sgl_obj_t* sgl_roller_create(sgl_obj_t* parent)
     roller->item_selected = -1;
     roller->opt_text = NULL;
     roller->dynamic_text = 0;
+    roller->circular = 0;
     roller->scroll_y = 0;
 
     /* Set default size based on font */
@@ -315,6 +378,19 @@ int sgl_roller_get_selected_index(sgl_obj_t *obj)
 {
     sgl_roller_t *roller = sgl_container_of(obj, sgl_roller_t, obj);
     return roller->item_selected;
+}
+
+void sgl_roller_enable_circular(sgl_obj_t *obj, bool enable)
+{
+    sgl_roller_t *roller = sgl_container_of(obj, sgl_roller_t, obj);
+    roller->circular = enable ? 1U : 0U;
+
+    if (!roller->circular) {
+        roller_clamp_scroll(roller, roller_item_height(roller));
+        roller_snap(roller, roller_item_height(roller));
+    }
+
+    sgl_obj_set_dirty(obj);
 }
 
 /**
