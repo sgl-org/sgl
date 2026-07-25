@@ -481,15 +481,15 @@ void sgl_battery_set_direction(sgl_obj_t* obj, sgl_battery_dir_t dir)
 
 
 /**
- * @brief set battery cap size (as percentage of battery width/height)
+ * @brief set battery cap size (in pixels)
  * @param obj pointer to battery object
- * @param size cap size percentage (5-30, default is 20 which means 1/5)
+ * @param size cap size in pixels, 0 means no visible cap
  * @return none
  */
 void sgl_battery_set_cap_size(sgl_obj_t* obj, uint8_t size)
 {
     sgl_battery_t *battery = sgl_container_of(obj, sgl_battery_t, obj);
-    battery->cap_size = (size < 3) ? 3 : (size > 20) ? 20 : size;
+    battery->cap_size = size;
     sgl_obj_set_dirty(obj);
 }
 

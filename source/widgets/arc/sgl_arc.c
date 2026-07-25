@@ -207,3 +207,18 @@ void sgl_arc_set_end_angle(sgl_obj_t *obj, int16_t angle)
     arc->desc.end_angle = angle;
     sgl_obj_set_dirty(obj);
 }
+
+int16_t sgl_arc_get_included_angle(sgl_obj_t *obj)
+{
+    sgl_arc_t *arc = sgl_container_of(obj, sgl_arc_t, obj);
+    int16_t angle = arc->desc.end_angle - arc->desc.start_angle;
+
+    while (angle < 0) {
+        angle += 360;
+    }
+    while (angle > 360) {
+        angle -= 360;
+    }
+
+    return angle;
+}
