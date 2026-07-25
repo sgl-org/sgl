@@ -120,3 +120,11 @@ const sgl_block_dev_info_t sgl_w25q256_info = {
     .erase_block_size = 4096,
     .page_size = 256,
 };
+
+/* SDCARD chip information */
+const sgl_block_dev_info_t sdcard_info = {
+    .sector_size      = 512,
+    .block_size       = 512,
+    .erase_block_size = 512,
+    .page_size        = 512,
+};
