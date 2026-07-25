@@ -1135,6 +1135,9 @@ static int littlefs_format(void *fs)
     slfs_ctx_t *ctx = (slfs_ctx_t *)fs;
     if (!ctx) return SLFS_ERR_INVALID;
 
+    SGL_LOG_INFO(LFS_FS_NAME " format: Formatting");
+    SGL_LOG_INFO(LFS_FS_NAME " format: ..");
+
     uint32_t bs = ctx->block_size;
     uint32_t bc = ctx->block_count;
     uint32_t ipb = bs / sizeof(slfs_inode_t);
@@ -1146,7 +1149,7 @@ static int littlefs_format(void *fs)
     uint32_t inode_blocks = (desired_inodes + ipb - 1) / ipb;
     uint32_t inode_table_start = 1; /* block 0 = superblock */
     uint32_t data_start = inode_table_start + inode_blocks;
-    
+
     /* Write superblock */
     memset(ctx->blk_buf, 0, bs);
     uint32_t magic = SLFS_MAGIC;
@@ -1163,6 +1166,8 @@ static int littlefs_format(void *fs)
     memcpy(ctx->blk_buf + 36, &ipb, 4);
     slfs_write_block(ctx, 0);
 
+    SGL_LOG_INFO(LFS_FS_NAME " format: ....");
+
     /* Initialize layout metadata before any inode operations */
     ctx->inode_count = desired_inodes;
     ctx->inode_table_start = inode_table_start;
@@ -1176,10 +1181,12 @@ static int littlefs_format(void *fs)
         slfs_write_block(ctx, inode_table_start + i);
     }
 
+    SGL_LOG_INFO(LFS_FS_NAME " format: ......");
+
     /* Build free list */
     uint32_t free_head = 0;
     uint32_t free_count = 0;
-    
+
     for (uint32_t b = bc - 1; b >= data_start; b--) {
         memset(ctx->blk_buf, 0, bs);
         memcpy(ctx->blk_buf, &free_head, 4);
@@ -1188,22 +1195,26 @@ static int littlefs_format(void *fs)
         free_count++;
     }
 
+    SGL_LOG_INFO(LFS_FS_NAME " format: ........");
+
     /* Update superblock with free list */
     slfs_read_block(ctx, 0);
     memcpy(ctx->blk_buf + 24, &free_head, 4);
     memcpy(ctx->blk_buf + 28, &free_count, 4);
     slfs_write_block(ctx, 0);
-    
+
     /* Create root directory inode */
     slfs_inode_t root_inode;
     memset(&root_inode, 0, sizeof(root_inode));
     root_inode.type = SLFS_TYPE_DIR;
     root_inode.parent_inode = 1; /* root's parent is itself */
     slfs_write_inode(ctx, 1, &root_inode);
-    
+
     /* Force flush all caches to NOR flash */
     slfs_cache_flush(ctx);
     sgl_block_dev_ioctl(ctx->dev, SGL_BLK_CTRL_SYNC, NULL);
+
+    SGL_LOG_INFO(LFS_FS_NAME " format: .......... done!");
 
     /* Reload context from new superblock */
     ctx->inode_count = desired_inodes;
