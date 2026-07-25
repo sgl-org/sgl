@@ -107,4 +107,11 @@ void sgl_arc_set_start_angle(sgl_obj_t *obj, int16_t angle);
  */
 void sgl_arc_set_end_angle(sgl_obj_t *obj, int16_t angle);
 
+/**
+ * @brief get included angle between start and end angle
+ * @param obj arc object
+ * @return normalized included angle in range [0, 360]
+ */
+int16_t sgl_arc_get_included_angle(sgl_obj_t *obj);
+
 #endif // !__SGL_ARC_H__
