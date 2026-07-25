@@ -53,6 +53,11 @@ static void sgl_progress_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
         sgl_draw_rect(surf, &obj->area, &obj->coords, &progress->body);
 
         fill_radius = sgl_min3(obj->radius, progress->knob_radius, progress->knob_width / 2);
+        knob.x1 = sgl_max(obj->area.x1, knob.x1);
+        knob.x2 = sgl_min(obj->area.x2, knob.x2);
+        knob.y1 = sgl_max(obj->area.y1, knob.y1);
+        knob.y2 = sgl_min(obj->area.y2, knob.y2);
+
         while (rect.x2 <= knob.x2) {
             rect.x2 = rect.x1 + progress->knob_width;
             sgl_draw_fill_rect(surf, &knob, &rect, fill_radius, progress->color, progress->alpha);
