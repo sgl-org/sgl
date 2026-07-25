@@ -77,7 +77,7 @@ static void roller_update_item_count(sgl_roller_t *roller)
 /** Clamp scroll_y so the content stays within bounds */
 static void roller_clamp_scroll(sgl_roller_t *roller, int item_h)
 {
-    if (roller->circular || roller->item_num == 0) {
+    if (roller->infinite || roller->item_num == 0) {
         return;
     }
 
@@ -101,7 +101,7 @@ static void roller_snap(sgl_roller_t *roller, int item_h)
     } else {
         idx = (-roller->scroll_y - item_h / 2) / item_h;
     }
-    if (roller->circular) {
+    if (roller->infinite) {
         idx = roller_wrap_index(idx, roller->item_num);
     } else {
         if (idx < 0) idx = 0;
@@ -164,7 +164,7 @@ static void sgl_roller_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
         const int text_y_off = (item_h - font_h) / 2;
 
         /* Items start so that item 0 aligns with band when scroll_y == 0 */
-        if (roller->circular) {
+        if (roller->infinite) {
             int idx_base = 0;
             int16_t item_draw_y = band_y1 + roller->scroll_y;
 
@@ -255,14 +255,14 @@ static void sgl_roller_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
     case SGL_EVENT_KEY_RIGHT:
         if (roller->item_num == 0) break;
         if (evt->type == SGL_EVENT_KEY_UP || evt->type == SGL_EVENT_KEY_LEFT) {
-            if (roller->circular) {
+            if (roller->infinite) {
                 roller->item_selected = (int16_t)roller_wrap_index(roller->item_selected - 1, roller->item_num);
             } else if (roller->item_selected > 0) {
                 roller->item_selected--;
             }
         }
         else {
-            if (roller->circular) {
+            if (roller->infinite) {
                 roller->item_selected = (int16_t)roller_wrap_index(roller->item_selected + 1, roller->item_num);
             } else if (roller->item_selected < (int)roller->item_num - 1) {
                 roller->item_selected++;
@@ -314,7 +314,7 @@ sgl_obj_t* sgl_roller_create(sgl_obj_t* parent)
     roller->item_selected = -1;
     roller->opt_text = NULL;
     roller->dynamic_text = 0;
-    roller->circular = 0;
+    roller->infinite = 0;
     roller->scroll_y = 0;
 
     /* Set default size based on font */
@@ -380,12 +380,18 @@ int sgl_roller_get_selected_index(sgl_obj_t *obj)
     return roller->item_selected;
 }
 
-void sgl_roller_enable_circular(sgl_obj_t *obj, bool enable)
+/**
+ * @brief set infinite mode
+ * @param obj roller object
+ * @param enable true to enable infinite mode, false to disable
+ * @return none
+ */
+void sgl_roller_set_infinite_mode(sgl_obj_t *obj, bool enable)
 {
     sgl_roller_t *roller = sgl_container_of(obj, sgl_roller_t, obj);
-    roller->circular = enable ? 1U : 0U;
+    roller->infinite = enable ? 1U : 0U;
 
-    if (!roller->circular) {
+    if (!roller->infinite) {
         roller_clamp_scroll(roller, roller_item_height(roller));
         roller_snap(roller, roller_item_height(roller));
     }

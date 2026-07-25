@@ -56,7 +56,7 @@ typedef struct sgl_roller {
     uint8_t         visible_rows;      /**< number of visible rows (odd recommended) */
     uint8_t         alpha;
     uint8_t         dynamic_text;      /**< 1 = opt_text was malloc'd */
-    uint8_t         circular;          /**< 1 = circular roller, 0 = bounded roller */
+    uint8_t         infinite;          /**< 1 = infinite roller, 0 = bounded roller */
     int16_t         drag_start_y;      /**< Y position when drag started */
     int16_t         drag_start_scroll; /**< scroll_y when drag started */
 } sgl_roller_t;
@@ -101,11 +101,12 @@ int sgl_roller_get_selected_index(sgl_obj_t *obj);
 bool sgl_roller_get_selected_text(sgl_obj_t *obj, char *buf, int buf_size);
 
 /**
- * @brief enable or disable circular roller mode
+ * @brief set infinite mode
  * @param obj roller object
- * @param enable true to enable circular wrap, false for bounded mode
+ * @param enable true to enable infinite mode, false to disable
+ * @return none
  */
-void sgl_roller_enable_circular(sgl_obj_t *obj, bool enable);
+void sgl_roller_set_infinite_mode(sgl_obj_t *obj, bool enable);
 
 /**
  * @brief set roller visible rows
