@@ -85,6 +85,6 @@ extern const sgl_block_dev_info_t sgl_w25q128_info;
 /* W25Q256 chip information */
 extern const sgl_block_dev_info_t sgl_w25q256_info;
 /* SD card chip information */
-extern const sgl_block_dev_info_t sdcard_info
+extern const sgl_block_dev_info_t sdcard_info;
 
 #endif // __SGL_BLOCK_H__
