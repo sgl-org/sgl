@@ -193,23 +193,17 @@ static void sgl_roller_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
                 item_draw_y += item_h;
             }
         } else {
-            int item_idx = 0;
             int offset = 0;
             int16_t item_draw_y = band_y1 + roller->scroll_y;
 
-            while (roller->opt_text[offset] != '\0') {
-                /* Skip items above visible area */
-                if (item_draw_y + item_h < draw_y1) {
-                    int len = sgl_string_option_get_text_len(roller->opt_text, offset);
-                    offset += len;
-                    if (roller->opt_text[offset] == '\n') offset++;
-                    item_idx++;
-                    item_draw_y += item_h;
-                    continue;
-                }
-                /* Stop if below visible area */
-                if (item_draw_y > draw_y2) break;
+            while (roller->opt_text[offset] != '\0' && item_draw_y + item_h < draw_y1) {
+                int len = sgl_string_option_get_text_len(roller->opt_text, offset);
+                offset += len;
+                if (roller->opt_text[offset] == '\n') offset++;
+                item_draw_y += item_h;
+            }
 
+            while (roller->opt_text[offset] != '\0' && item_draw_y <= draw_y2) {
                 int len = sgl_string_option_get_text_len(roller->opt_text, offset);
                 int copy_len = len < (int)sizeof(text_buf) - 1 ? len : (int)sizeof(text_buf) - 1;
                 memcpy(text_buf, roller->opt_text + offset, copy_len);
@@ -221,7 +215,6 @@ static void sgl_roller_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
 
                 offset += len;
                 if (roller->opt_text[offset] == '\n') offset++;
-                item_idx++;
                 item_draw_y += item_h;
             }
         }
@@ -389,7 +382,9 @@ int sgl_roller_get_selected_index(sgl_obj_t *obj)
 void sgl_roller_set_infinite_mode(sgl_obj_t *obj, bool enable)
 {
     sgl_roller_t *roller = sgl_container_of(obj, sgl_roller_t, obj);
-    roller->infinite = enable ? 1U : 0U;
+    uint32_t new_infinite = enable ? 1U : 0U;
+    if (roller->infinite == new_infinite) return;
+    roller->infinite = new_infinite;
 
     if (!roller->infinite) {
         roller_clamp_scroll(roller, roller_item_height(roller));
@@ -430,9 +425,11 @@ void sgl_roller_set_visible_rows(sgl_obj_t *obj, uint8_t rows)
 {
     sgl_roller_t *roller = sgl_container_of(obj, sgl_roller_t, obj);
     if (rows < 1) rows = 1;
+    if (roller->visible_rows == rows) return;
     roller->visible_rows = rows;
     const int item_h = roller_item_height(roller);
     roller_scroll_to_selected(roller, item_h);
+    sgl_obj_set_dirty(obj);
 }
 
 /**
@@ -444,6 +441,7 @@ void sgl_roller_set_visible_rows(sgl_obj_t *obj, uint8_t rows)
 void sgl_roller_set_text_color(sgl_obj_t *obj, sgl_color_t color)
 {
     sgl_roller_t *roller = sgl_container_of(obj, sgl_roller_t, obj);
+    if (roller->text_color.full == color.full) return;
     roller->text_color = color;
     sgl_obj_set_dirty(obj);
 }
@@ -457,6 +455,7 @@ void sgl_roller_set_text_color(sgl_obj_t *obj, sgl_color_t color)
 void sgl_roller_set_selected_color(sgl_obj_t *obj, sgl_color_t color)
 {
     sgl_roller_t *roller = sgl_container_of(obj, sgl_roller_t, obj);
+    if (roller->selected_color.full == color.full) return;
     roller->selected_color = color;
     sgl_obj_set_dirty(obj);
 }
@@ -470,6 +469,7 @@ void sgl_roller_set_selected_color(sgl_obj_t *obj, sgl_color_t color)
 void sgl_roller_set_bg_color(sgl_obj_t *obj, sgl_color_t color)
 {
     sgl_roller_t *roller = sgl_container_of(obj, sgl_roller_t, obj);
+    if (roller->bg_color.full == color.full) return;
     roller->bg_color = color;
     sgl_obj_set_dirty(obj);
 }
@@ -483,6 +483,7 @@ void sgl_roller_set_bg_color(sgl_obj_t *obj, sgl_color_t color)
 void sgl_roller_set_border_color(sgl_obj_t *obj, sgl_color_t color)
 {
     sgl_roller_t *roller = sgl_container_of(obj, sgl_roller_t, obj);
+    if (roller->border_color.full == color.full) return;
     roller->border_color = color;
     sgl_obj_set_dirty(obj);
 }
@@ -496,6 +497,7 @@ void sgl_roller_set_border_color(sgl_obj_t *obj, sgl_color_t color)
 void sgl_roller_set_text_font(sgl_obj_t *obj, const sgl_font_t *font)
 {
     sgl_roller_t *roller = sgl_container_of(obj, sgl_roller_t, obj);
+    if (roller->font == font) return;
     roller->font = font;
     const int item_h = roller_item_height(roller);
     roller_scroll_to_selected(roller, item_h);
@@ -511,6 +513,7 @@ void sgl_roller_set_text_font(sgl_obj_t *obj, const sgl_font_t *font)
 void sgl_roller_set_alpha(sgl_obj_t *obj, uint8_t alpha)
 {
     sgl_roller_t *roller = sgl_container_of(obj, sgl_roller_t, obj);
+    if (roller->alpha == alpha) return;
     roller->alpha = alpha;
     sgl_obj_set_dirty(obj);
 }
