@@ -150,7 +150,6 @@ static void sgl_box_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *
 
             // Move all children vertically
             sgl_obj_move_child_pos_y(obj, offset_delta);
-            sgl_obj_set_dirty(obj);
         }
     }
     else if(evt->type == SGL_EVENT_MOVE_LEFT || evt->type == SGL_EVENT_MOVE_RIGHT) {
@@ -185,7 +184,6 @@ static void sgl_box_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *
 
             // Move all children horizontally
             sgl_obj_move_child_pos_x(obj, offset_delta);
-            sgl_obj_set_dirty(obj);
         }
     }
     else if (evt->type == SGL_EVENT_PRESSED) {
