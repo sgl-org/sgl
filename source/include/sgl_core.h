@@ -1330,6 +1330,7 @@ void sgl_obj_move_child_pos(sgl_obj_t *obj, int16_t ofs_x, int16_t ofs_y);
 static inline void sgl_obj_move_child_pos_x(sgl_obj_t *obj, int16_t ofs_x)
 {
     sgl_obj_move_child_pos(obj, ofs_x, 0);
+    sgl_obj_set_dirty(obj);
 }
 
 /**
@@ -1341,6 +1342,7 @@ static inline void sgl_obj_move_child_pos_x(sgl_obj_t *obj, int16_t ofs_x)
 static inline void sgl_obj_move_child_pos_y(sgl_obj_t *obj, int16_t ofs_y)
 {
     sgl_obj_move_child_pos(obj, 0, ofs_y);
+    sgl_obj_set_dirty(obj);
 }
 
 /**
