@@ -68,7 +68,6 @@ sgl_config.h是 SGL (Simple Graphics Library) 框架中的**功能配置**。
 | [CONFIG_SGL_DIRTY_AREA_NUM_MAX]| `16` | 用于部分屏幕刷新的“脏”区域跟踪的最大数量。较高的值允许更复杂的部分更新，但会消耗更多 RAM。 |
 | [CONFIG_SGL_PIXMAP_BILINEAR_INTERP]| `0` | 启用 pixmap 缩放的双线性插值。这在缩放图像时提高图像质量，但会显著增加 CPU 使用率。 |
 | [CONFIG_SGL_ANIMATION]| `0` | 动画支持的全局开关。如果禁用 (`0`)，所有动画相关代码将被排除以节省空间和 CPU。 |
-| [CONFIG_SGL_LABEL_ROTATION]| `0` | 启用标签文本的旋转支持。如果不需要文本旋转，禁用此项可节省内存和处理能力。 |
 
 ---
 
