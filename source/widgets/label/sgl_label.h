@@ -167,12 +167,4 @@ void sgl_label_set_alpha(sgl_obj_t *obj, uint8_t alpha);
  */
 void sgl_label_set_text_offset(sgl_obj_t *obj, int8_t offset_x, int8_t offset_y);
 
-/**
- * @brief set label text rotation
- * @param obj pointer to the label object
- * @param text_rotation text rotation angle (0-360 degree)
- * @return none
- */
-void sgl_label_set_text_rotation(sgl_obj_t *obj, int16_t text_rotation);
-
 #endif // !__SGL_LABEL_H__

@@ -29,10 +29,12 @@ set(SGL_SOURCE
     ${CMAKE_CURRENT_LIST_DIR}/circle/sgl_circle.c
     ${CMAKE_CURRENT_LIST_DIR}/ring/sgl_ring.c
     ${CMAKE_CURRENT_LIST_DIR}/arc/sgl_arc.c
+    ${CMAKE_CURRENT_LIST_DIR}/arc_label/sgl_arc_label.c
     ${CMAKE_CURRENT_LIST_DIR}/button/sgl_button.c
     ${CMAKE_CURRENT_LIST_DIR}/slider/sgl_slider.c
     ${CMAKE_CURRENT_LIST_DIR}/progress/sgl_progress.c
     ${CMAKE_CURRENT_LIST_DIR}/label/sgl_label.c
+    ${CMAKE_CURRENT_LIST_DIR}/label_ext/sgl_label_ext.c
     ${CMAKE_CURRENT_LIST_DIR}/switch/sgl_switch.c
     ${CMAKE_CURRENT_LIST_DIR}/msgbox/sgl_msgbox.c
     ${CMAKE_CURRENT_LIST_DIR}/textline/sgl_textline.c
