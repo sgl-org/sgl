@@ -131,7 +131,7 @@
 #ifdef UMM_MALLOC_CFGFILE
 #include UMM_MALLOC_CFGFILE
 #else
-#include <umm_malloc_cfgport.h>
+#include "umm_malloc_cfgport.h"
 #endif
 
 #ifdef __cplusplus
