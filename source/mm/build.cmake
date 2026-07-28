@@ -50,3 +50,14 @@ if(${SGL_HEAP_ALGO} STREQUAL "other")
         ${CMAKE_CURRENT_LIST_DIR}/other/sgl_mm.c
     )
 endif()
+
+if(${SGL_HEAP_ALGO} STREQUAL "umm_malloc")
+    set(SGL_SOURCE
+        ${SGL_SOURCE}
+        ${CMAKE_CURRENT_LIST_DIR}/umm_malloc/umm_malloc.c
+        ${CMAKE_CURRENT_LIST_DIR}/umm_malloc/umm_info.c
+        ${CMAKE_CURRENT_LIST_DIR}/umm_malloc/umm_integrity.c
+        ${CMAKE_CURRENT_LIST_DIR}/umm_malloc/umm_poison.c
+        ${CMAKE_CURRENT_LIST_DIR}/umm_malloc/sgl_mm.c
+    )
+endif()
