@@ -169,6 +169,7 @@ void sgl_anim_task(void)
         value = anim->path_algo(sgl_min(elaps_time, anim->act_duration), anim->act_duration, anim->start_value, anim->end_value);
         if (value != anim->last_value) {
             anim->path_cb(anim, value);
+            anim->last_value = value;
         }
 
         if (elaps_time > anim->act_duration) {
@@ -191,7 +192,7 @@ void sgl_anim_task(void)
                 }
             }
 
-            anim->act_time += elaps_time + anim->act_delay;
+            anim->act_time = current_tick + anim->act_delay;
         }
     }
 }
