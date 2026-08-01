@@ -998,14 +998,6 @@ static inline void sgl_obj_clear_dirty(sgl_obj_t *obj)
 }
 
 /**
- * @brief  Clear all dirty areas of the object and its children.
- * @param[in] obj  The object to clear.
- * @return  None
- * @note   This function is used to clear all dirty areas of the object and its children.
- */
-void sgl_obj_clear_all_dirty(sgl_obj_t *obj);
-
-/**
  * @brief  Set the object to be destroyed
  * @param  obj: the object to set
  * @retval None

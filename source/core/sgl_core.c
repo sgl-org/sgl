@@ -974,14 +974,15 @@ int sgl_obj_init(sgl_obj_t *obj, sgl_obj_t *parent)
 }
 
 /**
- * @brief  free an object
+ * @brief  free an object chain
  * @param  obj: object to free
  * @retval none
- * @note this function will free all the itself and children of the object
+ * @note this function will free all the itself and children and siblings of the object
  */
-void sgl_obj_free(sgl_obj_t *obj)
+static void sgl_obj_free_chain(sgl_obj_t *obj)
 {
     SGL_ASSERT(obj != NULL);
+    sgl_event_t evt = { .type = SGL_EVENT_DESTROYED,};
     sgl_obj_t *stack[SGL_OBJ_DEPTH_MAX];
     int top = 0;
     stack[top++] = obj;
@@ -998,8 +999,32 @@ void sgl_obj_free(sgl_obj_t *obj)
             stack[top++] = obj->child;
         }
 
+        /* check construct function */
+        SGL_ASSERT(obj->construct_fn != NULL);
+        obj->construct_fn(NULL, obj, &evt);
         sgl_free(obj);
     }
+}
+
+/**
+ * @brief  free an object
+ * @param  obj: object to free
+ * @retval none
+ * @note this function will free the object itself and all of its children, but not its siblings.
+ *       If you want to free the object and all of its siblings, please use sgl_obj_free_chain() instead.
+ */
+void sgl_obj_free(sgl_obj_t *obj)
+{
+    SGL_ASSERT(obj != NULL);
+    sgl_event_t evt = { .type = SGL_EVENT_DESTROYED,};
+
+    if (obj->child) {
+        sgl_obj_free_chain(obj->child);
+    }
+    /* check construct function */
+    SGL_ASSERT(obj->construct_fn != NULL);
+    obj->construct_fn(NULL, obj, &evt);
+    sgl_free(obj);
 }
 
 /**
@@ -1027,34 +1052,6 @@ void sgl_obj_set_destroyed(sgl_obj_t *obj)
     SGL_ASSERT(obj != NULL);
     obj->destroyed = 1;
     sgl_system.fbdev.update_flag = 1;
-}
-
-/**
- * @brief  Clear all dirty areas of the object and its children.
- * @param[in] obj  The object to clear.
- * @return  None
- * @note   This function is used to clear all dirty areas of the object and its children.
- */
-void sgl_obj_clear_all_dirty(sgl_obj_t *obj)
-{
-    SGL_ASSERT(obj != NULL);
-    sgl_obj_t *stack[SGL_OBJ_DEPTH_MAX];
-    int top = 0;
-    stack[top++] = obj;
-
-    while (top > 0) {
-        SGL_ASSERT(top < SGL_OBJ_DEPTH_MAX);
-        obj = stack[--top];
-        obj->dirty = 0;
-
-        if (obj->sibling != NULL) {
-            stack[top++] = obj->sibling;
-        }
-
-        if (obj->child != NULL) {
-            stack[top++] = obj->child;
-        }
-    }
 }
 
 /**
@@ -1170,7 +1167,7 @@ void sgl_obj_delete(sgl_obj_t *obj)
     if (obj == NULL || obj == sgl_screen_act()) {
         obj = sgl_screen_act();
         if (obj->child) {
-            sgl_obj_free(obj->child);
+            sgl_obj_free_chain(obj->child);
         }
         sgl_obj_node_init(obj);
         sgl_obj_set_dirty(obj);
@@ -1759,21 +1756,10 @@ static inline void sgl_dirty_area_harvest(sgl_obj_t *obj)
         if (unlikely(sgl_obj_is_destroyed(obj))) {
             /* merge destroy area */
             sgl_dirty_area_push(&obj->area);
-
-            sgl_event_t evt = {
-                .type = SGL_EVENT_DESTROYED,
-            };
-
-            /* check construct function */
-            SGL_ASSERT(obj->construct_fn != NULL);
-            obj->construct_fn(NULL, obj, &evt);
-
             /* remove obj from parent */
             sgl_obj_remove(obj);
-
             /* free obj resource */
             sgl_obj_free(obj);
-
             /* object is destroyed, skip */
             continue;
         }
