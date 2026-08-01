@@ -275,6 +275,13 @@ static inline void sgl_anim_set_auto_free(sgl_anim_t *anim)
 void sgl_anim_task(void);
 
 /**
+ * @brief get animation object by object
+ * @param  obj object
+ * @return animation object
+*/
+sgl_anim_t* sgl_anim_get_by_obj(sgl_obj_t *obj);
+
+/**
  * Linear animation path calculation function
  * 
  * Calculates the current interpolated value based on elapsed time and total duration

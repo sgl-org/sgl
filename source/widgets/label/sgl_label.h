@@ -46,12 +46,13 @@ typedef struct sgl_label {
     sgl_color_t      color;
     sgl_color_t      bg_color;
     int16_t          offset_x;
-    int16_t          offset_y;
+    int16_t          text_length;
     uint16_t         text_capacity;
     uint8_t          alpha;
     uint8_t          dynamic : 1;
-    uint8_t          align: 6;
+    uint8_t          align: 5;
     uint8_t          bg_flag : 1;
+    uint8_t          long_mode : 1;
 } sgl_label_t;
 
 /**
@@ -67,7 +68,7 @@ sgl_obj_t* sgl_label_create(sgl_obj_t* parent);
  * @param text pointer to the text
  * @return none
  */
-void sgl_label_set_text(sgl_obj_t *obj, const char *text);
+void sgl_label_set_text(sgl_obj_t *obj, char *text);
 
 /**
  * @brief set the text buffer of the label
@@ -162,9 +163,18 @@ void sgl_label_set_alpha(sgl_obj_t *obj, uint8_t alpha);
  * @brief set label text offset
  * @param obj pointer to the label object
  * @param offset_x offset_x to be set
- * @param offset_y offset_y to be set
  * @return none
  */
-void sgl_label_set_text_offset(sgl_obj_t *obj, int8_t offset_x, int8_t offset_y);
+void sgl_label_set_text_offset(sgl_obj_t *obj, int8_t offset_x);
+
+#if CONFIG_SGL_ANIMATION
+/**
+ * @brief set label long mode
+ * @param obj pointer to the label object
+ * @param flag flag to be set
+ * @return none
+ */
+void sgl_label_set_long_mode(sgl_obj_t *obj, uint32_t speed_ms, bool flag);
+#endif
 
 #endif // !__SGL_LABEL_H__

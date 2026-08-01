@@ -24,6 +24,7 @@
 #include <sgl_core.h>
 #include <sgl_draw.h>
 #include <sgl_math.h>
+#include <sgl_anim.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
 #include <sgl_theme.h>
@@ -36,18 +37,27 @@
  * @param label pointer to the label object
  * @return none
  */
-static void sgl_label_update_area(sgl_label_t *label, const char *text, sgl_area_t *area)
+static void sgl_label_update_area(sgl_label_t *label, int16_t text_length, sgl_area_t *area)
 {
-    sgl_pos_t align_pos;
+    sgl_obj_t *obj = &label->obj;
+    int16_t up_len = sgl_max(label->text_length, text_length);
+    sgl_pos_t pos;
+    sgl_size_t obj_size = {
+        .h = sgl_obj_get_height(obj),
+        .w = sgl_obj_get_width(obj),
+    };
 
-    if (label->font) {
-        if (text) {
-            align_pos = sgl_get_text_pos(&label->obj.coords, label->font, text, 0, (sgl_align_type_t)label->align);
-            area->x1 = align_pos.x + label->offset_x - 1;
-            area->x2 = area->x1 + sgl_font_get_string_width(text, label->font);
-            area->y1 = align_pos.y + label->offset_y - 1;
-            area->y2 = area->y1 + sgl_font_get_height(label->font);
-        }
+    sgl_size_t text_size = {
+        .h = sgl_font_get_height(label->font),
+        .w = up_len,
+    };
+
+    if (label->font && up_len) {
+        pos = sgl_get_align_pos(&obj_size, &text_size, (sgl_align_type_t)label->align);
+        area->x1 = obj->area.x1 + pos.x + label->offset_x - 1;
+        area->x2 = area->x1 + up_len - 1;
+        area->y1 = obj->area.y1 + pos.y - 1;
+        area->y2 = area->y1 + text_size.h - 1;
     }
 }
 
@@ -72,8 +82,7 @@ static void sgl_label_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t
 
         align_pos = sgl_get_text_pos(&obj->coords, label->font, label->text, 0, (sgl_align_type_t)label->align);
 
-        sgl_draw_string(surf, &obj->area, align_pos.x + label->offset_x, 
-                                            align_pos.y + label->offset_y, 
+        sgl_draw_string(surf, &obj->area, align_pos.x + label->offset_x, align_pos.y,
                                             label->text, label->color, label->alpha, label->font);
 
     } else if (evt->type == SGL_EVENT_DESTROYED) {
@@ -106,9 +115,8 @@ sgl_obj_t* sgl_label_create(sgl_obj_t* parent)
     label->alpha = SGL_ALPHA_MAX;
     label->bg_flag = 0;
     label->color = SGL_THEME_TEXT_COLOR;
-    label->text = "";
     label->font = sgl_get_system_font();
-
+    label->text = "";
     return obj;
 }
 
@@ -118,19 +126,16 @@ sgl_obj_t* sgl_label_create(sgl_obj_t* parent)
  * @param text pointer to the text
  * @return none
  */
-void sgl_label_set_text(sgl_obj_t *obj, const char *text)
+void sgl_label_set_text(sgl_obj_t *obj, char *text)
 {
+    int16_t text_length;
     sgl_label_t *label = sgl_container_of(obj, sgl_label_t, obj);
-    sgl_area_t area = SGL_AREA_INVALID, new_area = SGL_AREA_INVALID;
+    sgl_area_t area = SGL_AREA_INVALID;
 
-    if (label->text && strcmp(text, label->text) == 0) {
-        return;
-    }
-
-    sgl_label_update_area(label, label->text, &area);
-    sgl_label_update_area(label, text, &new_area);
-    sgl_area_selfmerge(&area, &new_area);
-    label->text = (char*)text;
+    text_length = sgl_font_get_string_width(text, label->font);
+    sgl_label_update_area(label, text_length, &area);
+    label->text_length = text_length;
+    label->text = text;
     sgl_obj_update_area(&area);
 }
 
@@ -160,20 +165,20 @@ void sgl_label_set_text_buffer(sgl_obj_t *obj, char *buf, uint16_t buf_size)
 void sgl_label_set_text_fmt(sgl_obj_t *obj, const char *fmt, ...)
 {
     va_list args;
-    sgl_area_t area = SGL_AREA_INVALID, new_area = SGL_AREA_INVALID;
+    int16_t text_length;
+    sgl_area_t area = SGL_AREA_INVALID;
     sgl_label_t *label = sgl_container_of(obj, sgl_label_t, obj);
 
     if (!label->text) {
         return;
     }
 
-    sgl_label_update_area(label, label->text, &area);
     va_start(args, fmt);
     sgl_vsnprintf(label->text, label->text_capacity, fmt, args);
     va_end(args);
-
-    sgl_label_update_area(label, label->text, &new_area);
-    sgl_area_selfmerge(&area, &new_area);
+    text_length = sgl_font_get_string_width(label->text, label->font);
+    sgl_label_update_area(label, text_length, &area);
+    label->text_length = text_length;
     sgl_obj_update_area(&area);
 }
 
@@ -186,7 +191,8 @@ void sgl_label_set_text_fmt(sgl_obj_t *obj, const char *fmt, ...)
 void sgl_label_set_text_fmt_dynamic(sgl_obj_t* obj, const char *fmt, ...)
 {
     sgl_label_t *label = sgl_container_of(obj, sgl_label_t, obj);
-    sgl_area_t area = SGL_AREA_INVALID, new_area = SGL_AREA_INVALID;
+    sgl_area_t area = SGL_AREA_INVALID;
+    int16_t text_length;
     va_list args;
     va_list args_copy;
     char *text = label->text;
@@ -198,8 +204,6 @@ void sgl_label_set_text_fmt_dynamic(sgl_obj_t* obj, const char *fmt, ...)
     len = sgl_vsnprintf(NULL, 0, fmt, args_copy);
     va_end(args_copy);
     cap = ((size_t)len + 4) & ~(size_t)3;
-
-    sgl_label_update_area(label, label->text, &area);
 
     if (label->text_capacity < cap) {
         text = label->dynamic ? sgl_realloc(label->text, cap) : sgl_malloc(cap);
@@ -217,22 +221,9 @@ void sgl_label_set_text_fmt_dynamic(sgl_obj_t* obj, const char *fmt, ...)
     sgl_vsnprintf(label->text, label->text_capacity, fmt, args);
     va_end(args);
 
-    sgl_label_update_area(label, label->text, &new_area);
-    sgl_area_selfmerge(&area, &new_area);
-    sgl_obj_update_area(&area);
-}
-
-/**
- * @brief update label text area
- * @param obj pointer to the label object
- * @return none
- * @note you can update your label text area when you change the text buffer content
- */
-void sgl_label_update_text(sgl_obj_t *obj)
-{
-    sgl_label_t *label = sgl_container_of(obj, sgl_label_t, obj);
-    sgl_area_t area = SGL_AREA_INVALID;
-    sgl_label_update_area(label, label->text, &area);
+    text_length = sgl_font_get_string_width(label->text, label->font);
+    sgl_label_update_area(label, text_length, &area);
+    label->text_length = text_length;
     sgl_obj_update_area(&area);
 }
 
@@ -329,13 +320,67 @@ void sgl_label_set_alpha(sgl_obj_t *obj, uint8_t alpha)
  * @brief set label text offset
  * @param obj pointer to the label object
  * @param offset_x offset_x to be set
- * @param offset_y offset_y to be set
  * @return none
  */
-void sgl_label_set_text_offset(sgl_obj_t *obj, int8_t offset_x, int8_t offset_y)
+void sgl_label_set_text_offset(sgl_obj_t *obj, int8_t offset_x)
 {
     sgl_label_t *label = sgl_container_of(obj, sgl_label_t, obj);
     label->offset_x = offset_x;
-    label->offset_y = offset_y;
     sgl_obj_set_dirty(obj);
 }
+
+#if CONFIG_SGL_ANIMATION
+/**
+ * @brief label animation callback
+ * @param anim pointer to the animation object
+ * @param value animation value
+ * @return none
+ */
+static void label_anim_cb(struct sgl_anim *anim, int32_t value)
+{
+    sgl_label_t *label = (sgl_label_t*)anim->data;
+    sgl_obj_t *obj = &label->obj;
+    label->offset_x = -value;
+    if (label->offset_x < -label->text_length) {
+        label->offset_x = 0;
+    }
+    sgl_obj_set_dirty(obj);
+}
+
+/**
+ * @brief set label long mode
+ * @param obj pointer to the label object
+ * @param flag flag to be set
+ * @return none
+ */
+void sgl_label_set_long_mode(sgl_obj_t *obj, uint32_t speed, bool flag)
+{
+    sgl_label_t *label = sgl_container_of(obj, sgl_label_t, obj);
+    sgl_anim_t *anim;
+    uint32_t speed_ms = label->text_length * speed;
+
+    label->align = SGL_ALIGN_LEFT_MID;
+    label->offset_x = 0;
+    if (flag) {
+        label->long_mode = 1;
+        anim = sgl_anim_get_by_obj(obj);
+        if (!anim) {
+            anim = sgl_anim_create();
+            sgl_anim_set_data(anim, obj);
+            sgl_anim_set_start_value(anim, 0);
+            sgl_anim_set_end_value(anim, label->text_length);
+            sgl_anim_set_act_duration(anim, speed_ms);
+            sgl_anim_set_path(anim, label_anim_cb, SGL_ANIM_PATH_LINEAR);
+            sgl_anim_start(anim, SGL_ANIM_REPEAT_LOOP);
+        }
+    } else {
+        label->long_mode = 0;
+        anim = sgl_anim_get_by_obj(obj);
+        if (anim) {
+            sgl_anim_stop(anim);
+            sgl_anim_delete(anim);
+        }
+    }
+}
+
+#endif

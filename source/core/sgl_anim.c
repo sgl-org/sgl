@@ -198,6 +198,24 @@ void sgl_anim_task(void)
 }
 
 /**
+ * @brief get animation object by object
+ * @param  obj object
+ * @return animation object
+*/
+sgl_anim_t* sgl_anim_get_by_obj(sgl_obj_t *obj)
+{
+    SGL_ASSERT(obj != NULL);
+    sgl_anim_t *pos = NULL;
+    
+    sgl_list_for_each_entry(pos, &anim_head, sgl_anim_t, node) {
+        if (pos->data == obj) {
+            return pos;
+        }
+    }
+    return NULL;
+}
+
+/**
  * Linear animation path calculation function
  *
  * Calculates the current interpolated value based on elapsed time and total duration
