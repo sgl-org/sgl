@@ -1280,10 +1280,14 @@ uint32_t sgl_search_unicode_ch_index(const sgl_font_t *font, uint32_t unicode)
  */
 int32_t sgl_font_get_string_width(const char *str, const sgl_font_t *font)
 {
-    SGL_ASSERT(font != NULL);
     int32_t len = 0;
     uint32_t unicode = 0;
     uint32_t ch_index = 0;
+
+    if (font == NULL || str == NULL) {
+        return 0;
+    }
+
     while (*str) {
         str += sgl_utf8_to_unicode(str, &unicode);
         ch_index = sgl_search_unicode_ch_index(font, unicode);
