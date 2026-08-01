@@ -282,6 +282,13 @@ void sgl_anim_task(void);
 sgl_anim_t* sgl_anim_get_by_obj(sgl_obj_t *obj);
 
 /**
+ * @brief animation finished callback function, it will delete animation object
+ * @param anim animation object
+ * @return none
+*/
+void sgl_anim_finished_free_obj_cb(sgl_anim_t *anim);
+
+/**
  * Linear animation path calculation function
  * 
  * Calculates the current interpolated value based on elapsed time and total duration
@@ -409,6 +416,15 @@ int32_t sgl_anim_path_ease_out_bounce(uint16_t elaps, uint16_t duration, int32_t
 #define SGL_ANIM_PATH_EASE_OUT_BOUNCE  sgl_anim_path_ease_out_bounce
 
 /**
+ * sgl_anim_path_ease_out_bounce_hold - Bouncing ball effect with hold
+ *
+ * Similar to sgl_anim_path_ease_out_bounce, but holds at the end.
+ * Useful for animating objects that need to stay in place after reaching their destination.
+ */
+int32_t sgl_anim_path_ease_out_bounce_hold(uint16_t elaps, uint16_t duration, int32_t start, int32_t end);
+#define SGL_ANIM_PATH_EASE_OUT_BOUNCE_HOLD  sgl_anim_path_ease_out_bounce_hold
+
+/**
  * sgl_anim_path_sine_wave - Continuous sinusoidal wave trajectory
  *
  * Creates a smooth, periodic oscillation between start and end values.
@@ -449,6 +465,16 @@ int32_t sgl_anim_path_step(uint16_t elaps, uint16_t duration, int32_t start, int
 void sgl_anim_apply_obj_hori(sgl_obj_t *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect);
 
 /**
+ * sgl_anim_apply_obj_hori_auto_free - Move an object horizontally and free it automatically
+ * @param obj       Pointer to the object to move
+ * @param distance  Distance to move the object horizontally
+ * @param duration  Duration of the animation (in milliseconds)
+ * @param effect    Animation path effect (e.g., SGL_ANIM_PATH_EASE_IN_OUT, SGL_ANIM_PATH_EASE_IN, SGL_ANIM_PATH_EASE_OUT)
+ * @return none
+ */
+void sgl_anim_apply_obj_hori_auto_free(sgl_obj_t *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect);
+
+/**
  * sgl_anim_apply_obj_vert - Move an object vertically
  * @param obj       Pointer to the object to move
  * @param distance  Distance to move the object vertically
@@ -457,6 +483,16 @@ void sgl_anim_apply_obj_hori(sgl_obj_t *obj, int16_t distance, uint16_t duration
  * @return none
  */
 void sgl_anim_apply_obj_vert(sgl_obj_t *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect);
+
+/**
+ * sgl_anim_apply_obj_vert_auto_free - Move an object vertically and free it automatically
+ * @param obj       Pointer to the object to move
+ * @param distance  Distance to move the object vertically
+ * @param duration  Duration of the animation (in milliseconds)
+ * @param effect    Animation path effect (e.g., SGL_ANIM_PATH_EASE_IN_OUT, SGL_ANIM_PATH_EASE_IN, SGL_ANIM_PATH_EASE_OUT)
+ * @return none
+ */
+void sgl_anim_apply_obj_vert_auto_free(sgl_obj_t *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect);
 
 /**
  * sgl_anim_run_once - Run an animation once

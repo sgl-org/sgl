@@ -7,7 +7,19 @@
 extern "C" {
 #endif
 
-typedef struct sgl_launcher {
+typedef struct sgl_launcher_app sgl_launcher_app_t;
+typedef struct sgl_launcher sgl_launcher_t;
+
+typedef struct sgl_launcher_ctx {
+    const sgl_font_t *font;
+    const sgl_launcher_app_t *apps;
+    void (*cb)(sgl_launcher_t *launcher);
+    void (*app_exit_cb)(void);
+    int16_t app_count;
+    uint8_t current_page;
+} sgl_launcher_ctx_t;
+
+struct sgl_launcher {
     sgl_obj_t obj;
     int16_t icon_size;
     int16_t margin_left;
@@ -19,42 +31,39 @@ typedef struct sgl_launcher {
     int16_t page_width;
     int16_t page_height;
     int16_t drag_start_x;
-    int16_t count;
+    int16_t app_count;
     uint8_t page_count;
     sgl_color_t navigbar_color;
     sgl_color_t label_color;
     const sgl_font_t *font;
-    sgl_obj_t *statusbar;
-} sgl_launcher_t;
+    const sgl_launcher_app_t *apps;
+};
 
-typedef struct sgl_launcher_app {
-    void (*event_cb)(sgl_event_t *evt);
+struct sgl_launcher_app {
+    void (*start)(void *private_data);
+    void (*exit)(void);
     void *private_data;
     const sgl_pixmap_t *icon;
     const char *name;
-} sgl_launcher_app_t;
+    int16_t radius;
+};
 
 /**
- * @brief create a launcher object
- * @param parent parent object
- * @return launcher object
- */
-sgl_obj_t *sgl_launcher_create(sgl_obj_t *parent);
-
-/**
- * @brief get launcher statusbar
- * @param launcher the launcher object
- * @return statusbar object
- */
-sgl_obj_t* sgl_launcher_statusbar(sgl_obj_t *launcher);
-
-/**
- * @brief set launcher font
- * @param launcher the launcher object
- * @param font the font
+ * @brief launcher exit event handler with msgbox
+ * @param evt event
  * @return none
  */
-void sgl_launcher_set_font(sgl_obj_t *launcher, const sgl_font_t *font);
+void sgl_launcher_exit_msgbox_cb(sgl_event_t *evt);
+
+/**
+ * @brief create launcher
+ * @param label_font the label font
+ * @param apps the apps
+ * @param app_num the number of apps
+ * @param cb the callback function
+ * @return the launcher object
+ */
+sgl_obj_t *sgl_launcher_create(const sgl_font_t *label_font, const sgl_launcher_app_t *apps, int16_t app_num, void (*cb)(sgl_launcher_t *launcher));
 
 /**
  * @brief set launcher margin
@@ -83,14 +92,6 @@ void sgl_launcher_set_icon_size(sgl_obj_t *launcher, int16_t size);
  * @return none
  */
 void sgl_launcher_set_grid_size(sgl_obj_t *launcher, int16_t cols, int16_t rows);
-
-/**
- * @brief add an app to launcher
- * @param launcher the launcher object
- * @param app the app
- * @return none
- */
-void sgl_launcher_add_app(sgl_obj_t *launcher, sgl_launcher_app_t *app);
 
 /**
  * @brief set launcher label color

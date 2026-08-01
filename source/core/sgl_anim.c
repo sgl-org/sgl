@@ -216,6 +216,19 @@ sgl_anim_t* sgl_anim_get_by_obj(sgl_obj_t *obj)
 }
 
 /**
+ * @brief animation finished callback function, it will delete animation object
+ * @param anim animation object
+ * @return none
+*/
+void sgl_anim_finished_free_obj_cb(sgl_anim_t *anim)
+{
+    sgl_obj_t *obj = (sgl_obj_t*)anim->data;
+    if (obj) {
+        sgl_obj_delete(obj);
+    }
+}
+
+/**
  * Linear animation path calculation function
  *
  * Calculates the current interpolated value based on elapsed time and total duration
@@ -539,6 +552,45 @@ int32_t sgl_anim_path_ease_out_bounce(uint16_t elaps, uint16_t duration, int32_t
 }
 
 /**
+ * sgl_anim_path_ease_out_bounce_hold - Bouncing ball effect with hold
+ *
+ * Similar to sgl_anim_path_ease_out_bounce, but holds at the end.
+ * Useful for animating objects that need to stay in place after reaching their destination.
+ */
+int32_t sgl_anim_path_ease_out_bounce_hold(uint16_t elaps, uint16_t duration, int32_t start, int32_t end)
+{
+    if (elaps >= duration) return end;
+    if (elaps == 0) return start;
+
+    uint16_t half_duration = duration / 2;
+    if (elaps >= half_duration) {
+        return end;
+    }
+
+    int64_t t = ((int64_t)elaps << 15) / half_duration;
+    int64_t progress = 0;
+
+    // Piecewise quadratic approximation in Q15
+    // Boundaries: 1/2.75≈0.3636(11911), 2/2.75≈0.7272(23822), 2.5/2.75≈0.9090(29778)
+    if (t < 11911) {
+        // 7.5625 * t^2 -> Q15 coeff ≈ 247868 (clamped to safe shift)
+        progress = (247868LL * ((t * t) >> 15)) >> 15;
+    } else if (t < 23822) {
+        int64_t t2 = t - 18181; // t - 1.5/2.75
+        progress = (247868LL * ((t2 * t2) >> 15) >> 15) + 24576; // +0.75*32767
+    } else if (t < 29778) {
+        int64_t t2 = t - 27272; // t - 2.25/2.75
+        progress = (247868LL * ((t2 * t2) >> 15) >> 15) + 29490; // +0.9*32767
+    } else {
+        int64_t t2 = t - 31111; // t - 2.625/2.75
+        progress = (247868LL * ((t2 * t2) >> 15) >> 15) + 31539; // +0.9625*32767
+    }
+
+    int32_t delta = end - start;
+    return start + (int32_t)((delta * progress) >> 15);
+}
+
+/**
  * sgl_anim_path_sine_wave - Continuous sinusoidal wave trajectory
  *
  * Creates a smooth, periodic oscillation between start and end values.
@@ -647,6 +699,34 @@ static void sgl_anim_obj_vert_cb(sgl_anim_t *anim, int32_t value)
 }
 
 /**
+ * sgl_anim_alloc_and_init - Allocate and initialize an animation object
+ * @param obj           Pointer to the object to animate
+ * @param start_value   Starting value of the animation
+ * @param end_value     Ending value of the animation
+ * @param duration      Duration of the animation (in milliseconds)
+ * @param cb            Callback function for animation path
+ * @param effect        Animation path effect
+ * @return              Pointer to the allocated and initialized animation object, or NULL on failure
+ */
+static sgl_anim_t *sgl_anim_alloc_and_init(sgl_obj_t *obj, int16_t start_value, int16_t end_value, uint16_t duration, sgl_anim_path_cb_t cb, sgl_anim_path_algo_t effect)
+{
+    sgl_anim_t *anim = sgl_anim_create();
+    if (!anim) {
+        SGL_LOG_ERROR("Failed to create animation object");
+        return NULL;
+    }
+
+    sgl_anim_set_data(anim, obj);
+    sgl_anim_set_auto_free(anim);
+    sgl_anim_set_start_value(anim, start_value);
+    sgl_anim_set_end_value(anim, end_value);
+    sgl_anim_set_act_duration(anim, duration);
+    sgl_anim_set_path(anim, cb, effect);
+
+    return anim;
+}
+
+/**
  * sgl_anim_apply_obj_hori - Move an object horizontally
  * @param obj       Pointer to the object to move
  * @param distance  Distance to move the object horizontally
@@ -656,13 +736,30 @@ static void sgl_anim_obj_vert_cb(sgl_anim_t *anim, int32_t value)
  */
 void sgl_anim_apply_obj_hori(sgl_obj_t *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect)
 {
-    sgl_anim_t *anim = sgl_anim_create();
-    sgl_anim_set_data(anim, obj);
-    sgl_anim_set_auto_free(anim);
-    sgl_anim_set_start_value(anim, obj->coords.x1);
-    sgl_anim_set_end_value(anim, obj->coords.x1 + distance);
-    sgl_anim_set_act_duration(anim, duration);
-    sgl_anim_set_path(anim, sgl_anim_obj_hori_cb, effect);
+    sgl_anim_t *anim = sgl_anim_alloc_and_init(obj, obj->coords.x1, obj->coords.x1 + distance, duration, sgl_anim_obj_hori_cb, effect);
+    if (!anim) {
+        SGL_LOG_ERROR("Failed to create horizontal animation object");
+        return;
+    }
+    sgl_anim_start(anim, SGL_ANIM_REPEAT_ONCE);
+}
+
+/**
+ * sgl_anim_apply_obj_hori_auto_free - Move an object horizontally and free it automatically
+ * @param obj       Pointer to the object to move
+ * @param distance  Distance to move the object horizontally
+ * @param duration  Duration of the animation (in milliseconds)
+ * @param effect    Animation path effect (e.g., SGL_ANIM_PATH_EASE_IN_OUT, SGL_ANIM_PATH_EASE_IN, SGL_ANIM_PATH_EASE_OUT)
+ * @return none
+ */
+void sgl_anim_apply_obj_hori_auto_free(sgl_obj_t *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect)
+{
+    sgl_anim_t *anim = sgl_anim_alloc_and_init(obj, obj->coords.x1, obj->coords.x1 + distance, duration, sgl_anim_obj_hori_cb, effect);
+    if (!anim) {
+        SGL_LOG_ERROR("Failed to create horizontal animation object");
+        return;
+    }
+    sgl_anim_set_finish_cb(anim, sgl_anim_finished_free_obj_cb);
     sgl_anim_start(anim, SGL_ANIM_REPEAT_ONCE);
 }
 
@@ -676,13 +773,30 @@ void sgl_anim_apply_obj_hori(sgl_obj_t *obj, int16_t distance, uint16_t duration
  */
 void sgl_anim_apply_obj_vert(sgl_obj_t *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect)
 {
-    sgl_anim_t *anim = sgl_anim_create();
-    sgl_anim_set_data(anim, obj);
-    sgl_anim_set_auto_free(anim);
-    sgl_anim_set_start_value(anim, obj->coords.y1);
-    sgl_anim_set_end_value(anim, obj->coords.y1 + distance);
-    sgl_anim_set_act_duration(anim, duration);
-    sgl_anim_set_path(anim, sgl_anim_obj_vert_cb, effect);
+    sgl_anim_t *anim = sgl_anim_alloc_and_init(obj, obj->coords.y1, obj->coords.y1 + distance, duration, sgl_anim_obj_vert_cb, effect);
+    if (!anim) {
+        SGL_LOG_ERROR("Failed to create vertical animation object");
+        return;
+    }
+    sgl_anim_start(anim, SGL_ANIM_REPEAT_ONCE);
+}
+
+/**
+ * sgl_anim_apply_obj_vert_auto_free - Move an object vertically and free it automatically
+ * @param obj       Pointer to the object to move
+ * @param distance  Distance to move the object vertically
+ * @param duration  Duration of the animation (in milliseconds)
+ * @param effect    Animation path effect (e.g., SGL_ANIM_PATH_EASE_IN_OUT, SGL_ANIM_PATH_EASE_IN, SGL_ANIM_PATH_EASE_OUT)
+ * @return none
+ */
+void sgl_anim_apply_obj_vert_auto_free(sgl_obj_t *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect)
+{
+    sgl_anim_t *anim = sgl_anim_alloc_and_init(obj, obj->coords.y1, obj->coords.y1 + distance, duration, sgl_anim_obj_vert_cb, effect);
+    if (!anim) {
+        SGL_LOG_ERROR("Failed to create vertical animation object");
+        return;
+    }
+    sgl_anim_set_finish_cb(anim, sgl_anim_finished_free_obj_cb);
     sgl_anim_start(anim, SGL_ANIM_REPEAT_ONCE);
 }
 
@@ -692,18 +806,16 @@ void sgl_anim_apply_obj_vert(sgl_obj_t *obj, int16_t distance, uint16_t duration
  * @param end       End value of the animation
  * @param duration  Duration of the animation (in milliseconds)
  * @param cb        Callback function for the animation
- * @param effect    Animation path effect ()
+ * @param effect    Animation path effect (e.g., SGL_ANIM_PATH_EASE_IN_OUT, SGL_ANIM_PATH_EASE_IN, SGL_ANIM_PATH_EASE_OUT)
  * @return none
  */
 void sgl_anim_run_once(int16_t start, int16_t end, uint16_t duration, sgl_anim_path_cb_t cb, sgl_anim_path_algo_t effect)
 {
-    sgl_anim_t *anim = sgl_anim_create();
-    sgl_anim_set_auto_free(anim);
-    sgl_anim_set_start_value(anim, start);
-    sgl_anim_set_end_value(anim, end);
-    sgl_anim_set_act_duration(anim, duration);
-    sgl_anim_set_path(anim, cb, effect);
-    sgl_anim_start(anim, SGL_ANIM_REPEAT_ONCE);
+    sgl_anim_t *anim = sgl_anim_alloc_and_init(NULL, start, end, duration, cb, effect);
+    if (!anim) {
+        SGL_LOG_ERROR("Failed to create animation object for run_once");
+        return;
+    }
 }
 
 #endif // !CONFIG_SGL_ANIMATION
