@@ -97,14 +97,6 @@ void sgl_label_set_text_fmt(sgl_obj_t *obj, const char *fmt, ...);
 void sgl_label_set_text_fmt_dynamic(sgl_obj_t* obj, const char *fmt, ...);
 
 /**
- * @brief update label text area
- * @param obj pointer to the label object
- * @return none
- * @note you can update your label text area when you change the text buffer content
- */
-void sgl_label_update_text(sgl_obj_t *obj);
-
-/**
  * @brief get the text of the label
  * @param obj pointer to the label object
  * @return pointer to the text
