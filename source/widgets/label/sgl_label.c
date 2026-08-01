@@ -89,6 +89,11 @@ static void sgl_label_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t
         if (label->dynamic) {
             sgl_free((void*)label->text);
         }
+#if CONFIG_SGL_ANIMATION
+        if (label->long_mode) {
+            sgl_anim_delete(sgl_anim_get_by_obj(obj));
+        }
+#endif
     }
 }
 
@@ -375,10 +380,8 @@ void sgl_label_set_long_mode(sgl_obj_t *obj, uint32_t speed, bool flag)
         }
     } else {
         label->long_mode = 0;
-        anim = sgl_anim_get_by_obj(obj);
-        if (anim) {
-            sgl_anim_stop(anim);
-            sgl_anim_delete(anim);
+        if (label->long_mode) {
+            sgl_anim_delete(sgl_anim_get_by_obj(obj));
         }
     }
 }
