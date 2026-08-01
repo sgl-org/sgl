@@ -140,7 +140,7 @@ void sgl_label_set_text(sgl_obj_t *obj, const char *text)
     text_length = sgl_font_get_string_width(text, label->font);
     sgl_label_update_area(label, text_length, &area);
     label->text_length = text_length;
-    label->text = text;
+    label->text = (char*)text;
     sgl_obj_update_area(&area);
 }
 
