@@ -68,7 +68,7 @@ sgl_obj_t* sgl_label_create(sgl_obj_t* parent);
  * @param text pointer to the text
  * @return none
  */
-void sgl_label_set_text(sgl_obj_t *obj, char *text);
+void sgl_label_set_text(sgl_obj_t *obj, const char *text);
 
 /**
  * @brief set the text buffer of the label

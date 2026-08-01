@@ -131,7 +131,7 @@ sgl_obj_t* sgl_label_create(sgl_obj_t* parent)
  * @param text pointer to the text
  * @return none
  */
-void sgl_label_set_text(sgl_obj_t *obj, char *text)
+void sgl_label_set_text(sgl_obj_t *obj, const char *text)
 {
     int16_t text_length;
     sgl_label_t *label = sgl_container_of(obj, sgl_label_t, obj);
