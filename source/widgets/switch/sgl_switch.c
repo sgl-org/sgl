@@ -61,16 +61,16 @@ static void sgl_switch_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
     }
 
     int16_t bg_draw_h = bg_rect.y2 - bg_rect.y1;
-    int16_t bg_r = sgl_min(obj->radius, bg_draw_h / 2);
+    int16_t bg_r = sgl_min(obj->radius, bg_draw_h / 2 - 1);
     int16_t knob_r;
 
     if (margin >= 0) {
-        knob_r = bg_r - knob_offset / 2;
+        knob_r = bg_r - knob_offset / 2 - 2 * border + 1;
     } else {
         knob_r = sgl_min(obj->radius - border + 1, knob_size / 2);
     }
 
-    if (knob_r < 0) knob_r = 0;
+    if (knob_r < 0) knob_r = 2;
 
     sgl_area_t knob_rect = {0};
     knob_rect.y1 = obj->coords.y1 + knob_offset;
