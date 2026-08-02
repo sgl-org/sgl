@@ -350,16 +350,14 @@ static void sgl_linechart_draw_segment_line(sgl_surf_t *surf, const sgl_area_t *
     }
 
     uint8_t eff_width;
-    if (width <= 1) {
-        eff_width = 4;          /* logical 1 -> thin line */
+   if (width <= 1) {
+        eff_width = 1;          /* logical 1 -> 1px line */
     }
     else if (width == 2) {
-        eff_width = 8;          /* logical 2 */
+        eff_width = 2;          /* logical 2 */
     }
     else {
-        int32_t scaled = (int32_t)width << 2;
-        if (scaled > 255) scaled = 255;
-        eff_width = (uint8_t)scaled;
+        eff_width = width;
     }
 
     sgl_draw_line_t desc = {
