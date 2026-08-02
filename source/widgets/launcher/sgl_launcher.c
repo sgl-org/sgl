@@ -82,7 +82,7 @@ static void sgl_launcher_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
  * @param parent parent object
  * @return launcher object
  */
-static sgl_launcher_t *sgl_launcher_alloc(void)
+static sgl_launcher_t *sgl_launcher_alloc(const sgl_launcher_attr_t *attr)
 {
     sgl_launcher_t *launcher = sgl_malloc(sizeof(sgl_launcher_t));
     if(launcher == NULL) {
@@ -97,64 +97,13 @@ static sgl_launcher_t *sgl_launcher_alloc(void)
     obj->construct_fn = sgl_launcher_construct_cb;
     sgl_obj_set_movable(obj);
 
-    launcher->margin_left = 30;
-    launcher->margin_top = 40;
-    launcher->margin_right = 30;
-    launcher->margin_bottom = 60;
-    launcher->grid_col = 3;
-    launcher->grid_row = 4;
-    launcher->icon_size = 48;
+    launcher->attr = attr;
     launcher->page_count = 1;
     launcher->page_width = SGL_SCREEN_WIDTH;
     launcher->page_height = SGL_SCREEN_HEIGHT;
     launcher->navigbar_color = SGL_COLOR_WHEAT;
     launcher->font = sgl_get_system_font();
     return launcher;
-}
-
-/**
- * @brief set launcher margin
- * @param launcher the launcher object
- * @param left left margin
- * @param top top margin
- * @param right right margin
- * @param bottom bottom margin
- * @return none
- */
-void sgl_launcher_set_margin(sgl_obj_t *launcher, int16_t left, int16_t top, int16_t right, int16_t bottom)
-{
-    sgl_launcher_t *launcher_obj = (sgl_launcher_t *)launcher;
-    launcher_obj->margin_left = left;
-    launcher_obj->margin_top = top;
-    launcher_obj->margin_right = right;
-    launcher_obj->margin_bottom = bottom;
-    sgl_obj_set_dirty(launcher);
-}
-
-/**
- * @brief set launcher icon size
- * @param launcher the launcher object
- * @param size the icon size
- * @return none
- */
-void sgl_launcher_set_icon_size(sgl_obj_t *launcher, int16_t size)
-{
-    sgl_launcher_t *launcher_obj = (sgl_launcher_t *)launcher;
-    launcher_obj->icon_size = size;
-}
-
-/**
- * @brief set launcher grid size
- * @param launcher the launcher object
- * @param cols the number of columns
- * @param rows the number of rows
- * @return none
- */
-void sgl_launcher_set_grid_size(sgl_obj_t *launcher, int16_t cols, int16_t rows)
-{
-    sgl_launcher_t *launcher_obj = (sgl_launcher_t *)launcher;
-    launcher_obj->grid_col = cols;
-    launcher_obj->grid_row = rows;
 }
 
 /**
@@ -169,7 +118,7 @@ static void launcher_msgbox_cb(sgl_event_t *evt)
         if (ctx.app_exit_cb) {
             ctx.app_exit_cb();
         }
-        sgl_launcher_create(ctx.font, ctx.apps, ctx.app_count, ctx.cb);
+        sgl_launcher_create(ctx.attr, ctx.font, ctx.apps, ctx.app_count, ctx.cb);
     }
 }
 
@@ -232,10 +181,10 @@ static int sgl_launcher_add_app(sgl_obj_t *launcher, const sgl_launcher_app_t *a
         return -1;
     }
 
-    int16_t cols = launcher_obj->grid_col;
-    int16_t rows = launcher_obj->grid_row;
-    int16_t launcher_w = launcher_obj->page_width  - launcher_obj->margin_left - launcher_obj->margin_right;
-    int16_t launcher_h = launcher_obj->page_height - launcher_obj->margin_top  - launcher_obj->margin_bottom;
+    int16_t cols = launcher_obj->attr->grid_col;
+    int16_t rows = launcher_obj->attr->grid_row;
+    int16_t launcher_w = launcher_obj->page_width  - launcher_obj->attr->margin_left - launcher_obj->attr->margin_right;
+    int16_t launcher_h = launcher_obj->page_height - launcher_obj->attr->margin_top  - launcher_obj->attr->margin_bottom;
 
     int16_t icon_index = launcher_obj->app_count % (cols * rows);
     int16_t page_index = launcher_obj->app_count / (cols * rows);
@@ -244,8 +193,8 @@ static int sgl_launcher_add_app(sgl_obj_t *launcher, const sgl_launcher_app_t *a
     int16_t row = icon_index / cols;  /* which row (0-based) */
     int16_t col = icon_index % cols;  /* which col (0-based) */
 
-    int16_t x = launcher_item_pos(launcher_obj->margin_left, launcher_w, cols, launcher_obj->icon_size, col);
-    int16_t y = launcher_item_pos(launcher_obj->margin_top,  launcher_h, rows, launcher_obj->icon_size, row);
+    int16_t x = launcher_item_pos(launcher_obj->attr->margin_left, launcher_w, cols, launcher_obj->attr->icon_size, col);
+    int16_t y = launcher_item_pos(launcher_obj->attr->margin_top,  launcher_h, rows, launcher_obj->attr->icon_size, row);
 
     if (app->icon->format == SGL_PIXMAP_FMT_ARGB4444) {
         icon = sgl_sprite_create(launcher);
@@ -267,12 +216,12 @@ static int sgl_launcher_add_app(sgl_obj_t *launcher, const sgl_launcher_app_t *a
     }
 
     sgl_obj_set_pos(icon, x + x_ofs, y);
-    sgl_obj_set_size(icon, launcher_obj->icon_size, launcher_obj->icon_size);
+    sgl_obj_set_size(icon, launcher_obj->attr->icon_size, launcher_obj->attr->icon_size);
     sgl_obj_set_clickable(icon);
     sgl_obj_set_event_cb(icon, launcher_start_event, (void*)app);
 
-    sgl_obj_set_pos(label, x + x_ofs, y + launcher_obj->icon_size + 2);
-    sgl_obj_set_size(label, launcher_obj->icon_size, sgl_font_get_height(launcher_obj->font));
+    sgl_obj_set_pos(label, x + x_ofs, y + launcher_obj->attr->icon_size + 2);
+    sgl_obj_set_size(label, launcher_obj->attr->icon_size, sgl_font_get_height(launcher_obj->font));
     sgl_label_set_font(label, launcher_obj->font);
     sgl_label_set_text(label, app->name);
     sgl_label_set_text_color(label, launcher_obj->label_color);
@@ -290,15 +239,16 @@ static int sgl_launcher_add_app(sgl_obj_t *launcher, const sgl_launcher_app_t *a
 
 /**
  * @brief create launcher
+ * @param attr the launcher attributes
  * @param label_font the label font
  * @param apps the apps
  * @param app_num the number of apps
  * @param cb the callback function
  * @return the launcher object
  */
-sgl_obj_t *sgl_launcher_create(const sgl_font_t *label_font, const sgl_launcher_app_t *apps, int16_t app_num, void (*cb)(sgl_launcher_t *launcher))
+sgl_obj_t *sgl_launcher_create(const sgl_launcher_attr_t *attr, const sgl_font_t *label_font, const sgl_launcher_app_t *apps, int16_t app_num, void (*cb)(sgl_launcher_t *launcher))
 {
-    sgl_launcher_t *launcher = sgl_launcher_alloc();
+    sgl_launcher_t *launcher = sgl_launcher_alloc(attr);
     if (launcher == NULL) {
         SGL_LOG_ERROR("sgl_launcher_create: launcher create failed");
         return NULL;
@@ -307,6 +257,7 @@ sgl_obj_t *sgl_launcher_create(const sgl_font_t *label_font, const sgl_launcher_
     sgl_obj_t *obj = &launcher->obj;
     ctx.font = label_font;
     ctx.apps = apps;
+    ctx.attr = attr;
     ctx.app_count = app_num;
     ctx.cb = cb;
 
