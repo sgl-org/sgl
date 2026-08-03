@@ -2,9 +2,9 @@
  *
  * MIT License
  *
- * Copyright(c) 2023-present All contributors of SGL  
+ * Copyright(c) 2023-present All contributors of SGL
  * Document reference link: https://sgl-docs.readthedocs.io
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -345,16 +345,19 @@ static void label_anim_cb(struct sgl_anim *anim, int32_t value)
 {
     sgl_label_t *label = (sgl_label_t*)anim->data;
     sgl_obj_t *obj = &label->obj;
-    label->offset_x = -value;
-    if (label->offset_x < -label->text_length) {
-        label->offset_x = 0;
-    }
+
+    /* value goes from 0 to (obj width + text width) per loop.
+       offset goes from obj width down to -text width, so the text enters
+       from the right edge, scrolls left, and after fully exiting the left
+       edge it re-enters from the right edge (marquee wrap-around). */
+    label->offset_x = sgl_obj_get_width(obj) - value;
     sgl_obj_set_dirty(obj);
 }
 
 /**
  * @brief set label long mode
  * @param obj pointer to the label object
+ * @param speed scroll speed in pixels per second (larger = faster)
  * @param flag flag to be set
  * @return none
  */
@@ -362,10 +365,17 @@ void sgl_label_set_long_mode(sgl_obj_t *obj, uint32_t speed, bool flag)
 {
     sgl_label_t *label = sgl_container_of(obj, sgl_label_t, obj);
     sgl_anim_t *anim;
-    uint32_t speed_ms = label->text_length * speed;
+    int32_t scroll_distance = sgl_obj_get_width(obj) + label->text_length;
+
+    /* speed is in pixels per second: the larger the value, the faster the
+       scrolling. Convert to total animation duration in ms. */
+    if (speed == 0) {
+        speed = 1;
+    }
+    uint32_t speed_ms = (uint32_t)scroll_distance * 1000 / speed;
 
     label->align = SGL_ALIGN_LEFT_MID;
-    label->offset_x = 0;
+    label->offset_x = sgl_obj_get_width(obj);
     if (flag) {
         label->long_mode = 1;
         anim = sgl_anim_get_by_obj(obj);
@@ -373,16 +383,16 @@ void sgl_label_set_long_mode(sgl_obj_t *obj, uint32_t speed, bool flag)
             anim = sgl_anim_create();
             sgl_anim_set_data(anim, obj);
             sgl_anim_set_start_value(anim, 0);
-            sgl_anim_set_end_value(anim, label->text_length);
+            sgl_anim_set_end_value(anim, scroll_distance);
             sgl_anim_set_act_duration(anim, speed_ms);
             sgl_anim_set_path(anim, label_anim_cb, SGL_ANIM_PATH_LINEAR);
             sgl_anim_start(anim, SGL_ANIM_REPEAT_LOOP);
         }
     } else {
-        label->long_mode = 0;
         if (label->long_mode) {
             sgl_anim_delete(sgl_anim_get_by_obj(obj));
         }
+        label->long_mode = 0;
     }
 }
 
