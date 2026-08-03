@@ -130,6 +130,7 @@ sgl_obj_t* sgl_label_create(sgl_obj_t* parent)
  * @param obj pointer to the label object
  * @param text pointer to the text
  * @return none
+ * @note you must set the font by sgl_label_set_font() before calling this function
  */
 void sgl_label_set_text(sgl_obj_t *obj, const char *text)
 {
@@ -166,6 +167,7 @@ void sgl_label_set_text_buffer(sgl_obj_t *obj, char *buf, uint16_t buf_size)
  * @param fmt pointer to the text
  * @return none
  * @note the text buffer must be set by sgl_label_set_text_buffer() before calling this function
+ * @note you must set the font by sgl_label_set_font() before calling this function
  */
 void sgl_label_set_text_fmt(sgl_obj_t *obj, const char *fmt, ...)
 {
@@ -192,6 +194,7 @@ void sgl_label_set_text_fmt(sgl_obj_t *obj, const char *fmt, ...)
  * @param obj pointer to the label object
  * @param text pointer to the text
  * @return none
+ * @note you must set the font by sgl_label_set_font() before calling this function
  */
 void sgl_label_set_text_fmt_dynamic(sgl_obj_t* obj, const char *fmt, ...)
 {
@@ -345,7 +348,7 @@ static void label_anim_cb(sgl_anim_t *anim, int32_t value)
 {
     sgl_label_t *label = (sgl_label_t*)anim->data;
     sgl_obj_t *obj = &label->obj;
-    label->offset_x = sgl_obj_get_width(obj)-value;
+    label->offset_x = sgl_obj_get_width(obj) - value;
     sgl_obj_set_dirty(obj);
 }
 
@@ -367,6 +370,7 @@ void sgl_label_set_long_mode(sgl_obj_t *obj, uint32_t speed, bool flag)
 
     label->align = SGL_ALIGN_LEFT_MID;
     label->offset_x = sgl_obj_get_width(obj);
+
     if (flag) {
         label->long_mode = 1;
         anim = sgl_anim_get_by_obj(obj);
