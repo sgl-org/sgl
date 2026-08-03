@@ -593,7 +593,7 @@ static void name_to_83(const char *name, uint8_t out[11])
     }
 }
 
-/* Convert 8.3 dir entry name to null-terminated string */
+/* Convert 8.3 dir entry name to null-terminated string (lowercase) */
 static void name_from_83(const uint8_t entry[11], char *out, uint32_t out_size)
 {
     uint32_t pos = 0;
@@ -601,7 +601,9 @@ static void name_from_83(const uint8_t entry[11], char *out, uint32_t out_size)
     int base_end = 7;
     while (base_end >= 0 && entry[base_end] == ' ') base_end--;
     for (int i = 0; i <= base_end && pos < out_size - 1; i++) {
-        out[pos++] = (char)entry[i];
+        char c = (char)entry[i];
+        if (c >= 'A' && c <= 'Z') c += 32;
+        out[pos++] = c;
     }
     /* Copy extension if present */
     int ext_end = 10;
@@ -609,7 +611,9 @@ static void name_from_83(const uint8_t entry[11], char *out, uint32_t out_size)
     if (ext_end >= 8 && pos < out_size - 2) {
         out[pos++] = '.';
         for (int i = 8; i <= ext_end && pos < out_size - 1; i++) {
-            out[pos++] = (char)entry[i];
+            char c = (char)entry[i];
+            if (c >= 'A' && c <= 'Z') c += 32;
+            out[pos++] = c;
         }
     }
     out[pos] = '\0';
