@@ -135,7 +135,7 @@ void sgl_launcher_exit_msgbox_cb(sgl_event_t *evt)
         sgl_obj_set_pos_align(msgbox, SGL_ALIGN_CENTER);
         sgl_msgbox_set_font(msgbox, ctx.font);
         sgl_msgbox_set_border_width(msgbox, 0);
-        sgl_msgbox_set_alpha(msgbox, 200);
+        sgl_msgbox_set_alpha(msgbox, SGL_ALPHA_MAX);
         sgl_msgbox_set_color(msgbox, sgl_rgb(109, 125, 210));
         sgl_msgbox_set_title_text(msgbox, "Message Information");
         sgl_msgbox_set_msg_text(msgbox, "Are you sure you want to exit?");
