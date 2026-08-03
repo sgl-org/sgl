@@ -341,20 +341,18 @@ void sgl_label_set_text_offset(sgl_obj_t *obj, int8_t offset_x)
  * @param value animation value
  * @return none
  */
-static void label_anim_cb(struct sgl_anim *anim, int32_t value)
+static void label_anim_cb(sgl_anim_t *anim, int32_t value)
 {
     sgl_label_t *label = (sgl_label_t*)anim->data;
     sgl_obj_t *obj = &label->obj;
-    label->offset_x = -value;
-    if (label->offset_x < -label->text_length) {
-        label->offset_x = 0;
-    }
+    label->offset_x = sgl_obj_get_width(obj)-value;
     sgl_obj_set_dirty(obj);
 }
 
 /**
  * @brief set label long mode
  * @param obj pointer to the label object
+ * @param speed pixel per second
  * @param flag flag to be set
  * @return none
  */
@@ -362,10 +360,13 @@ void sgl_label_set_long_mode(sgl_obj_t *obj, uint32_t speed, bool flag)
 {
     sgl_label_t *label = sgl_container_of(obj, sgl_label_t, obj);
     sgl_anim_t *anim;
-    uint32_t speed_ms = label->text_length * speed;
+
+	int32_t scroll_dist = sgl_obj_get_width(obj) + label->text_length;
+    if (speed == 0) speed = 1;
+    uint32_t speed_ms = (uint32_t)scroll_dist * 1000 / speed;
 
     label->align = SGL_ALIGN_LEFT_MID;
-    label->offset_x = 0;
+    label->offset_x = sgl_obj_get_width(obj);
     if (flag) {
         label->long_mode = 1;
         anim = sgl_anim_get_by_obj(obj);
@@ -373,17 +374,16 @@ void sgl_label_set_long_mode(sgl_obj_t *obj, uint32_t speed, bool flag)
             anim = sgl_anim_create();
             sgl_anim_set_data(anim, obj);
             sgl_anim_set_start_value(anim, 0);
-            sgl_anim_set_end_value(anim, label->text_length);
+            sgl_anim_set_end_value(anim, scroll_dist);
             sgl_anim_set_act_duration(anim, speed_ms);
             sgl_anim_set_path(anim, label_anim_cb, SGL_ANIM_PATH_LINEAR);
             sgl_anim_start(anim, SGL_ANIM_REPEAT_LOOP);
         }
     } else {
-        label->long_mode = 0;
         if (label->long_mode) {
             sgl_anim_delete(sgl_anim_get_by_obj(obj));
         }
+		label->long_mode = 0;
     }
 }
-
 #endif

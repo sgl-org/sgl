@@ -163,6 +163,7 @@ void sgl_label_set_text_offset(sgl_obj_t *obj, int8_t offset_x);
 /**
  * @brief set label long mode
  * @param obj pointer to the label object
+ * @param speed pixel per second
  * @param flag flag to be set
  * @return none
  */
