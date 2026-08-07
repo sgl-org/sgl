@@ -34,8 +34,8 @@
 
 /* Scale with correct rounding for negative values */
 #define SGL_IMG_SCALE(val, sc) \
-    ((val) >= 0 ? (((int64_t)(val) * (sc) + SGL_FIXED_ONE - 1) >> SGL_FIXED_SHIFT) \
-                : (((int64_t)(val) * (sc) - SGL_FIXED_ONE + 1) >> SGL_FIXED_SHIFT))
+    (((int32_t)(val) >= 0) ? (((int64_t)(val) * (sc) + SGL_FIXED_ONE - 1) >> SGL_FIXED_SHIFT) \
+                           : (((int64_t)(val) * (sc) - SGL_FIXED_ONE + 1) >> SGL_FIXED_SHIFT))
 
 /**
  * Decode a single pixel from the pixmap buffer.
@@ -183,8 +183,8 @@ static void img_ext_update_coords(sgl_img_ext_t *img_ext)
 
     int32_t scaled_w = SGL_IMG_SCALE(img_ext->pixmap->width, img_ext->scale_x);
     int32_t scaled_h = SGL_IMG_SCALE(img_ext->pixmap->height, img_ext->scale_y);
-    if (scaled_w == 0) scaled_w = img_ext->pixmap->width;
-    if (scaled_h == 0) scaled_h = img_ext->pixmap->height;
+    if (scaled_w <= 0) scaled_w = img_ext->pixmap->width;
+    if (scaled_h <= 0) scaled_h = img_ext->pixmap->height;
 
     if (img_ext->rotation == 0) {
         int32_t pv_sx = SGL_IMG_SCALE(pv_x, img_ext->scale_x);
