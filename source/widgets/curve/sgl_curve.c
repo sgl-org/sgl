@@ -47,8 +47,6 @@ static void sgl_curve_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t
         if (curve->point_count < 3 || curve->type == SGL_CURVE_TYPE_NONE ||
             curve->thickness == 0 || curve->alpha == SGL_ALPHA_MIN) return;
 
-        /* 映射范围向内缩进 pad，保证圆头端帽和 AA 带完全落在控件矩形内，
-         * 避免越界绘制被脏区/条带裁剪截断 */
         const int32_t pad = curve->thickness + 3;
         int16_t lo_x = (int16_t)(obj->coords.x1 + pad);
         int16_t hi_x = (int16_t)(obj->coords.x2 - pad);
