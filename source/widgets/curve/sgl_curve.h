@@ -58,23 +58,31 @@
 extern "C" {
 #endif
 
-/* Maximum number of control points (cubic bezier needs 4) */
-#define SGL_CURVE_MAX_POINTS    4
+/* Maximum number of normalized control points.
+ * Chained cubics need 3*n+1 points, 25 = up to 8 cubic segments. */
+#define SGL_CURVE_MAX_POINTS    25
 
 /* Normalized coordinate range: control points are stored in [0, 255]
  * and mapped onto the widget rectangle at draw time. */
 #define SGL_CURVE_NORM_MAX      255
 
+/* Curve path type */
+#define SGL_CURVE_TYPE_NONE     0
+#define SGL_CURVE_TYPE_QUAD     1   /* chained quadratic: 2*n+1 points */
+#define SGL_CURVE_TYPE_CUBIC    2   /* chained cubic:     3*n+1 points */
+
 /**
  * @brief sgl curve struct
  * @obj: sgl general object
- * @desc: bezier curve widget, supports quadratic (3 points) and cubic (4 points) curves
+ * @desc: bezier curve widget, supports quadratic (2n+1 points) and cubic
+ *        (3n+1 points) chained multi-segment paths
  */
 typedef struct sgl_curve {
     sgl_obj_t       obj;
     sgl_color_t     color;                              /* curve stroke color */
     uint8_t         norm_pts[SGL_CURVE_MAX_POINTS][2];  /* normalized control points [0..255] */
-    uint8_t         point_count;                        /* 3 = quadratic, 4 = cubic */
+    uint8_t         point_count;                        /* total normalized point count */
+    uint8_t         type;                               /* SGL_CURVE_TYPE_xxx */
     uint8_t         thickness;                          /* stroke half-width (radius) */
     uint8_t         alpha;
 }sgl_curve_t;
@@ -97,6 +105,17 @@ sgl_obj_t* sgl_curve_create(sgl_obj_t* parent);
 void sgl_curve_set_quad(sgl_obj_t *obj, uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2);
 
 /**
+ * @brief set a chained multi-segment quadratic bezier path (normalized 0..255).
+ *        Segment i uses points [2*i .. 2*i+2], i.e. the end point of one
+ *        segment is the start point of the next, so the path is continuous.
+ * @param obj curve object
+ * @param points flattened normalized points: x0,y0,x1,y1,... (2*num_points bytes)
+ * @param num_points total point count, must be 3,5,7,... (2*n+1) and <= SGL_CURVE_MAX_POINTS
+ * @return none
+ */
+void sgl_curve_set_quads(sgl_obj_t *obj, const uint8_t *points, uint8_t num_points);
+
+/**
  * @brief set a cubic bezier curve (4 control points, normalized 0..255)
  * @param obj curve object
  * @param x0,y0 start point
@@ -107,6 +126,17 @@ void sgl_curve_set_quad(sgl_obj_t *obj, uint8_t x0, uint8_t y0, uint8_t x1, uint
  */
 void sgl_curve_set_cubic(sgl_obj_t *obj, uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1,
                          uint8_t x2, uint8_t y2, uint8_t x3, uint8_t y3);
+
+/**
+ * @brief set a chained multi-segment cubic bezier path (normalized 0..255).
+ *        Segment i uses points [3*i .. 3*i+3], i.e. the end point of one
+ *        segment is the start point of the next, so the path is continuous.
+ * @param obj curve object
+ * @param points flattened normalized points: x0,y0,x1,y1,... (2*num_points bytes)
+ * @param num_points total point count, must be 4,7,10,... (3*n+1) and <= SGL_CURVE_MAX_POINTS
+ * @return none
+ */
+void sgl_curve_set_cubics(sgl_obj_t *obj, const uint8_t *points, uint8_t num_points);
 
 /**
  * @brief set the stroke color of the curve

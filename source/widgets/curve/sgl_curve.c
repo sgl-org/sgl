@@ -44,7 +44,8 @@ static void sgl_curve_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t
     sgl_curve_t *curve = sgl_container_of(obj, sgl_curve_t, obj);
 
     if(evt->type == SGL_EVENT_DRAW_MAIN) {
-        if (curve->point_count < 3 || curve->thickness == 0 || curve->alpha == SGL_ALPHA_MIN) return;
+        if (curve->point_count < 3 || curve->type == SGL_CURVE_TYPE_NONE ||
+            curve->thickness == 0 || curve->alpha == SGL_ALPHA_MIN) return;
 
         /* 映射范围向内缩进 pad，保证圆头端帽和 AA 带完全落在控件矩形内，
          * 避免越界绘制被脏区/条带裁剪截断 */
@@ -84,14 +85,24 @@ static void sgl_curve_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t
             return;
         }
 
-        if (curve->point_count == 3) {
-            sgl_draw_bezier_quad(surf, &obj->area,
-                                 px[0], py[0], px[1], py[1], px[2], py[2],
-                                 curve->thickness, curve->color, curve->alpha, &mask);
+        /* stroke every segment into the shared mask (max-composited),
+         * so joints between segments are seamless. */
+        if (curve->type == SGL_CURVE_TYPE_QUAD) {
+            /* chained quadratic path: segment i = points [2*i .. 2*i+2] */
+            for (int i = 0; i + 2 < curve->point_count; i += 2) {
+                sgl_draw_bezier_quad(surf, &obj->area,
+                                     px[i], py[i], px[i + 1], py[i + 1],
+                                     px[i + 2], py[i + 2],
+                                     curve->thickness, curve->color, curve->alpha, &mask);
+            }
         } else {
-            sgl_draw_bezier_cubic(surf, &obj->area,
-                                  px[0], py[0], px[1], py[1], px[2], py[2], px[3], py[3],
-                                  curve->thickness, curve->color, curve->alpha, &mask);
+            /* chained cubic path: segment i = points [3*i .. 3*i+3] */
+            for (int i = 0; i + 3 < curve->point_count; i += 3) {
+                sgl_draw_bezier_cubic(surf, &obj->area,
+                                      px[i], py[i], px[i + 1], py[i + 1],
+                                      px[i + 2], py[i + 2], px[i + 3], py[i + 3],
+                                      curve->thickness, curve->color, curve->alpha, &mask);
+            }
         }
 
         sgl_free(mask.data);
@@ -138,6 +149,33 @@ void sgl_curve_set_quad(sgl_obj_t *obj, uint8_t x0, uint8_t y0, uint8_t x1, uint
     curve->norm_pts[1][0] = x1; curve->norm_pts[1][1] = y1;
     curve->norm_pts[2][0] = x2; curve->norm_pts[2][1] = y2;
     curve->point_count = 3;
+    curve->type = SGL_CURVE_TYPE_QUAD;
+    sgl_obj_set_dirty(obj);
+}
+
+/**
+ * @brief set a chained multi-segment quadratic bezier path (normalized 0..255)
+ * @param obj curve object
+ * @param points flattened normalized points: x0,y0,x1,y1,...
+ * @param num_points total point count, must be 3,5,7,... (2*n+1) and <= SGL_CURVE_MAX_POINTS
+ * @return none
+ */
+void sgl_curve_set_quads(sgl_obj_t *obj, const uint8_t *points, uint8_t num_points)
+{
+    sgl_curve_t *curve = sgl_container_of(obj, sgl_curve_t, obj);
+    /* valid counts: 3,5,7,... = 2*n+1 */
+    if (points == NULL || num_points < 3 || (num_points % 2) == 0 ||
+        num_points > SGL_CURVE_MAX_POINTS) {
+        SGL_LOG_ERROR("sgl_curve_set_quads: invalid num_points %d", num_points);
+        return;
+    }
+
+    for (int i = 0; i < num_points; i++) {
+        curve->norm_pts[i][0] = points[i * 2];
+        curve->norm_pts[i][1] = points[i * 2 + 1];
+    }
+    curve->point_count = num_points;
+    curve->type = SGL_CURVE_TYPE_QUAD;
     sgl_obj_set_dirty(obj);
 }
 
@@ -155,6 +193,33 @@ void sgl_curve_set_cubic(sgl_obj_t *obj, uint8_t x0, uint8_t y0, uint8_t x1, uin
     curve->norm_pts[2][0] = x2; curve->norm_pts[2][1] = y2;
     curve->norm_pts[3][0] = x3; curve->norm_pts[3][1] = y3;
     curve->point_count = 4;
+    curve->type = SGL_CURVE_TYPE_CUBIC;
+    sgl_obj_set_dirty(obj);
+}
+
+/**
+ * @brief set a chained multi-segment cubic bezier path (normalized 0..255)
+ * @param obj curve object
+ * @param points flattened normalized points: x0,y0,x1,y1,...
+ * @param num_points total point count, must be 4,7,10,... (3*n+1) and <= SGL_CURVE_MAX_POINTS
+ * @return none
+ */
+void sgl_curve_set_cubics(sgl_obj_t *obj, const uint8_t *points, uint8_t num_points)
+{
+    sgl_curve_t *curve = sgl_container_of(obj, sgl_curve_t, obj);
+    /* valid counts: 4,7,10,... = 3*n+1 */
+    if (points == NULL || num_points < 4 || (num_points - 4) % 3 != 0 ||
+        num_points > SGL_CURVE_MAX_POINTS) {
+        SGL_LOG_ERROR("sgl_curve_set_cubics: invalid num_points %d", num_points);
+        return;
+    }
+
+    for (int i = 0; i < num_points; i++) {
+        curve->norm_pts[i][0] = points[i * 2];
+        curve->norm_pts[i][1] = points[i * 2 + 1];
+    }
+    curve->point_count = num_points;
+    curve->type = SGL_CURVE_TYPE_CUBIC;
     sgl_obj_set_dirty(obj);
 }
 

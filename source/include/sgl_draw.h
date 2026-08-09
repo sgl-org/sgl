@@ -599,6 +599,58 @@ sgl_color_t sgl_draw_biln_color(const sgl_color_t *buffer, int16_t w, int16_t h,
 void sgl_draw_xform_surf(sgl_surf_t *dst, sgl_surf_t *src, sgl_area_t *area, int16_t x, int16_t y, int16_t rotation);
 
 
+/**
+ * @brief Coverage mask used by the bezier stroke engine (1 byte per pixel).
+ *        The caller allocates data with (x2-x1+1)*(y2-y1+1) bytes.
+ */
+typedef struct {
+    uint8_t *data;   /* coverage buffer */
+    int32_t  x1;     /* left   (absolute X, inclusive) */
+    int32_t  y1;     /* top    (absolute Y, inclusive) */
+    int32_t  x2;     /* right  (absolute X, inclusive) */
+    int32_t  y2;     /* bottom (absolute Y, inclusive) */
+} sgl_bezier_mask_t;
+
+/**
+ * @brief Draw a quadratic bezier curve (anti-aliased, round-capped)
+ * @param surf      pointer to surface
+ * @param area      pointer to area
+ * @param x0,y0     start point
+ * @param x1,y1     control point
+ * @param x2,y2     end point
+ * @param thickness stroke half-width (radius) in pixels
+ * @param color     curve color
+ * @param alpha     curve alpha
+ * @param mask      caller-provided coverage mask covering the curve bounds
+ * @return none
+ */
+void sgl_draw_bezier_quad(sgl_surf_t *surf, sgl_area_t *area,
+                          int16_t x0, int16_t y0, int16_t x1, int16_t y1,
+                          int16_t x2, int16_t y2,
+                          int16_t thickness, sgl_color_t color, uint8_t alpha,
+                          sgl_bezier_mask_t *mask);
+
+/**
+ * @brief Draw a cubic bezier curve (anti-aliased, round-capped)
+ * @param surf      pointer to surface
+ * @param area      pointer to area
+ * @param x0,y0     start point
+ * @param x1,y1     first control point
+ * @param x2,y2     second control point
+ * @param x3,y3     end point
+ * @param thickness stroke half-width (radius) in pixels
+ * @param color     curve color
+ * @param alpha     curve alpha
+ * @param mask      caller-provided coverage mask covering the curve bounds
+ * @return none
+ */
+void sgl_draw_bezier_cubic(sgl_surf_t *surf, sgl_area_t *area,
+                           int16_t x0, int16_t y0, int16_t x1, int16_t y1,
+                           int16_t x2, int16_t y2, int16_t x3, int16_t y3,
+                           int16_t thickness, sgl_color_t color, uint8_t alpha,
+                           sgl_bezier_mask_t *mask);
+
+
 #ifdef __cplusplus
 } /*extern "C"*/
 #endif
