@@ -406,6 +406,35 @@ static int ramfs_write(void *fs, int fd, const void *buffer, uint32_t count)
     return (int)count;
 }
 
+static int ramfs_seek(void *fs, int fd, int32_t offset, uint8_t whence)
+{
+    ramfs_ctx_t *ctx = (ramfs_ctx_t *)fs;
+    if (!ctx || fd < 0 || fd >= RAMFS_MAX_OPEN_FILES || !ctx->files[fd].used) return RAMFS_ERR_BADF;
+
+    ramfs_file_t *file = &ctx->files[fd];
+    ramfs_node_t *node = file->node;
+    int64_t new_pos;
+
+    switch (whence) {
+    case SGL_SEEK_SET:
+        new_pos = offset;
+        break;
+    case SGL_SEEK_CUR:
+        new_pos = (int64_t)file->pos + offset;
+        break;
+    case SGL_SEEK_END:
+        new_pos = (int64_t)node->size + offset;
+        break;
+    default:
+        return RAMFS_ERR_INVALID;
+    }
+
+    if (new_pos < 0) return RAMFS_ERR_INVALID;
+
+    file->pos = (uint32_t)new_pos;
+    return (int)file->pos;
+}
+
 static int ramfs_opendir(void *fs, const char *path, int *dd)
 {
     ramfs_ctx_t *ctx = (ramfs_ctx_t *)fs;
@@ -592,6 +621,7 @@ static sgl_fs_ops_t ramfs_ops = {
     .close = ramfs_close,
     .read = ramfs_read,
     .write = ramfs_write,
+    .seek = ramfs_seek,
     .opendir = ramfs_opendir,
     .readdir = ramfs_readdir,
     .closedir = ramfs_closedir,

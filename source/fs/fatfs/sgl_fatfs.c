@@ -1340,6 +1340,45 @@ static int fatfs_write(void *fs, int fd, const void *buffer, uint32_t count)
     return (int)bw;
 }
 
+static int fatfs_seek(void *fs, int fd, int32_t offset, uint8_t whence)
+{
+    fat_ctx_t *ctx = (fat_ctx_t *)fs;
+    if (fd < 0 || fd >= FAT_MAX_OPEN_FILES || !ctx->files[fd].used) return FAT_ERR_INVALID;
+    fat_file_t *f = &ctx->files[fd];
+
+    int64_t new_pos;
+    switch (whence) {
+    case SGL_SEEK_SET:
+        new_pos = offset;
+        break;
+    case SGL_SEEK_CUR:
+        new_pos = (int64_t)f->cur_pos + offset;
+        break;
+    case SGL_SEEK_END:
+        new_pos = (int64_t)f->file_size + offset;
+        break;
+    default:
+        return FAT_ERR_INVALID;
+    }
+
+    if (new_pos < 0) return FAT_ERR_INVALID;
+
+    f->cur_pos = (uint32_t)new_pos;
+
+    /* Recompute the current cluster for the new position so that
+     * subsequent read/write operations start at the right place. */
+    if (f->start_cluster < 2) {
+        f->cur_cluster = f->start_cluster;
+    } else {
+        uint32_t cb = (uint32_t)ctx->cluster_size * ctx->sector_size;
+        uint32_t cluster_index = f->cur_pos / cb;
+        f->cur_cluster = fat_chain_get(ctx, f->start_cluster, cluster_index);
+        if (f->cur_cluster < 2) f->cur_cluster = f->start_cluster;
+    }
+
+    return (int)f->cur_pos;
+}
+
 static int fatfs_opendir(void *fs, const char *path, int *dd)
 {
     fat_ctx_t *ctx = (fat_ctx_t *)fs;
@@ -1737,6 +1776,7 @@ static sgl_fs_ops_t fatfs_ops = {
     .close    = fatfs_close,
     .read     = fatfs_read,
     .write    = fatfs_write,
+    .seek     = fatfs_seek,
     .opendir  = fatfs_opendir,
     .readdir  = fatfs_readdir,
     .closedir = fatfs_closedir,

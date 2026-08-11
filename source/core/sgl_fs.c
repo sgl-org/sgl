@@ -253,6 +253,35 @@ int sgl_fs_write(int fd, const void *buffer, uint32_t count)
 }
 
 /**
+ * @brief Reposition the read/write offset of an open file
+ * @param fd File descriptor
+ * @param offset Offset to seek to, relative to whence
+ * @param whence Seek mode: SGL_SEEK_SET, SGL_SEEK_CUR or SGL_SEEK_END
+ * @return New file offset on success, or -1 on failure
+ */
+int sgl_fs_seek(int fd, int32_t offset, uint8_t whence)
+{
+    int table_idx = fd - SGL_FD_OFFSET;
+    if (table_idx < 0 || table_idx >= SGL_MAX_FD || !g_fd_table[table_idx].used) {
+        SGL_LOG_ERROR(FS_LOG_TAG"invalid file descriptor: %d", fd);
+        return -1;
+    }
+
+    if (whence != SGL_SEEK_SET && whence != SGL_SEEK_CUR && whence != SGL_SEEK_END) {
+        SGL_LOG_ERROR(FS_LOG_TAG"invalid seek mode: %d", whence);
+        return -1;
+    }
+
+    sgl_fd_ctrl_t *ctrl = &g_fd_table[table_idx];
+    if (!ctrl->mp->fs_type->ops->seek) {
+        SGL_LOG_ERROR(FS_LOG_TAG"seek not supported for fs type: %s", ctrl->mp->fs_type->name);
+        return -1;
+    }
+
+    return ctrl->mp->fs_type->ops->seek(ctrl->mp->fs_data, ctrl->local_fd, offset, whence);
+}
+
+/**
  * @brief Get file status
  * @param path Path to get status for
  * @param st Pointer to store status

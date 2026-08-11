@@ -1024,6 +1024,45 @@ static int littlefs_write(void *fs, int fd, const void *buffer, uint32_t count)
     return n;
 }
 
+static int littlefs_seek(void *fs, int fd, int32_t offset, uint8_t whence)
+{
+    slfs_ctx_t *ctx = (slfs_ctx_t *)fs;
+    if (fd < 0 || fd >= SLFS_MAX_OPEN_FILES || !ctx->files[fd].used) {
+        SGL_LOG_ERROR(LFS_FS_NAME " seek: bad fd=%d", fd);
+        return SLFS_ERR_BADF;
+    }
+    slfs_file_t *f = &ctx->files[fd];
+
+    slfs_inode_t inode;
+    if (slfs_read_inode(ctx, f->inode_idx, &inode) != SLFS_OK) {
+        SGL_LOG_ERROR(LFS_FS_NAME " seek: failed to read inode");
+        return SLFS_ERR_IO;
+    }
+
+    int64_t new_pos;
+    switch (whence) {
+    case SGL_SEEK_SET:
+        new_pos = offset;
+        break;
+    case SGL_SEEK_CUR:
+        new_pos = (int64_t)f->cur_pos + offset;
+        break;
+    case SGL_SEEK_END:
+        new_pos = (int64_t)inode.size + offset;
+        break;
+    default:
+        return SLFS_ERR_INVAL;
+    }
+
+    if (new_pos < 0) return SLFS_ERR_INVAL;
+
+    f->cur_pos = (uint32_t)new_pos;
+    f->cur_block = (uint32_t)(f->cur_pos / ctx->data_area_size);
+    f->cur_block_off = f->cur_pos % ctx->data_area_size;
+
+    return (int)f->cur_pos;
+}
+
 static int littlefs_opendir(void *fs, const char *path, int *dd)
 {
     slfs_ctx_t *ctx = (slfs_ctx_t *)fs;
@@ -1395,6 +1434,7 @@ static sgl_fs_ops_t littlefs_ops = {
     .close    = littlefs_close,
     .read     = littlefs_read,
     .write    = littlefs_write,
+    .seek     = littlefs_seek,
     .opendir  = littlefs_opendir,
     .readdir  = littlefs_readdir,
     .closedir = littlefs_closedir,

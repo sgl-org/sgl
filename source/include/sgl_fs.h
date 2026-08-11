@@ -47,6 +47,11 @@ extern "C" {
 #define SGL_O_TRUNC                 (0x200)    /* truncate file to zero length */
 #define SGL_O_APPEND                (0x400)    /* append mode */
 
+/* Seek modes (POSIX-style) */
+#define SGL_SEEK_SET                (0)        /* seek from beginning of file */
+#define SGL_SEEK_CUR                (1)        /* seek from current position */
+#define SGL_SEEK_END                (2)        /* seek from end of file */
+
 #define SGL_MAX_FD                  (8)        /* max file descriptor */
 #define SGL_MAX_DD                  (4)        /* max directory descriptor */
 #define SGL_FD_OFFSET               (3)        /* FD offset to avoid stdin/stdout/stderr */
@@ -100,6 +105,7 @@ typedef struct {
  * @close: close file
  * @read: read file
  * @write: write file
+ * @seek: reposition file read/write offset
  * @opendir: open directory
  * @readdir: read directory
  * @closedir: close directory
@@ -118,6 +124,7 @@ typedef struct sgl_fs_ops {
     int (*close)(void *fs, int fd);
     int (*read)(void *fs, int fd, void *buffer, uint32_t count);
     int (*write)(void *fs, int fd, const void *buffer, uint32_t count);
+    int (*seek)(void *fs, int fd, int32_t offset, uint8_t whence);
     int (*opendir)(void *fs, const char *path, int *dd);
     int (*readdir)(void *fs, int dd, char *name, uint32_t name_size, uint32_t *type);
     int (*closedir)(void *fs, int dd);
@@ -229,6 +236,15 @@ int sgl_fs_read(int fd, void *buffer, uint32_t count);
  * @return Number of bytes written, or -1 on failure
  */
 int sgl_fs_write(int fd, const void *buffer, uint32_t count);
+
+/**
+ * @brief Reposition the read/write offset of an open file
+ * @param fd File descriptor
+ * @param offset Offset to seek to, relative to whence
+ * @param whence Seek mode: SGL_SEEK_SET, SGL_SEEK_CUR or SGL_SEEK_END
+ * @return New file offset on success, or -1 on failure
+ */
+int sgl_fs_seek(int fd, int32_t offset, uint8_t whence);
 
 /**
  * @brief Get file status
