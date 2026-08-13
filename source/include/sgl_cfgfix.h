@@ -117,7 +117,7 @@ extern "C" {
 #endif
 
 #ifndef CONFIG_SGL_IMG_BUFFER_LINES
-#define CONFIG_SGL_IMG_BUFFER_LINES                                (0)  /* External image line buffer size in lines, 0=auto (use full height) */
+#define CONFIG_SGL_IMG_BUFFER_LINES                                (1)  /* External image line buffer size in lines, 0=auto (use full height) */
 #endif
 
 #ifndef CONFIG_SGL_ANIMATION

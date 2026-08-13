@@ -30,7 +30,7 @@ sgl_config.h是 SGL (Simple Graphics Library) 框架中的**功能配置**。
 | [CONFIG_SGL_FBDEV_PIXEL_DEPTH]| `16` | 定义帧缓冲区的颜色深度。支持的值通常为 `8`、`16`、`24` 或 `32` 位每像素。 |
 | [CONFIG_SGL_FBDEV_ROTATION]| `0` | 初始化时的静态屏幕旋转角度。选项：`0`, `90`, `180`, `270` 度。 |
 | [CONFIG_SGL_FBDEV_RUNTIME_ROTATION] | `0` | 启用运行时屏幕旋转。如果设置为 `1`，应用程序可以在启动后动态旋转屏幕。 |
-| [CONFIG_SGL_IMG_BUFFER_LINES] | `0` | 该宏用来设置Flash外部图片时缓冲行大小，默认不使用，设置该宏可以加快外部Flash图片显示速度。|
+| [CONFIG_SGL_IMG_BUFFER_LINES] | `1` | 该宏用来设置Flash外部图片时缓冲行大小，默认为1，增加宏值可以加快外部Flash图片显示速度。|
 | [CONFIG_SGL_FBDEV_EVEN_COORDS]| `0` | 如果启用 (`1`)，SGL的每次设置的坐标为偶数，这个主要在QSPI屏幕下使用。|
 | [CONFIG_SGL_USE_FBDEV_VRAM]| `0` | 如果启用 (`1`)，SGL 直接写入帧缓冲 VRAM。如果禁用 (`0`)，SGL 可能根据驱动实现使用内部缓冲区。 |
 | [CONFIG_SGL_COLOR16_SWAP]| `0` | 交换 16 位颜色的字节顺序（例如 RGB565 与 BGR565）。如果硬件上颜色显示不正确，请启用此项。 |

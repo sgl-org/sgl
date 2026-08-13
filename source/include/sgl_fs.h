@@ -40,7 +40,7 @@ extern "C" {
 #define SGL_S_IRWXG                 (00070)    /* group permission */
 #define SGL_S_IRWXO                 (00007)    /* other permission */
 
-#define SGL_O_RDONLY                (0x000)    /**/
+#define SGL_O_RDONLY                (0x000)    /* read only */
 #define SGL_O_WRONLY                (0x001)    /* write only */
 #define SGL_O_RDWR                  (0x002)    /* read and write */
 #define SGL_O_CREAT                 (0x040)    /* create file if it does not exist */
