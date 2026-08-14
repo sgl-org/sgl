@@ -133,6 +133,8 @@ void sgl_timer_delete(sgl_timer_t *timer)
  */
 bool sgl_timer_setup(sgl_timer_t *timer, sgl_timer_callback_t callback, uint16_t interval, int32_t repeat_cnt, void *user_data)
 {
+    SGL_ASSERT(interval < (SGL_TIMER_LONG_SLOT * SGL_TIMER_LONG_STEP));
+
     if (!timer || !callback || interval == 0) {
         return false;
     }
