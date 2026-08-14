@@ -91,8 +91,8 @@ int sgl_fbdev_register(sgl_fbinfo_t *fbinfo)
     sgl_system.fbdev.surf.w = fbinfo->xres;
 
     sgl_system.tick_ms = 0;
-    sgl_system.fbdev.fb_status = 3;
-    sgl_system.fbdev.fb_swap = 0;
+    sgl_system.fbdev.fb_ready = 3;
+    sgl_system.fbdev.fb_emit = 0;
 
     return 0;
 }
@@ -1842,7 +1842,7 @@ static inline void sgl_draw_task(sgl_fbdev_t *fbdev, sgl_area_t *dirty_area, uin
             continue;
         }
 #endif
-        SGL_LOG_TRACE("[fb:%d]sgl_draw_task: dirty area x1:%d y1:%d x2:%d y2:%d", fbdev->fb_swap, dirty->x1, dirty->y1, dirty->x2, dirty->y2);
+        SGL_LOG_TRACE("[fb:%d]sgl_draw_task: dirty area x1:%d y1:%d x2:%d y2:%d", fbdev->fb_emit, dirty->x1, dirty->y1, dirty->x2, dirty->y2);
         /* check dirty area, ensure it is valid */
         SGL_ASSERT(dirty->x1 >= 0 && dirty->y1 >= 0 && dirty->x2 < SGL_SCREEN_WIDTH && dirty->y2 < SGL_SCREEN_HEIGHT);
 
@@ -1860,11 +1860,17 @@ static inline void sgl_draw_task(sgl_fbdev_t *fbdev, sgl_area_t *dirty_area, uin
             draw_h = sgl_min(dirty->y2 - surf->y1 + 1, surf->h);
             surf->y2 = surf->y1 + draw_h - 1;
 
-            /* wait current framebuffer for ready */
+            /* wait until at least one framebuffer buffer is ready */
             while (sgl_fbdev_flush_wait_ready(fbdev));
 
-            /* reset current framebuffer ready flag */
-            fbdev->fb_status = (fbdev->fb_status & (2 - fbdev->fb_swap));
+            /* draw into the ready buffer, switch if the emitting one is not ready */
+            if (fbdev->fbinfo.buffer[1] != NULL && !(fbdev->fb_ready & (1 << fbdev->fb_emit))) {
+                fbdev->fb_emit ^= 1;
+                surf->buffer = (sgl_color_t *)fbdev->fbinfo.buffer[fbdev->fb_emit];
+            }
+
+            /* reset the ready flag of the buffer to be drawn */
+            fbdev->fb_ready &= ~(1 << fbdev->fb_emit);
 
             /* draw object slice until the dirty area is finished */
             draw_obj_slice(head, surf);

@@ -468,8 +468,8 @@ typedef struct sgl_fbinfo {
  * @dirty_num: dirty area number
  * @update_flag: update to widget flag
  * @full_dirty: full dirty flag
- * @fb_swap: framebuffer swap flag
- * @fb_status: framebuffer status flag
+ * @fb_emit: current flush buffer index, 0: buffer0 is emitting, 1: buffer1 is emitting.
+ * @fb_ready: framebuffer ready flag, 01: buffer0 is ready, 10: buffer1 is ready, 11: buffers are ready
  * @dirty: dirty area pool
  * @page: current page
  */
@@ -478,8 +478,8 @@ typedef struct sgl_fbdev {
     sgl_surf_t        surf;
     uint8_t           dirty_num;
     uint8_t           update_flag;
-    volatile uint8_t  fb_swap;
-    volatile uint8_t  fb_status;
+    volatile uint8_t  fb_emit;
+    volatile uint8_t  fb_ready;
     sgl_area_t        dirty[SGL_DIRTY_AREA_NUM_MAX];
     sgl_obj_t         *active;
 #if (CONFIG_SGL_DIRTY_AREA_TRACE)
@@ -611,16 +611,16 @@ int sgl_fbdev_register_dev(sgl_color_t *buffer0, sgl_color_t *buffer1, uint32_t 
  * @brief set framebuffer device flush ready
  * @param none
  * @return none
- * @note this function must be called in DMA callback function after framebuffer device flush
+ * @note this function must be called in DMA callback function after framebuffer device flush.
+ *       Flushes complete in FIFO order, so this marks the oldest emitting
+ *       buffer as ready. The draw loop decides which buffer to draw next.
  */
 static inline void sgl_fbdev_flush_ready(void)
 {
-    sgl_system.fbdev.fb_status |= (1 << sgl_system.fbdev.fb_swap);
-
-    /* change to next framebuffer */
-    if (sgl_system.fbdev.fbinfo.buffer[1] != NULL) {
-        sgl_system.fbdev.surf.buffer = (sgl_color_t *)sgl_system.fbdev.fbinfo.buffer[sgl_system.fbdev.fb_swap ^= 1];
-    }
+    sgl_fbdev_t *fb = &sgl_system.fbdev;
+    uint8_t ready = fb->fb_ready & 0x3;
+    uint8_t bit = (ready == 0) ? (fb->fb_emit ^ 1) : (ready & 1);
+    fb->fb_ready |= (1 << bit);
 }
 
 /**
@@ -630,7 +630,9 @@ static inline void sgl_fbdev_flush_ready(void)
  */
 static inline bool sgl_fbdev_flush_wait_ready(sgl_fbdev_t *fbdev)
 {
-    return (fbdev->fb_status & (1 << sgl_system.fbdev.fb_swap)) == 0;
+    /* single buffer only uses bit0, double buffer uses bit0 and bit1 */
+    uint8_t mask = (fbdev->fbinfo.buffer[1] != NULL) ? 3 : 1;
+    return (fbdev->fb_ready & mask) == 0;
 }
 
 /**
