@@ -36,8 +36,6 @@
 #define SGL_FILEBROWSER_ITEM_PAD         (3)
 #define SGL_FILEBROWSER_ITEM_SPACE       (3)
 #define SGL_FILEBROWSER_PARENT_NAME      ".."
-#define SGL_FILEBROWSER_SCROLLBAR_WIDTH  (5)
-#define SGL_FILEBROWSER_SCROLLBAR_RADIUS (SGL_FILEBROWSER_SCROLLBAR_WIDTH / 2)
 
 static inline bool sgl_filebrowser_is_root(const sgl_filebrowser_t *fb)
 {
@@ -366,7 +364,8 @@ static void sgl_filebrowser_clear_items(sgl_filebrowser_t *fb)
     fb->selected_item.icon_w  = 0;
     fb->item_num              = 0;
     fb->item_selected         = -1;
-    fb->scroll_y              = 0;
+    sgl_scroll_anim_stop(&fb->sc);
+    sgl_scroll_reset(&fb->sc);
     fb->pending_dir_index     = -1;
 }
 
@@ -429,56 +428,42 @@ static void sgl_filebrowser_load_dir(sgl_filebrowser_t *fb, const char *path)
     }
 }
 
-static void sgl_filebrowser_update_scroll(sgl_filebrowser_t *fb, sgl_obj_t *obj, int item_height)
+static int32_t sgl_filebrowser_max_scroll(const sgl_filebrowser_t *fb, const sgl_obj_t *obj, int item_height)
 {
-    const int list_y1 = obj->coords.y1 + item_height + obj->border;
-    const int list_h  = obj->coords.y2 - list_y1 + 1;
-    const int content_h = (int)fb->item_num * item_height;
-
-    if (content_h <= list_h) { fb->scroll_y = 0; return; }
-    const int max_scroll = content_h - list_h;
-    if (fb->scroll_y > 0)             fb->scroll_y = 0;
-    if (fb->scroll_y < -max_scroll)   fb->scroll_y = (int16_t)-max_scroll;
-}
-
-static void sgl_filebrowser_draw_scrollbar(sgl_surf_t *surf, sgl_filebrowser_t *fb, sgl_obj_t *obj, int item_height)
-{
-    if (fb->item_num == 0) return;
-
-    const int16_t scrollbar_margin = 3;
-    const int16_t scrollbar_x2 = obj->coords.x2 - scrollbar_margin;
-    const int16_t scrollbar_x1 = scrollbar_x2 - SGL_FILEBROWSER_SCROLLBAR_WIDTH;
-    const int16_t list_y1  = obj->coords.y1 + item_height;
-    const int16_t track_y1 = list_y1 + scrollbar_margin;
-    const int16_t track_y2 = obj->coords.y2 - scrollbar_margin;
-    const int16_t track_h  = track_y2 - track_y1;
-    if (track_h <= 0) return;
-
+    const int list_y1   = obj->coords.y1 + item_height; /* list starts below the path bar */
     const int list_h    = obj->coords.y2 - list_y1 + 1;
     const int content_h = (int)fb->item_num * item_height;
-    if (content_h <= list_h) return;
+    return sgl_max(0, content_h - list_h);
+}
 
-    int16_t thumb_h = (int16_t)((track_h * list_h) / content_h);
-    if (thumb_h < 12)      thumb_h = 12;
-    if (thumb_h > track_h) thumb_h = track_h;
+static void sgl_filebrowser_scroll_commit(sgl_scroll_t *sc)
+{
+    sgl_filebrowser_t *fb = sgl_container_of(sc, sgl_filebrowser_t, sc);
+    sgl_scroll_bar_wake(sc);
+    sgl_obj_set_dirty(&fb->obj);
+}
 
-    const int max_scroll = content_h - list_h;
-    int16_t scroll_y = fb->scroll_y;
-    if (scroll_y > 0)             scroll_y = 0;
-    if (scroll_y < -max_scroll)   scroll_y = (int16_t)-max_scroll;
+/* Scroll the selected item into the list viewport (keyboard navigation) */
+static void sgl_filebrowser_ensure_selected_visible(sgl_filebrowser_t *fb, sgl_obj_t *obj, int item_height)
+{
+    if (fb->item_selected < 0) return;
+    const int list_h       = obj->coords.y2 - (obj->coords.y1 + item_height) + 1;
+    const int selected_y   = fb->item_selected * item_height;
+    const int view_top     = (int)fb->sc.offset;
+    const int view_bottom  = view_top + list_h;
+    const int32_t max_scroll = sgl_filebrowser_max_scroll(fb, obj, item_height);
 
-    const int16_t thumb_range = track_h - thumb_h;
-    int16_t thumb_y1 = track_y1;
-    if (thumb_range > 0) {
-        thumb_y1 = track_y1 + (int16_t)((-scroll_y * thumb_range) / max_scroll);
+    if (selected_y < view_top) {
+        fb->sc.offset = selected_y;
+    }
+    else if (selected_y + item_height > view_bottom) {
+        fb->sc.offset = selected_y + item_height - list_h;
     }
 
-    sgl_color_t color = sgl_color_mixer(fb->item_text_color, fb->bg_color, 128);
-    sgl_area_t thumb = {
-        .x1 = scrollbar_x1, .y1 = thumb_y1,
-        .x2 = scrollbar_x2, .y2 = thumb_y1 + thumb_h,
-    };
-    sgl_draw_fill_rect(surf, &obj->area, &thumb, SGL_FILEBROWSER_SCROLLBAR_RADIUS, color, fb->alpha);
+    if (fb->sc.offset < 0)
+        fb->sc.offset = 0;
+    if (fb->sc.offset > max_scroll)
+        fb->sc.offset = max_scroll;
 }
 
 static void sgl_filebrowser_draw_path_bar(sgl_surf_t *surf, sgl_filebrowser_t *fb, sgl_obj_t *obj, int item_height)
@@ -516,7 +501,7 @@ static void sgl_filebrowser_visible_range(const sgl_filebrowser_t *fb, sgl_obj_t
     const int list_y1 = obj->coords.y1 + item_height;
     const int list_h  = obj->coords.y2 - list_y1 + 1;
 
-    int first = fb->scroll_y < 0 ? (-fb->scroll_y) / item_height : 0;
+    int first = fb->sc.offset > 0 ? (int)(fb->sc.offset / item_height) : 0;
     if (first < 0) first = 0;
     if (first >= (int)fb->item_num) first = (int)fb->item_num - 1;
 
@@ -571,12 +556,20 @@ static void sgl_filebrowser_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_e
             .pixmap       = fb->pixmap,
         };
 
-        sgl_filebrowser_update_scroll(fb, obj, item_height);
         sgl_draw_rect(surf, &obj->area, &obj->coords, &bg_desc);
         sgl_filebrowser_draw_path_bar(surf, fb, obj, item_height);
 
+        /* Scrollbar viewport = list area below the path bar */
+        const int32_t max_scroll = sgl_filebrowser_max_scroll(fb, obj, item_height);
+        sgl_area_t viewport = {
+            .x1 = obj->coords.x1,
+            .y1 = (int16_t)list_y1,
+            .x2 = obj->coords.x2,
+            .y2 = obj->coords.y2,
+        };
+
         if (fb->item_num == 0) {
-            sgl_filebrowser_draw_scrollbar(surf, fb, obj, item_height);
+            sgl_scroll_draw_bar(surf, obj, &fb->sc, max_scroll, &viewport);
             break;
         }
 
@@ -589,7 +582,7 @@ static void sgl_filebrowser_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_e
         sgl_filebrowser_ensure_visible(fb, first, last);
 
         if (fb->cache_items == NULL || fb->cache_count == 0) {
-            sgl_filebrowser_draw_scrollbar(surf, fb, obj, item_height);
+            sgl_scroll_draw_bar(surf, obj, &fb->sc, max_scroll, &viewport);
             break;
         }
 
@@ -604,7 +597,7 @@ static void sgl_filebrowser_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_e
 
         for (int idx = draw_first; idx <= draw_last; ++idx) {
             const int16_t text_y = list_y1 + SGL_FILEBROWSER_ITEM_SPACE
-                                 + fb->scroll_y + idx * item_height;
+                                 - (int16_t)fb->sc.offset + idx * item_height;
             if (text_y > list_y2) break;
 
             sgl_filebrowser_item_t *item = &fb->cache_items[idx - fb->cache_start_index];
@@ -638,27 +631,40 @@ static void sgl_filebrowser_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_e
                             item->text, fb->item_text_color, fb->alpha, fb->font);
         }
 
-        sgl_filebrowser_draw_scrollbar(surf, fb, obj, item_height);
+        sgl_scroll_draw_bar(surf, obj, &fb->sc, max_scroll, &viewport);
     }
     break;
 
     case SGL_EVENT_PRESSED:
+        sgl_scroll_press(&fb->sc, evt->pos.y);
+        sgl_scroll_bar_wake(&fb->sc);
         if (evt->pos.x >= (obj->coords.x2 - item_height) && evt->pos.y <= (obj->coords.y1 + item_height)) {
             sgl_obj_set_destroyed(obj);
         }
         break;
 
     case SGL_EVENT_MOVE_UP:
-    case SGL_EVENT_MOVE_DOWN:
-        fb->scroll_y += evt->distance;
-        sgl_obj_set_dirty(obj);
-        break;
+    case SGL_EVENT_MOVE_DOWN: {
+        const int32_t max_scroll = sgl_filebrowser_max_scroll(fb, obj, item_height);
+        if (sgl_scroll_stay(&fb->sc, evt->pos.y, max_scroll)) {
+            sgl_obj_set_dirty(obj);
+        }
+    }
+    break;
 
-    case SGL_EVENT_RELEASED:
-        break;
+    case SGL_EVENT_RELEASED: {
+        const int32_t max_scroll = sgl_filebrowser_max_scroll(fb, obj, item_height);
+        fb->sc.range  = max_scroll;
+        fb->sc.commit = sgl_filebrowser_scroll_commit;
+        if (sgl_scroll_release(&fb->sc, max_scroll)) {
+            sgl_scroll_anim_start(&fb->sc);
+        }
+        sgl_obj_set_dirty(obj);
+    }
+    break;
 
     case SGL_EVENT_CLICKED: {
-        const int16_t item_area_top = list_y1 + SGL_FILEBROWSER_ITEM_SPACE + fb->scroll_y;
+        const int16_t item_area_top = list_y1 + SGL_FILEBROWSER_ITEM_SPACE - (int16_t)fb->sc.offset;
         if (evt->pos.y < item_area_top) break;
 
         int16_t clicked_index = (int16_t)((evt->pos.y - item_area_top) / item_height);
@@ -698,10 +704,10 @@ static void sgl_filebrowser_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_e
         else {
             fb->pending_dir_index = -1;
             const int16_t item_y = list_y1 + SGL_FILEBROWSER_ITEM_SPACE
-                                 + fb->scroll_y + clicked_index * item_height;
+                                 - (int16_t)fb->sc.offset + clicked_index * item_height;
             if (old_selected >= 0) {
                 const int16_t old_item_y = list_y1 + SGL_FILEBROWSER_ITEM_SPACE
-                                         + fb->scroll_y + old_selected * item_height;
+                                         - (int16_t)fb->sc.offset + old_selected * item_height;
                 sgl_filebrowser_update_selection_area(obj, old_item_y, item_height);
             }
             sgl_filebrowser_update_selection_area(obj, item_y, item_height);
@@ -712,6 +718,9 @@ static void sgl_filebrowser_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_e
     case SGL_EVENT_KEY_DOWN:
         if (fb->item_selected < (int16_t)fb->item_num - 1) {
             sgl_filebrowser_select_index(fb, fb->item_selected + 1);
+            sgl_scroll_anim_stop(&fb->sc);
+            sgl_filebrowser_ensure_selected_visible(fb, obj, item_height);
+            sgl_scroll_bar_wake(&fb->sc);
             sgl_obj_set_dirty(obj);
         }
         break;
@@ -719,12 +728,15 @@ static void sgl_filebrowser_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_e
     case SGL_EVENT_KEY_UP:
         if (fb->item_selected > 0) {
             sgl_filebrowser_select_index(fb, fb->item_selected - 1);
-
+            sgl_scroll_anim_stop(&fb->sc);
+            sgl_filebrowser_ensure_selected_visible(fb, obj, item_height);
+            sgl_scroll_bar_wake(&fb->sc);
             sgl_obj_set_dirty(obj);
         }
         break;
 
     case SGL_EVENT_DESTROYED:
+        sgl_scroll_anim_stop(&fb->sc);
         sgl_filebrowser_clear_items(fb);
         break;
 
@@ -767,6 +779,7 @@ sgl_obj_t* sgl_filebrowser_create(sgl_obj_t *parent)
     fb->item_selected        = -1;
     fb->cache_start_index    = -1;
     fb->dir_handle           = -1;
+    sgl_scroll_reset(&fb->sc);
     strcpy(fb->current_path, "/");
     sgl_filebrowser_update_full_path(fb);
 

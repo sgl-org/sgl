@@ -83,6 +83,7 @@
 #define __SGL_FILEBROWSER_H__
 
 #include <sgl_core.h>
+#include <sgl_misc.h>
 
 #define SGL_FILEBROWSER_PATH_MAX_LEN  (128)
 #define SGL_FILEBROWSER_NAME_MAX_LEN  (64)
@@ -143,7 +144,7 @@ typedef struct sgl_filebrowser {
     sgl_filebrowser_icon_t *icons;
     uint8_t alpha;
     uint8_t icon_width;
-    int16_t scroll_y;
+    sgl_scroll_t sc;                   /**< shared scroll physics state (sgl_misc) */
     char current_path[SGL_FILEBROWSER_PATH_MAX_LEN];
     char full_path[SGL_FILEBROWSER_PATH_MAX_LEN];
     const char *path_prefix;
