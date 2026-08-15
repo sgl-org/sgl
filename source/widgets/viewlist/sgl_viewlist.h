@@ -31,6 +31,8 @@
 #include <sgl_log.h>
 #include <sgl_mm.h>
 #include <sgl_cfgfix.h>
+#include <sgl_misc.h>
+#include <sgl_anim.h>
 #include <string.h>
 
 /**
@@ -66,7 +68,6 @@
  *   }
  */
 
-
 /**
  * @brief sgl viewlist struct
  * @obj: sgl general object
@@ -74,7 +75,6 @@
 typedef struct sgl_viewlist {
     sgl_obj_t obj;
     const sgl_pixmap_t *pixmap;
-    int16_t pos_y;
     sgl_color_t bg_color;
     sgl_color_t border_color;
     uint16_t item_height;
@@ -82,6 +82,7 @@ typedef struct sgl_viewlist {
     uint8_t margin_x;
     uint8_t margin_y;
     uint8_t alpha;
+    sgl_scroll_t  sc;
 } sgl_viewlist_t;
 
 /**

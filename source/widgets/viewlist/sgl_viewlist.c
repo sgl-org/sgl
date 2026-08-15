@@ -32,6 +32,32 @@
 #include <string.h>
 #include "sgl_viewlist.h"
 
+static int32_t sgl_viewlist_max_scroll(sgl_viewlist_t *viewlist)
+{
+    const int list_h = viewlist->obj.coords.y2 - viewlist->obj.coords.y1 + 1;
+    const int content_h = (int)viewlist->item_num * (viewlist->item_height + viewlist->margin_y);
+    return sgl_max(0, content_h - list_h);
+}
+
+static void sgl_viewlist_layout(sgl_viewlist_t *viewlist)
+{
+    sgl_obj_t *child = NULL;
+    sgl_obj_t *obj = &viewlist->obj;
+    int pos_y = -(int16_t)viewlist->sc.offset + viewlist->margin_y + viewlist->obj.border;
+
+    sgl_obj_for_each_child(child, obj) {
+        sgl_obj_set_pos_y(child, pos_y);
+        pos_y += viewlist->item_height + viewlist->margin_y;
+    }
+}
+
+static void sgl_viewlist_scroll_commit(sgl_scroll_t *sc)
+{
+    sgl_viewlist_t *viewlist = sgl_container_of(sc, sgl_viewlist_t, sc);
+    sgl_viewlist_layout(viewlist);
+    sgl_obj_set_dirty(&viewlist->obj);
+}
+
 static void sgl_viewlist_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *evt)
 {
     sgl_viewlist_t *viewlist = sgl_container_of(obj, sgl_viewlist_t, obj);
@@ -45,52 +71,42 @@ static void sgl_viewlist_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
         .radius = obj->radius,
         .pixmap = viewlist->pixmap,
     };
-    const int list_h = obj->coords.y2 - obj->coords.y1 + 1;
-    sgl_obj_t *child = NULL;
-    int pos_y = 0, diff = 0;
 
     switch (evt->type) {
     case SGL_EVENT_DRAW_MAIN:
         sgl_draw_rect(surf, &obj->area, &obj->coords, &bg_desc);
         break;
 
+    case SGL_EVENT_PRESSED:
+        sgl_scroll_press(&viewlist->sc, evt->pos.y);
+        break;
+
     case SGL_EVENT_MOVE_UP:
     case SGL_EVENT_MOVE_DOWN: {
-        bool can_move = (evt->type == SGL_EVENT_MOVE_UP)
-            ? ((viewlist->pos_y + viewlist->item_num * (viewlist->item_height + viewlist->margin_y))
-                                    >= (list_h - viewlist->item_height / 2))
-            : (viewlist->pos_y < viewlist->item_height / 2);
-        if (can_move) {
-            viewlist->pos_y += evt->distance;
-            sgl_obj_for_each_child(child, obj) {
-                sgl_obj_set_pos_y(child, sgl_obj_get_pos_y(child) + evt->distance);
-            }
+        const int32_t max_scroll = sgl_viewlist_max_scroll(viewlist);
+        uint8_t r = sgl_scroll_stay(&viewlist->sc,
+                                    evt->pos.y, max_scroll);
+        if (r) {
+            sgl_viewlist_layout(viewlist);
+            sgl_obj_set_dirty(obj);
         }
+        break;
+    }
+
+    case SGL_EVENT_RELEASED: {
+        const int32_t max_scroll = sgl_viewlist_max_scroll(viewlist);
+        viewlist->sc.range = max_scroll;
+        viewlist->sc.commit = sgl_viewlist_scroll_commit;
+        if (sgl_scroll_release(&viewlist->sc, max_scroll)) {
+            sgl_scroll_anim_start(&viewlist->sc);
+        }
+        sgl_viewlist_layout(viewlist);
         sgl_obj_set_dirty(obj);
         break;
     }
 
-    case SGL_EVENT_RELEASED:
-        diff = viewlist->item_num * (viewlist->item_height + viewlist->margin_y);
-        if (viewlist->pos_y >= 0) {
-            viewlist->pos_y = 0;
-            pos_y = viewlist->pos_y + viewlist->margin_y + obj->border;
-
-            sgl_obj_for_each_child(child, obj) {
-                sgl_obj_set_pos_y(child, pos_y);
-                pos_y += viewlist->item_height + viewlist->margin_y;
-            }
-            sgl_obj_set_dirty(obj);
-        }
-        else if((viewlist->pos_y + diff) < list_h) {
-            viewlist->pos_y = list_h - diff;
-            pos_y = viewlist->pos_y + obj->border - 1;
-            sgl_obj_for_each_child(child, obj) {
-                sgl_obj_set_pos_y(child, pos_y);
-                pos_y += (viewlist->item_height + viewlist->margin_y);
-            }
-            sgl_obj_set_dirty(obj);
-        }
+    case SGL_EVENT_DESTROYED:
+        sgl_scroll_anim_stop(&viewlist->sc);
         break;
 
     default:
@@ -127,6 +143,7 @@ sgl_obj_t* sgl_viewlist_create(sgl_obj_t* parent)
     viewlist->margin_y = 1;
     viewlist->item_height = 20;
     viewlist->item_num = 0;
+    sgl_scroll_reset(&viewlist->sc);
 
     return obj;
 }

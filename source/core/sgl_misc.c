@@ -23,14 +23,14 @@
  */
 
 #include <sgl.h>
+#include <sgl_draw.h>
+#include <sgl_theme.h>
 
 #if (CONFIG_SGL_BOOT_LOGO)
-
 typedef struct sgl_logo {
     sgl_obj_t       obj;
     uint8_t         alpha;
 } sgl_logo_t;
-
 
 static void sgl_logo_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *evt)
 {
@@ -50,20 +50,6 @@ static void sgl_logo_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t 
         .y2 = pos_y_val(848),
     };
 
-    sgl_area_t sw_rect = {
-        .x1 = pos_x_val(369),
-        .y1 = pos_y_val(340),
-        .x2 = pos_x_val(655),
-        .y2 = pos_y_val(490),
-    };
-
-    sgl_area_t sw_rect2 = {
-        .x1 = pos_x_val(369),
-        .y1 = pos_y_val(539),
-        .x2 = pos_x_val(655),
-        .y2 = pos_y_val(684),
-    };
-
     const int16_t pin_w = 60;
     const int16_t pin_gap = 66;
 
@@ -71,9 +57,21 @@ static void sgl_logo_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t 
         sgl_draw_fill_rect_border(surf, &obj->area, &rect,
                                   rel_value(40), SGL_COLOR_BLUE, rel_value(51), logo->alpha);
 
-        sgl_draw_fill_rect_border(surf, &obj->area, &sw_rect,
+        rect = (sgl_area_t){
+            .x1 = pos_x_val(369),
+            .y1 = pos_y_val(340),
+            .x2 = pos_x_val(655),
+            .y2 = pos_y_val(490),
+        };
+        sgl_draw_fill_rect_border(surf, &obj->area, &rect,
                                   rel_value(75), SGL_COLOR_BLUE, rel_value(20), logo->alpha);
-        sgl_draw_fill_rect(surf, &obj->area, &sw_rect2,
+        rect = (sgl_area_t){
+            .x1 = pos_x_val(369),
+            .y1 = pos_y_val(539),
+            .x2 = pos_x_val(655),
+            .y2 = pos_y_val(684),
+        };
+        sgl_draw_fill_rect(surf, &obj->area, &rect,
                                   rel_value(75), SGL_COLOR_BLUE, logo->alpha);
 
         sgl_draw_fill_circle(surf, &obj->area, pos_x_val(446), pos_y_val(410), rel_value(60), SGL_COLOR_BLUE, logo->alpha);
@@ -352,15 +350,14 @@ void sgl_monitor_trace(sgl_surf_t *surf)
     static sgl_obj_t *monitor = NULL;
     static sgl_obj_t *fps = NULL;
     static sgl_obj_t *mem = NULL;
-    sgl_obj_t *child = NULL;
     static uint32_t last_tick = 0;
-    uint32_t cur_tick = sgl_last_tick_get(), fps_count, tick_used;
-    sgl_event_t evt = {0};
+    uint32_t cur_tick = sgl_last_tick_get();
 
     if (monitor) {
-        tick_used = cur_tick - last_tick;
+        uint32_t tick_used = cur_tick - last_tick;
+
         if (tick_used >= SGL_SYSTEM_TICK_MS) {
-            fps_count = 1000 / tick_used;
+            uint32_t fps_count = 1000 / tick_used;
             last_tick = cur_tick;
 
             sgl_snprintf(fps_str, sizeof(fps_str), "FPS:%d", fps_count);
@@ -376,6 +373,9 @@ void sgl_monitor_trace(sgl_surf_t *surf)
 #endif
 
         /* update monitor page */
+        sgl_event_t evt = {0};
+        sgl_obj_t *child;
+
         evt.type = SGL_EVENT_DRAW_MAIN;
         if (sgl_surf_area_is_overlap(surf, &monitor->area)) {
             monitor->construct_fn(surf, monitor, &evt);
@@ -470,4 +470,444 @@ int sgl_string_option_get_text_len(const char *text, int offset)
         p++;
     }
     return len;
+}
+
+/**
+ * @brief Reset scroll state (used on init / re-binding data)
+ * @param sc scroll state
+ * @return none
+ * @note zeroes the whole struct then restores the resident scrollbar alpha
+ */
+void sgl_scroll_reset(sgl_scroll_t *sc)
+{
+    memset(sc, 0, sizeof(sgl_scroll_t));
+    sc->bar_alpha = 128;
+}
+
+/**
+ * @brief Feed a press event: freeze coasting and start tracking this press sequence
+ * @param sc scroll state
+ * @param coord main-axis touch coordinate
+ * @return none
+ * @note stops any running inertia immediately (overscroll stays frozen until
+ *       release), resets the speed window and anchors grab/prev coordinates
+ */
+void sgl_scroll_press(sgl_scroll_t *sc, int16_t coord)
+{
+    sc->coasting = 0U;
+    sc->speed = 0;
+    sc->dragged = 0U;
+    sc->win_dist = 0;
+    sc->touching = 1U;
+    sc->grab_coord = coord;
+    sc->prev_coord = coord;
+    sc->win_tick = (uint16_t)sgl_tick_get();
+}
+
+/**
+ * @brief Soft clamp: allow overscroll for rubber-band effect
+ * @param offset scroll offset
+ * @param range maximum scroll distance
+ * @return clamped scroll offset
+ */
+static int32_t sgl_scroll_soft_limit(int32_t offset, int32_t range)
+{
+    if (offset < -(int32_t)SGL_SCROLL_OVERSCROLL)
+        offset = -(int32_t)SGL_SCROLL_OVERSCROLL;
+    if (offset > range + (int32_t)SGL_SCROLL_OVERSCROLL)
+        offset = range + (int32_t)SGL_SCROLL_OVERSCROLL;
+    return offset;
+}
+
+/**
+ * @brief Feed a move event: drag-start check + incremental follow + window speed sampling
+ * @param sc scroll state
+ * @param coord main-axis touch coordinate
+ * @param range current scroll upper limit (content height - viewport height)
+ * @return 0 = not started yet; 1 = threshold just crossed this frame
+ *         (caller should cancel the pressed highlight); 2 = dragging in progress.
+ * @note follows by per-frame delta (offset -= coord - prev_coord) with
+ *       rubber-band soft clamp; speed is sampled as displacement/time over a
+ *       VEL_WINDOW_MS window, independent of the event rate
+ */
+uint8_t sgl_scroll_stay(sgl_scroll_t *sc, int16_t coord, int32_t range)
+{
+    int16_t d = (int16_t)(coord - sc->prev_coord);
+    uint8_t just_started = 0U;
+
+    if (!sc->touching)
+        return 0U;
+
+    if (!sc->dragged) {
+        /* startup check: total displacement since press vs threshold */
+        int16_t span = (int16_t)(coord - sc->grab_coord);
+        int16_t mag = (span >= 0) ? span : (int16_t)(-span);
+
+        if (mag < SGL_SCROLL_DRAG_THRESHOLD)
+            return 0U;
+        sc->dragged = 1U;
+        just_started = 1U;
+    }
+
+    sc->offset = sgl_scroll_soft_limit(sc->offset - (int32_t)d, range);
+    if (d != 0) {
+        /* velocity sampling: distance over a fixed time window, independent
+         * of the event rate */
+        uint16_t now = (uint16_t)sgl_tick_get();
+        uint16_t span_ms = (uint16_t)(now - sc->win_tick);
+
+        sc->win_dist = (int16_t)(sc->win_dist + d);
+        if (span_ms >= SGL_SCROLL_VEL_WINDOW_MS) {
+            sc->speed = (int16_t)(-(int32_t)sc->win_dist * 16 / (int32_t)span_ms);
+            sc->win_dist = 0;
+            sc->win_tick = now;
+        }
+    }
+    sc->prev_coord = coord;
+    return just_started ? 1U : 2U;
+}
+
+/**
+ * @brief Feed a release event: settle the final speed and decide whether inertia/rebound is needed
+ * @param sc scroll state
+ * @param range current scroll upper limit (content height - viewport height)
+ * @return non-zero = animation needed (caller then invokes sgl_scroll_anim_start); 0 = at rest.
+ * @note the final speed comes from the still-open measurement window; if the
+ *       pointer has been still for more than one window the release is
+ *       treated as parked (speed = 0). Out-of-range releases always animate
+ *       so the content snaps back
+ */
+uint8_t sgl_scroll_release(sgl_scroll_t *sc, int32_t range)
+{
+    uint8_t was_drag = sc->dragged;
+    uint8_t out_of_range = (sc->offset < 0 || sc->offset > range) ? 1U : 0U;
+    uint16_t since_win = (uint16_t)((uint16_t)sgl_tick_get() - sc->win_tick);
+
+    /* final speed: settle the open window; treat as parked when the pointer
+     * has been still for more than one window */
+    if (since_win > SGL_SCROLL_VEL_WINDOW_MS) {
+        sc->speed = 0;
+    } else if (sc->win_dist != 0) {
+        if (since_win < 16U)
+            since_win = 16U;
+        sc->speed = (int16_t)(-(int32_t)sc->win_dist * 16 / (int32_t)since_win);
+    }
+
+    sc->touching = 0U;
+    sc->dragged = 0U;
+    sc->win_dist = 0;
+
+    if ((was_drag && sc->speed != 0) || out_of_range) {
+        sc->coasting = 1U;
+        return 1U;
+    }
+    sc->speed = 0;
+    return 0U;
+}
+
+/**
+ * @brief Rubber-band pull back toward the nearest bound
+ * @param offset scroll offset (out of range)
+ * @param range maximum scroll distance
+ * @return offset moved one easing step toward [0, range]
+ */
+static int32_t sgl_scroll_snap_back(int32_t offset, int32_t range)
+{
+    int32_t over = (offset < 0) ? -offset : offset - range;
+    int32_t step = over / SGL_SCROLL_REBOUND_PULL_DIV;
+
+    if (step < 1)
+        step = 1;
+    if (step > SGL_SCROLL_REBOUND_MAX_STEP)
+        step = SGL_SCROLL_REBOUND_MAX_STEP;
+    return (offset < 0) ? (offset + step) : (offset - step);
+}
+
+/**
+ * @brief Inertia/rebound step (driven by sgl_scroll_anim_step_cb)
+ * @param sc scroll state
+ * @param elapsed_ms elapsed time since the previous step
+ * @param range current scroll upper limit (content height - viewport height)
+ * @return non-zero = offset changed; coasting is cleared automatically on settle.
+ * @note phase 1 glides by speed * elapsed / 16 and decays speed by NUM/DEN
+ *       once per 16ms slice (halved again while overscrolled); phase 2 eases
+ *       the offset back into [0, range]. elapsed_ms is clamped to 64ms to
+ *       bound the per-frame jump
+ */
+uint8_t sgl_scroll_anim_step(sgl_scroll_t *sc, uint16_t elapsed_ms, int32_t range)
+{
+    int32_t next;
+    uint16_t step_ms;
+
+    if (!sc->coasting || elapsed_ms == 0U)
+        return 0U;
+
+    step_ms = (elapsed_ms > 64U) ? 64U : elapsed_ms;
+    next = sc->offset;
+
+    /* phase 1: glide with 7/8 decay per 16ms slice */
+    if (sc->speed != 0) {
+        int32_t delta = ((int32_t)sc->speed * (int32_t)step_ms) / 16;
+        uint16_t slices = (uint16_t)(step_ms >> 4);
+
+        if (delta == 0)
+            delta = (sc->speed > 0) ? 1 : -1; /* keep crawling at low speed */
+        next = sgl_scroll_soft_limit(next + delta, range);
+
+        while (slices--)
+            sc->speed = (int16_t)(((int32_t)sc->speed * SGL_SCROLL_INERTIA_NUM) / SGL_SCROLL_INERTIA_DEN);
+        if (next < 0 || next > range)
+            sc->speed = (int16_t)(sc->speed / 2); /* shed speed faster in overscroll */
+    }
+
+    /* phase 2: settle back into bounds */
+    if (next < 0 || next > range)
+        next = sgl_scroll_snap_back(next, range);
+
+    if (sc->speed == 0 && next >= 0 && next <= range)
+        sc->coasting = 0U;
+
+    if (next == sc->offset)
+        return 0U;
+    sc->offset = next;
+    return 1U;
+}
+
+/**
+ * @brief Wake the scrollbar (call on scroll value change / data binding)
+ * @param sc scroll state
+ * @return none
+ * @note restores the active alpha and restarts the idle hold timer
+ */
+void sgl_scroll_bar_wake(sgl_scroll_t *sc)
+{
+    sc->bar_idle = 0U;
+    sc->bar_alpha = SGL_SCROLL_BAR_ACTIVE_ALPHA;
+}
+
+/**
+ * @brief Scrollbar fade-out step
+ * @param sc scroll state
+ * @param elapsed_ms elapsed time since the previous step
+ * @return non-zero = alpha changed; always returns 0 once the resident value is reached.
+ * @note holds full opacity for BAR_IDLE_MS first, then decreases FADE_STEP
+ *       per 16ms slice down to the resident alpha
+ */
+uint8_t sgl_scroll_bar_step(sgl_scroll_t *sc, uint16_t elapsed_ms)
+{
+    uint16_t slices;
+    uint16_t dec;
+
+    if (sc->bar_alpha <= SGL_SCROLL_BAR_RESIDENT_ALPHA)
+        return 0U;
+
+    /* hold at full opacity until the idle grace period is consumed */
+    if (sc->bar_idle < SGL_SCROLL_BAR_IDLE_MS) {
+        uint16_t remaining = (uint16_t)(SGL_SCROLL_BAR_IDLE_MS - sc->bar_idle);
+
+        if (elapsed_ms < remaining) {
+            sc->bar_idle = (uint16_t)(sc->bar_idle + elapsed_ms);
+            return 0U;
+        }
+        sc->bar_idle = SGL_SCROLL_BAR_IDLE_MS;
+        elapsed_ms = (uint16_t)(elapsed_ms - remaining);
+        if (elapsed_ms == 0U)
+            return 0U;
+    }
+
+    /* fade one alpha step per 16ms slice, floor at the resident value */
+    slices = (uint16_t)(elapsed_ms / 16U);
+    if (slices == 0U)
+        slices = 1U;
+    dec = (uint16_t)(slices * (uint16_t)SGL_SCROLL_BAR_FADE_STEP);
+    if ((uint16_t)sc->bar_alpha > (uint16_t)SGL_SCROLL_BAR_RESIDENT_ALPHA + dec)
+        sc->bar_alpha = (uint8_t)(sc->bar_alpha - dec);
+    else
+        sc->bar_alpha = SGL_SCROLL_BAR_RESIDENT_ALPHA;
+
+    return 1U;
+}
+
+/**
+ * @brief Scroll animation path algorithm: returns monotonically increasing elaps
+ *        so that path_cb is invoked every frame
+ * @param elaps elapsed time since animation start
+ * @param duration unused
+ * @param start unused
+ * @param end unused
+ * @return elapsed time cast to the animation value
+ * @note used together with sgl_scroll_anim_step_cb; duration should be set to
+ *       a large value (e.g. 0x7FFF) with SGL_ANIM_REPEAT_LOOP so the physics
+ *       keeps stepping
+ */
+int32_t sgl_scroll_anim_path_algo(uint16_t elaps, uint16_t duration, int32_t start, int32_t end)
+{
+    SGL_UNUSED(duration);
+    SGL_UNUSED(start);
+    SGL_UNUSED(end);
+    return (int32_t)elaps;
+}
+
+/**
+ * @brief Scroll animation step callback (used as the path_cb of sgl_anim)
+ * @param anim animation node whose data pointer references the scroll state
+ * @param value unused (path_algo only guarantees a per-frame call)
+ * @return none
+ * @note advances the physics and scrollbar fade on a >=16ms cadence, commits
+ *       changes through sc->commit and stops the node on settle (released by
+ *       the animation task together with auto_free). Stops immediately if
+ *       the widget cleared sc->commit
+ */
+void sgl_scroll_anim_step_cb(sgl_anim_t *anim, int32_t value)
+{
+    sgl_scroll_t *sc = (sgl_scroll_t *)anim->data;
+    uint32_t now;
+    uint16_t elapsed;
+    uint8_t changed = 0U;
+
+    SGL_UNUSED(value);
+    SGL_ASSERT(sc != NULL);
+
+    if (sc->commit == NULL) {
+        sc->anim = NULL;
+        sgl_anim_stop(anim);
+        return;
+    }
+
+    now = sgl_tick_get();
+    elapsed = (uint16_t)(now - (uint32_t)sc->step_tick);
+
+    if (elapsed < 16U)
+        return;
+    sc->step_tick = (uint16_t)now;
+
+    if (sc->coasting) {
+        if (sgl_scroll_anim_step(sc, elapsed, sc->range))
+            changed = 1U;
+    }
+
+    if (sc->bar_alpha > SGL_SCROLL_BAR_RESIDENT_ALPHA) {
+        if (sgl_scroll_bar_step(sc, elapsed))
+            changed = 1U;
+    }
+
+    if (changed && sc->commit)
+        sc->commit(sc);
+
+    if (!sc->coasting && sc->bar_alpha <= SGL_SCROLL_BAR_RESIDENT_ALPHA) {
+        sc->anim = NULL;
+        sgl_anim_stop(anim);
+    }
+}
+
+/**
+ * @brief Start the inertia/rebound + scrollbar fade-out animation (shared by all widgets)
+ * @param sc scroll state
+ * @return none
+ * @note creates the animation node dynamically (attached to sc->anim) and
+ *       starts it with SGL_ANIM_REPEAT_LOOP; stopped and released
+ *       automatically on settle (coasting finished and scrollbar faded to
+ *       the resident value). Any previously running node is stopped first.
+ *       The caller must set sc->commit beforehand
+ */
+void sgl_scroll_anim_start(sgl_scroll_t *sc)
+{
+    sgl_anim_t *anim;
+
+    if (sc->anim != NULL)
+        sgl_scroll_anim_stop(sc);
+
+    anim = sgl_anim_create();
+    if (anim == NULL)
+        return;
+
+    sc->anim = anim;
+    sc->step_tick = (uint16_t)sgl_tick_get();
+
+    sgl_anim_set_data(anim, sc);
+    sgl_anim_set_path(anim, sgl_scroll_anim_step_cb, sgl_scroll_anim_path_algo);
+    sgl_anim_set_act_duration(anim, 0x7FFF);
+    sgl_anim_set_auto_free(anim);
+    sgl_anim_start(anim, SGL_ANIM_REPEAT_LOOP);
+}
+
+/**
+ * @brief Stop and release the scroll animation node early (used on widget
+ *        destroy/collapse; a no-op when no animation is running)
+ * @param sc scroll state
+ * @return none
+ */
+void sgl_scroll_anim_stop(sgl_scroll_t *sc)
+{
+    if (sc->anim != NULL) {
+        sgl_anim_stop(sc->anim);
+        sgl_free(sc->anim);
+        sc->anim = NULL;
+    }
+}
+
+/**
+ * @brief Draw the right-hand vertical scrollbar (called in the widget DRAW_MAIN)
+ * @param surf drawing surface
+ * @param obj widget object (provides x coordinates, border and corner radius)
+ * @param sc scroll state (reads offset / bar_alpha)
+ * @param range current scroll upper limit; nothing is drawn when range<=0 (no scrollable content)
+ * @param viewport vertical track extent (y1/y2 of the scrollable list area,
+ *                 which may start below the widget top, e.g. under a dropdown header)
+ * @return none
+ * @note thumb height is proportional to viewport / content height (min 8px);
+ *       thumb position maps offset into the track; drawn with the theme
+ *       scroll foreground color at bar_alpha opacity
+ */
+void sgl_scroll_draw_bar(sgl_surf_t *surf, sgl_obj_t *obj, const sgl_scroll_t *sc,
+                         int32_t range, const sgl_area_t *viewport)
+{
+    int viewport_h;
+    int thumb_h;
+    int thumb_y;
+    int bar_x1;
+    int bar_x2;
+    int v_margin;
+    sgl_area_t thumb;
+
+    if (range <= 0)
+        return;
+
+    viewport_h = viewport->y2 - viewport->y1 + 1;
+    if (viewport_h + (int)range <= 0)
+        return;
+
+    v_margin = (int)obj->border + 1;
+    if (v_margin * 2 >= viewport_h)
+        v_margin = viewport_h / 2 - 1;
+    if (v_margin < 1)
+        v_margin = 1;
+
+    thumb_h = viewport_h * viewport_h / (viewport_h + (int)range);
+    if (thumb_h < 8)
+        thumb_h = 8;
+    if (thumb_h > viewport_h - 2 * v_margin)
+        thumb_h = viewport_h - 2 * v_margin;
+    if (thumb_h < 1)
+        thumb_h = 1;
+
+    thumb_y = viewport->y1 + v_margin
+              + (int)((int32_t)sc->offset * (viewport_h - 2 * v_margin - thumb_h) / range);
+    if (thumb_y < viewport->y1 + v_margin)
+        thumb_y = viewport->y1 + v_margin;
+    if (thumb_y + thumb_h > viewport->y2 + 1 - v_margin)
+        thumb_y = viewport->y2 + 1 - v_margin - thumb_h;
+
+    bar_x2 = obj->coords.x2 - ((obj->radius >= 1) ? (int)obj->radius : 1);
+    bar_x1 = bar_x2 - (int)SGL_SCROLL_BAR_WIDTH + 1;
+    if (bar_x1 < obj->coords.x1)
+        bar_x1 = obj->coords.x1;
+
+    thumb.x1 = (int16_t)bar_x1;
+    thumb.y1 = (int16_t)thumb_y;
+    thumb.x2 = (int16_t)bar_x2;
+    thumb.y2 = (int16_t)(thumb_y + thumb_h - 1);
+
+    sgl_draw_fill_rect(surf, &obj->area, &thumb, (int16_t)(SGL_SCROLL_BAR_WIDTH / 2),
+                                              SGL_THEME_SCROLL_FG_COLOR, sc->bar_alpha);
 }

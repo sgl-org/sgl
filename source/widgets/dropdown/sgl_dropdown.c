@@ -35,6 +35,20 @@
 #define  SGL_DROPDOWN_OPTION_PAD    (3)
 #define  SGL_DROPDOWN_OPTION_SPACE  (3)
 
+static int32_t sgl_dropdown_max_scroll(sgl_dropdown_t *dropdown, int item_height)
+{
+    const int list_h = item_height * sgl_min((int)dropdown->item_num, (int)dropdown->max_visible_item);
+    const int content_h = (int)dropdown->item_num * item_height;
+    return sgl_max(0, content_h - list_h);
+}
+
+static void sgl_dropdown_scroll_commit(sgl_scroll_t *sc)
+{
+    sgl_dropdown_t *dropdown = sgl_container_of(sc, sgl_dropdown_t, sc);
+    sgl_scroll_bar_wake(sc);
+    sgl_obj_set_dirty(&dropdown->obj);
+}
+
 static const uint8_t dropdown_bitmap[] = {
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x30,0x00,
     0x0c,0xfa,0x00,0x00,0x00,0x00,0x05,0xee,0x50,
@@ -94,32 +108,31 @@ static void adjust_selection_after_delete(sgl_dropdown_t *dropdown, int deleted_
     }
 }
 
-static void sgl_dropdown_clamp_pos_y(sgl_dropdown_t *dropdown, int list_h, int item_height)
+static void sgl_dropdown_clamp_pos(sgl_dropdown_t *dropdown, int list_h, int item_height)
 {
-    if (dropdown->pos_y > 0) {
-        dropdown->pos_y = 0;
+    const int max_scroll = sgl_max(0, dropdown->item_num * item_height - list_h);
+
+    if (dropdown->sc.offset < 0) {
+        dropdown->sc.offset = 0;
     }
-    else {
-        const int min_pos = sgl_min(0, list_h - dropdown->item_num * item_height);
-        if (dropdown->pos_y < min_pos) {
-            dropdown->pos_y = min_pos;
-        }
+    else if (dropdown->sc.offset > max_scroll) {
+        dropdown->sc.offset = max_scroll;
     }
 }
 
 static void sgl_dropdown_ensure_visible(sgl_dropdown_t *dropdown, int list_h, int item_height)
 {
     const int selected_y = dropdown->item_selected * item_height;
-    const int view_top = -dropdown->pos_y;
+    const int view_top = (int)dropdown->sc.offset;
     const int view_bottom = view_top + list_h;
 
     if (selected_y < view_top) {
-        dropdown->pos_y = -selected_y;
+        dropdown->sc.offset = selected_y;
     }
     else if (selected_y + item_height > view_bottom) {
-        dropdown->pos_y = -(selected_y + item_height - list_h);
+        dropdown->sc.offset = selected_y + item_height - list_h;
     }
-    sgl_dropdown_clamp_pos_y(dropdown, list_h, item_height);
+    sgl_dropdown_clamp_pos(dropdown, list_h, item_height);
 }
 
 static void sgl_dropdown_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_t *evt)
@@ -188,7 +201,7 @@ static void sgl_dropdown_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_even
                 .y2 = sgl_min(bg_coords.y2, obj->coords.y2),
             };
 
-            int16_t draw_text_y = bg_coords.y1 + SGL_DROPDOWN_OPTION_SPACE + dropdown->pos_y;
+            int16_t draw_text_y = bg_coords.y1 + SGL_DROPDOWN_OPTION_SPACE - (int16_t)dropdown->sc.offset;
             sgl_draw_fill_hline(surf, &bg_area, draw_text_y - SGL_DROPDOWN_OPTION_SPACE,
                                 text_pos_x1, text_pos_x2, 1, dropdown->text_color, dropdown->alpha);
 
@@ -212,7 +225,7 @@ static void sgl_dropdown_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_even
                 text_buf[copy_len] = '\0';
 
                 if (item_idx == dropdown->item_selected) {
-                    select.y1 = draw_text_y - SGL_DROPDOWN_OPTION_SPACE;
+                    select.y1 = draw_text_y - SGL_DROPDOWN_OPTION_SPACE + 1;
                     select.y2 = select.y1 + item_height;
 
                     if (select.y1 >= (bg_coords.y1 + obj->radius) && select.y2 <= (bg_coords.y2 - obj->radius)) {
@@ -240,29 +253,39 @@ static void sgl_dropdown_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_even
                 offset += len;
                 if (dropdown->opt_text[offset] == '\n') offset++;
             }
+
+            sgl_scroll_draw_bar(surf, obj, &dropdown->sc, sgl_dropdown_max_scroll(dropdown, item_height), &bg_coords);
         }
     } break;
+
+    case SGL_EVENT_PRESSED:
+        if (dropdown->is_open) {
+            sgl_scroll_press(&dropdown->sc, evt->pos.y);
+            sgl_scroll_bar_wake(&dropdown->sc);
+        }
+        break;
 
     case SGL_EVENT_MOVE_UP:
     case SGL_EVENT_MOVE_DOWN:
         if (dropdown->is_open) {
-            bool can_move = (evt->type == SGL_EVENT_MOVE_UP)
-                            ? ((dropdown->pos_y + dropdown->item_num * item_height) >= (list_h - item_height / 2))
-                            : (dropdown->pos_y < item_height / 2);
-            if (can_move) {
-                dropdown->pos_y += evt->distance;
+            const int32_t max_scroll = sgl_dropdown_max_scroll(dropdown, item_height);
+            uint8_t r = sgl_scroll_stay(&dropdown->sc,
+                                        evt->pos.y, max_scroll);
+            if (r) {
+                bg_coords.y1 += dropdown->option_h;
+                sgl_obj_update_area(&bg_coords);
             }
-            bg_coords.y1 += dropdown->option_h;
-            sgl_obj_update_area(&bg_coords);
         }
         break;
 
     case SGL_EVENT_CLICKED:
         if (dropdown->is_open) {
             dropdown->is_open = false;
+            sgl_scroll_anim_stop(&dropdown->sc);
+            sgl_scroll_reset(&dropdown->sc);
             obj->coords.y2 = obj->coords.y1 + dropdown->option_h - 1;
             if (evt->pos.y > obj->coords.y2) {
-                int new_sel = (evt->pos.y - obj->coords.y2 - dropdown->pos_y) / item_height;
+                int new_sel = (evt->pos.y - obj->coords.y2) / item_height;
                 if (new_sel >= 0 && new_sel < dropdown->item_num) {
                     dropdown->item_selected = (int16_t)new_sel;
                     dropdown->text_offset = (uint16_t)sgl_string_option_get_offset(dropdown->opt_text, dropdown->item_selected);
@@ -278,13 +301,19 @@ static void sgl_dropdown_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_even
 
     case SGL_EVENT_RELEASED:
         if (dropdown->is_open) {
-            sgl_dropdown_clamp_pos_y(dropdown, list_h, item_height);
+            const int32_t max_scroll = sgl_dropdown_max_scroll(dropdown, item_height);
+            dropdown->sc.range = max_scroll;
+            dropdown->sc.commit = sgl_dropdown_scroll_commit;
+            if (sgl_scroll_release(&dropdown->sc, max_scroll)) {
+                sgl_scroll_anim_start(&dropdown->sc);
+            }
             bg_coords.y1 += dropdown->option_h;
             sgl_obj_update_area(&bg_coords);
         }
         break;
 
     case SGL_EVENT_DESTROYED:
+        sgl_scroll_anim_stop(&dropdown->sc);
         free_dynamic_text(dropdown);
         break;
 
@@ -353,9 +382,9 @@ sgl_obj_t* sgl_dropdown_create(sgl_obj_t* parent)
     dropdown->opt_text = NULL;
     dropdown->text_offset = 0;
     dropdown->dynamic_text = 0;
-    dropdown->pos_y = 0;
     dropdown->item_selected = -1;
     dropdown->max_visible_item = 5;
+    sgl_scroll_reset(&dropdown->sc);
     return obj;
 }
 

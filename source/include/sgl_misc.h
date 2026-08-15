@@ -32,9 +32,9 @@ extern "C" {
 #include <stddef.h>
 #include <sgl_types.h>
 #include <sgl_core.h>
+#include <sgl_anim.h>
 
 #if (CONFIG_SGL_BOOT_LOGO)
-
 /**
  * @brief to show the sgl logo after sgl init
  * @param none
@@ -85,6 +85,165 @@ int sgl_string_option_get_offset(const char *text, int index);
  * @return length (stops at \n or \0)
  */
 int sgl_string_option_get_text_len(const char *text, int offset);
+
+#define SGL_SCROLL_DRAG_THRESHOLD       4    /* drag start threshold (px) */
+#define SGL_SCROLL_OVERSCROLL           40   /* rubber-band overscroll limit (px, 0 = disabled) */
+#define SGL_SCROLL_INERTIA_NUM          7    /* coast decay: speed *= NUM/DEN per 16ms */
+#define SGL_SCROLL_INERTIA_DEN          8
+#define SGL_SCROLL_REBOUND_PULL_DIV     4    /* rebound step = overscroll amount / this value */
+#define SGL_SCROLL_REBOUND_MAX_STEP     24   /* rebound step cap (px) */
+#define SGL_SCROLL_VEL_WINDOW_MS        100  /* speed measurement sliding window length (ms) */
+#define SGL_SCROLL_BAR_IDLE_MS          600  /* scrollbar full-opacity hold time (ms) */
+#define SGL_SCROLL_BAR_FADE_STEP        8    /* scrollbar alpha decrement per 16ms */
+#define SGL_SCROLL_BAR_RESIDENT_ALPHA   128  /* scrollbar resident minimum alpha (fade floor) */
+#define SGL_SCROLL_BAR_ACTIVE_ALPHA     128  /* scrollbar alpha while active (wake value) */
+#define SGL_SCROLL_BAR_WIDTH            4    /* scrollbar width (px) */
+
+typedef struct sgl_scroll {
+    int32_t offset;     /* current scroll amount (px) */
+    int32_t range;      /* scroll upper limit (content height - viewport height) */
+    void (*commit)(struct sgl_scroll *sc); /* change commit callback (widget invalidate/layout) */
+    sgl_anim_t *anim;   /* dynamic animation node (NULL when idle, auto-released on settle) */
+    uint16_t step_tick; /* low 16 bits of the last animation step timestamp */
+    int16_t grab_coord; /* main-axis coordinate at press */
+    int16_t prev_coord; /* previous frame main-axis coordinate (incremental follow base) */
+    int16_t speed;      /* coasting speed (px / 16ms, same direction as offset delta) */
+    int16_t win_dist;   /* accumulated displacement within the speed window */
+    uint16_t win_tick;  /* low 16 bits of the speed window start timestamp */
+    uint16_t bar_idle;  /* scrollbar idle timer (ms) */
+    uint8_t bar_alpha;  /* scrollbar current alpha */
+    uint8_t touching : 1; /* inside a press sequence */
+    uint8_t dragged  : 1; /* start threshold crossed */
+    uint8_t coasting : 1; /* inertia/rebound in progress */
+} sgl_scroll_t;
+
+/**
+ * @brief Reset scroll state (used on init / re-binding data)
+ * @param sc scroll state
+ * @note zeroes the whole struct then restores the resident scrollbar alpha
+ */
+void sgl_scroll_reset(sgl_scroll_t *sc);
+
+/**
+ * @brief Feed a press event: freeze coasting and start tracking this press sequence
+ * @param sc scroll state
+ * @param coord main-axis touch coordinate
+ * @note stops any running inertia immediately (overscroll stays frozen until
+ *       release), resets the speed window and anchors grab/prev coordinates
+ */
+void sgl_scroll_press(sgl_scroll_t *sc, int16_t coord);
+
+/**
+ * @brief Feed a move event: drag-start check + incremental follow + window speed sampling
+ * @param sc scroll state
+ * @param coord main-axis touch coordinate
+ * @param range current scroll upper limit (content height - viewport height)
+ * @return 0 = not started yet; 1 = threshold just crossed this frame
+ *         (caller should cancel the pressed highlight); 2 = dragging in progress.
+ * @note follows by per-frame delta (offset -= coord - prev_coord) with
+ *       rubber-band soft clamp; speed is sampled as displacement/time over a
+ *       VEL_WINDOW_MS window, independent of the event rate
+ */
+uint8_t sgl_scroll_stay(sgl_scroll_t *sc, int16_t coord, int32_t range);
+
+/**
+ * @brief Feed a release event: settle the final speed and decide whether inertia/rebound is needed
+ * @param sc scroll state
+ * @param range current scroll upper limit (content height - viewport height)
+ * @return non-zero = animation needed (caller then invokes sgl_scroll_anim_start); 0 = at rest.
+ * @note the final speed comes from the still-open measurement window; if the
+ *       pointer has been still for more than one window the release is
+ *       treated as parked (speed = 0). Out-of-range releases always animate
+ *       so the content snaps back
+ */
+uint8_t sgl_scroll_release(sgl_scroll_t *sc, int32_t range);
+
+/**
+ * @brief Inertia/rebound step (driven by sgl_scroll_anim_step_cb)
+ * @param sc scroll state
+ * @param elapsed_ms elapsed time since the previous step
+ * @param range current scroll upper limit (content height - viewport height)
+ * @return non-zero = offset changed; coasting is cleared automatically on settle.
+ * @note phase 1 glides by speed * elapsed / 16 and decays speed by NUM/DEN
+ *       once per 16ms slice (halved again while overscrolled); phase 2 eases
+ *       the offset back into [0, range]. elapsed_ms is clamped to 64ms to
+ *       bound the per-frame jump
+ */
+uint8_t sgl_scroll_anim_step(sgl_scroll_t *sc, uint16_t elapsed_ms, int32_t range);
+
+/**
+ * @brief Wake the scrollbar (call on scroll value change / data binding)
+ * @param sc scroll state
+ * @note restores the active alpha and restarts the idle hold timer
+ */
+void sgl_scroll_bar_wake(sgl_scroll_t *sc);
+
+/**
+ * @brief Scrollbar fade-out step
+ * @param sc scroll state
+ * @param elapsed_ms elapsed time since the previous step
+ * @return non-zero = alpha changed; always returns 0 once the resident value is reached.
+ * @note holds full opacity for BAR_IDLE_MS first, then decreases FADE_STEP
+ *       per 16ms slice down to the resident alpha
+ */
+uint8_t sgl_scroll_bar_step(sgl_scroll_t *sc, uint16_t elapsed_ms);
+
+/**
+ * @brief Scroll animation path algorithm: returns monotonically increasing elaps
+ *        so that path_cb is invoked every frame
+ * @param elaps elapsed time since animation start
+ * @param duration unused
+ * @param start unused
+ * @param end unused
+ * @return elapsed time cast to the animation value
+ * @note used together with sgl_scroll_anim_step_cb; duration should be set to
+ *       a large value (e.g. 0x7FFF) with SGL_ANIM_REPEAT_LOOP so the physics
+ *       keeps stepping
+ */
+int32_t sgl_scroll_anim_path_algo(uint16_t elaps, uint16_t duration, int32_t start, int32_t end);
+
+/**
+ * @brief Scroll animation step callback (used as the path_cb of sgl_anim)
+ * @param anim animation node whose data pointer references the scroll state
+ * @param value unused (path_algo only guarantees a per-frame call)
+ * @note advances the physics and scrollbar fade on a >=16ms cadence, commits
+ *       changes through sc->commit and stops the node on settle (released by
+ *       the animation task together with auto_free). Stops immediately if
+ *       the widget cleared sc->commit
+ */
+void sgl_scroll_anim_step_cb(sgl_anim_t *anim, int32_t value);
+
+/**
+ * @brief Start the inertia/rebound + scrollbar fade-out animation (shared by all widgets)
+ * @param sc scroll state
+ * @note creates the animation node dynamically (attached to sc->anim) and
+ *       starts it with SGL_ANIM_REPEAT_LOOP; stopped and released
+ *       automatically on settle (coasting finished and scrollbar faded to
+ *       the resident value). Any previously running node is stopped first.
+ *       The caller must set sc->commit beforehand
+ */
+void sgl_scroll_anim_start(sgl_scroll_t *sc);
+
+/**
+ * @brief Stop and release the scroll animation node early (used on widget
+ *        destroy/collapse; a no-op when no animation is running)
+ * @param sc scroll state
+ */
+void sgl_scroll_anim_stop(sgl_scroll_t *sc);
+
+/**
+ * @brief Draw the right-hand vertical scrollbar (called in the widget DRAW_MAIN)
+ * @param surf drawing surface
+ * @param obj widget object (provides x coordinates, border and corner radius)
+ * @param sc scroll state (reads offset / bar_alpha)
+ * @param range current scroll upper limit; nothing is drawn when range<=0 (no scrollable content)
+ * @param viewport vertical track extent (y1/y2 of the scrollable list area,
+ *                 which may start below the widget top, e.g. under a dropdown header)
+ * @note thumb height is proportional to viewport / content height (min 8px);
+ *       thumb position maps offset into the track; drawn with the theme
+ *       scroll foreground color at bar_alpha opacity
+ */
+void sgl_scroll_draw_bar(sgl_surf_t *surf, sgl_obj_t *obj, const sgl_scroll_t *sc, int32_t range, const sgl_area_t *viewport);
 
 #ifdef __cplusplus
 } /*extern "C"*/

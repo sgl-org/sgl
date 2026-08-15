@@ -172,7 +172,7 @@ void sgl_anim_task(void)
             anim->last_value = value;
         }
 
-        if (elaps_time > anim->act_duration) {
+        if (!anim->finished && elaps_time > anim->act_duration) {
             if (anim->repeat_cnt != SGL_ANIM_REPEAT_LOOP) {
                 anim->repeat_cnt--;
             }
@@ -184,15 +184,12 @@ void sgl_anim_task(void)
             /* remove anim object if repeat count is 0 */
             if (anim->repeat_cnt == 0) {
                 sgl_anim_stop(anim);
-
-                /* if animation is auto free, free it */
-                if (anim->auto_free) {
-                    sgl_free(anim);
-                    continue;
-                }
             }
-
             anim->act_time = current_tick + anim->act_delay;
+        }
+
+        if (anim->finished && anim->auto_free) {
+            sgl_free(anim);
         }
     }
 }

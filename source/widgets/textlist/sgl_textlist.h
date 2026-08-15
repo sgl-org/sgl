@@ -31,6 +31,8 @@
 #include <sgl_log.h>
 #include <sgl_mm.h>
 #include <sgl_cfgfix.h>
+#include <sgl_misc.h>
+#include <sgl_anim.h>
 #include <string.h>
 
 /**
@@ -67,8 +69,8 @@ typedef struct sgl_textlist {
     uint16_t        item_num;
     sgl_color_t     bg_color;
     sgl_color_t     border_color;
-    int16_t         pos_y;
     uint8_t         alpha;
+    sgl_scroll_t    sc;
 } sgl_textlist_t;
 
 /**

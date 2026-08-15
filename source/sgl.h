@@ -56,7 +56,6 @@
 #include "widgets/unzip_image/sgl_unzip_image.h"
 #include "widgets/led/sgl_led.h"
 #include "widgets/2dball/sgl_2dball.h"
-#include "widgets/scroll/sgl_scroll.h"
 #include "widgets/dropdown/sgl_dropdown.h"
 #include "widgets/scope/sgl_scope.h"
 #include "widgets/img/sgl_img.h"

@@ -46,7 +46,6 @@ set(SGL_SOURCE
     ${CMAKE_CURRENT_LIST_DIR}/led/sgl_led.c
     ${CMAKE_CURRENT_LIST_DIR}/2dball/sgl_2dball.c
     ${CMAKE_CURRENT_LIST_DIR}/unzip_image/sgl_unzip_image.c
-    ${CMAKE_CURRENT_LIST_DIR}/scroll/sgl_scroll.c
     ${CMAKE_CURRENT_LIST_DIR}/dropdown/sgl_dropdown.c
     ${CMAKE_CURRENT_LIST_DIR}/scope/sgl_scope.c
     ${CMAKE_CURRENT_LIST_DIR}/polygon/sgl_polygon.c

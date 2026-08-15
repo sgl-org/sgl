@@ -35,17 +35,63 @@
 #define  SGL_TEXTLIST_ITEM_PAD    (3)
 #define  SGL_TEXTLIST_ITEM_SPACE  (3)
 
+static int32_t sgl_textlist_max_scroll(sgl_textlist_t *textlist, int item_height)
+{
+    const int list_h = textlist->obj.coords.y2 - textlist->obj.coords.y1 + 1;
+    const int content_h = (int)textlist->item_num * item_height;
+    return sgl_max(0, content_h - list_h);
+}
+
+static void sgl_textlist_scroll_commit(sgl_scroll_t *sc)
+{
+    sgl_textlist_t *textlist = sgl_container_of(sc, sgl_textlist_t, sc);
+    sgl_scroll_bar_wake(sc);
+    sgl_obj_set_dirty(&textlist->obj);
+}
+
+static void sgl_textlist_ensure_visible(sgl_textlist_t *textlist, int list_h, int item_height)
+{
+    const int selected_y = textlist->item_selected * item_height;
+    const int view_top = (int)textlist->sc.offset;
+    const int view_bottom = view_top + list_h;
+    const int32_t max_scroll = sgl_textlist_max_scroll(textlist, item_height);
+
+    if (selected_y < view_top) {
+        textlist->sc.offset = selected_y;
+    }
+    else if (selected_y + item_height > view_bottom) {
+        textlist->sc.offset = selected_y + item_height - list_h;
+    }
+
+    if (textlist->sc.offset < 0)
+        textlist->sc.offset = 0;
+    if (textlist->sc.offset > max_scroll)
+        textlist->sc.offset = max_scroll;
+}
+
 static void sgl_textlist_change_item(sgl_textlist_t *textlist, int16_t item_height, int16_t index)
 {
     sgl_obj_t *obj = &textlist->obj;
     sgl_area_t select = textlist->obj.coords;
-    select.y1 = obj->coords.y1 + textlist->item_selected * item_height + textlist->pos_y;
-    select.y2 = select.y1 + item_height;
+    select.y1 = obj->coords.y1 + textlist->item_selected * item_height - (int16_t)textlist->sc.offset;
+    select.y2 = select.y1 + item_height + 1;
     sgl_obj_update_area(&select);
 
     textlist->item_selected = index;
 
-    select.y1 = obj->coords.y1 + index * item_height + textlist->pos_y;
+    /* stop coasting and scroll the new selection into the viewport */
+    const int32_t offset_last = textlist->sc.offset;
+    sgl_scroll_anim_stop(&textlist->sc);
+    sgl_textlist_ensure_visible(textlist, obj->coords.y2 - obj->coords.y1 + 1, item_height);
+
+    if (textlist->sc.offset != offset_last) {
+        /* the whole list shifted, full redraw */
+        sgl_scroll_bar_wake(&textlist->sc);
+        sgl_obj_set_dirty(obj);
+        return;
+    }
+
+    select.y1 = obj->coords.y1 + index * item_height - (int16_t)textlist->sc.offset;
     select.y2 = select.y1 + item_height;
     sgl_obj_update_area(&select);
 }
@@ -63,7 +109,6 @@ static void sgl_textlist_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
         .pixmap = textlist->pixmap,
     };
     const int item_height = sgl_font_get_height(textlist->font) + 2 * SGL_TEXTLIST_ITEM_SPACE;
-    const int list_h = obj->coords.y2 - obj->coords.y1 + 1;
     sgl_textlist_item_t *item = textlist->head;
 
     switch (evt->type) {
@@ -84,7 +129,7 @@ static void sgl_textlist_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
 
         sgl_draw_rect(surf, &obj->area, &obj->coords, &bg_desc);
 
-        text_pos_y += textlist->pos_y;
+        text_pos_y -= (int16_t)textlist->sc.offset;
         sgl_draw_fill_hline(surf, &obj->area, text_pos_y - SGL_TEXTLIST_ITEM_SPACE, text_pos_x1, text_pos_x2, 1,
                                             textlist->item_text_color, textlist->alpha);
         while (item != NULL) {
@@ -93,7 +138,7 @@ static void sgl_textlist_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
             }
 
             if (item_idx == textlist->item_selected) {
-                select.y1 = text_pos_y - SGL_TEXTLIST_ITEM_SPACE;
+                select.y1 = text_pos_y - SGL_TEXTLIST_ITEM_SPACE + 1;
                 select.y2 = select.y1 + item_height;
 
                 if ((select.y1 > (obj->area.y1 + obj->radius)) && (select.y2 <= (obj->area.y2 - obj->radius))) {
@@ -125,37 +170,42 @@ static void sgl_textlist_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
             item = item->next;
             item_idx++;
         }
+
+        sgl_scroll_draw_bar(surf, obj, &textlist->sc, sgl_textlist_max_scroll(textlist, item_height), &obj->coords);
     }
     break;
+
+    case SGL_EVENT_PRESSED:
+        sgl_scroll_press(&textlist->sc, evt->pos.y);
+        sgl_scroll_bar_wake(&textlist->sc);
+        break;
 
     case SGL_EVENT_MOVE_UP:
     case SGL_EVENT_MOVE_DOWN: {
-        bool can_move = (evt->type == SGL_EVENT_MOVE_UP)
-            ? ((textlist->pos_y + (textlist->item_num) * item_height) >= (list_h - item_height / 2))
-            : (textlist->pos_y < item_height / 2);
-        if (can_move) {
-            textlist->pos_y += evt->distance;
+        const int32_t max_scroll = sgl_textlist_max_scroll(textlist, item_height);
+        uint8_t r = sgl_scroll_stay(&textlist->sc, evt->pos.y, max_scroll);
+        if (r) {
+            sgl_obj_set_dirty(obj);
         }
-        sgl_obj_set_dirty(obj);
     }
     break;
 
-    case SGL_EVENT_RELEASED:
-        if (textlist->pos_y >= 0) {
-            textlist->pos_y = 0;
-            sgl_obj_set_dirty(obj);
+    case SGL_EVENT_RELEASED: {
+        const int32_t max_scroll = sgl_textlist_max_scroll(textlist, item_height);
+        textlist->sc.range = max_scroll;
+        textlist->sc.commit = sgl_textlist_scroll_commit;
+        if (sgl_scroll_release(&textlist->sc, max_scroll)) {
+            sgl_scroll_anim_start(&textlist->sc);
         }
-        else if((textlist->pos_y + textlist->item_num * item_height) < list_h) {
-            textlist->pos_y = list_h - textlist->item_num * item_height;
-            sgl_obj_set_dirty(obj);
-        }
+        sgl_obj_set_dirty(obj);
+    }
     break;
 
     case SGL_EVENT_CLICKED: {
         int16_t click_y = evt->pos.y;
         int16_t local_y = click_y - obj->coords.y1;
 
-        int clicked_index = (local_y - textlist->pos_y + SGL_TEXTLIST_ITEM_SPACE) / item_height;
+        int clicked_index = (local_y + (int16_t)textlist->sc.offset + SGL_TEXTLIST_ITEM_SPACE) / item_height;
         if (clicked_index >= 0 && clicked_index < textlist->item_num) {
             sgl_textlist_change_item(textlist, item_height, clicked_index);
         }
@@ -175,6 +225,7 @@ static void sgl_textlist_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
     break;
 
     case SGL_EVENT_DESTROYED:
+        sgl_scroll_anim_stop(&textlist->sc);
         while (item != NULL) {
             sgl_textlist_item_t *next = item->next;
             sgl_free(item);
@@ -207,6 +258,7 @@ sgl_obj_t* sgl_textlist_create(sgl_obj_t* parent)
     obj->construct_fn = sgl_textlist_construct_cb;
     sgl_obj_set_clickable(obj);
     sgl_obj_set_movable(obj);
+    sgl_obj_set_editable(obj);
     sgl_obj_set_border_width(obj, 1);
 
     textlist->font = sgl_get_system_font();
@@ -216,7 +268,7 @@ sgl_obj_t* sgl_textlist_create(sgl_obj_t* parent)
     textlist->border_color = SGL_THEME_BORDER_COLOR;
     textlist->item_selected = -1;
     textlist->item_text_color = SGL_THEME_TEXT_COLOR;
-    textlist->pos_y = 0;
+    sgl_scroll_reset(&textlist->sc);
 
     return obj;
 }
