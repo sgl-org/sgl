@@ -121,7 +121,7 @@ extern "C" {
 #endif
 
 #ifndef CONFIG_SGL_ANIMATION
-#define CONFIG_SGL_ANIMATION                                       (0)  /* Global animation enable */
+#define CONFIG_SGL_ANIMATION                                       (1)  /* Global animation enable */
 #endif
 
 #ifndef CONFIG_SGL_DEBUG
