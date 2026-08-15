@@ -78,110 +78,30 @@ static void draw_dashed_line(sgl_surf_t *surf, sgl_area_t *area, int16_t x0, int
     }
 }
 
-
-// Custom line drawing function supporting variable line width
-static void custom_draw_line(sgl_surf_t *surf, sgl_area_t *area, sgl_pos_t start, sgl_pos_t end, sgl_color_t color, int16_t width)
+static void scope_plot_point(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, int16_t width, sgl_color_t color)
 {
-    int16_t x0 = start.x;
-    int16_t y0 = start.y;
-    int16_t x1 = end.x;
-    int16_t y1 = end.y;
-    
-    // Handle invalid line width (zero or negative)
-    if (width <= 0) return;
-    
-    // For line width = 1, use standard Bresenham algorithm
-    if (width == 1) {
-        int16_t dx = sgl_abs(x1 - x0);
-        int16_t dy = sgl_abs(y1 - y0);
-        int16_t sx = (x0 < x1) ? 1 : -1;
-        int16_t sy = (y0 < y1) ? 1 : -1;
-        int16_t err = dx - dy;
-        int16_t e2;
-        
-        sgl_area_t clip_area = {
-            .x1 = surf->x1,
-            .y1 = surf->y1,
-            .x2 = surf->x2,
-            .y2 = surf->y2
-        };
-        
-        while (1) {
-            // Check if point is within clipping area
-            if (x0 >= clip_area.x1 && x0 <= clip_area.x2 && y0 >= clip_area.y1 && y0 <= clip_area.y2) {
-                sgl_color_t *buf = sgl_surf_get_buf(surf, x0 - surf->x1, y0 - surf->y1);
-                *buf = color;
-            }
-            
-            if (x0 == x1 && y0 == y1) break;
-            e2 = 2 * err;
-            if (e2 > -dy) {
-                err -= dy;
-                x0 += sx;
-            }
-            if (e2 < dx) {
-                err += dx;
-                y0 += sy;
-            }
-        }
-        return;
-    }
-    
-    // For line width > 1, draw main line plus perpendicular offsets to simulate thickness
-    int16_t dx = sgl_abs(x1 - x0);
-    int16_t dy = sgl_abs(y1 - y0);
-    int16_t sx = (x0 < x1) ? 1 : -1;
-    int16_t sy = (y0 < y1) ? 1 : -1;
-    int16_t err = dx - dy;
-    int16_t e2;
-    
-    sgl_area_t clip_area = {
-        .x1 = surf->x1,
-        .y1 = surf->y1,
-        .x2 = surf->x2,
-        .y2 = surf->y2
-    };
+    if (width <= 0) width = 1;
 
-    sgl_area_selfclip(&clip_area, area);
-    
-    // Compute half-width for symmetric thickening
-    int16_t half_width = width / 2;
-    
-    while (1) {
-        // Draw current pixel and its perpendicular neighbors to form line thickness
-        for (int16_t w = -half_width; w <= half_width; w++) {
-            int16_t px, py;
-            
-            // Determine offset direction based on dominant axis
-            if (dx > dy) {  // Dominant X-axis direction
-                px = x0;
-                py = y0 + w;
-            } else {  // Dominant Y-axis direction
-                px = x0 + w;
-                py = y0;
-            }
-            
-            // Check if point is within clipping area
-            if (px >= clip_area.x1 && px <= clip_area.x2 && py >= clip_area.y1 && py <= clip_area.y2) {
-                sgl_color_t *buf = sgl_surf_get_buf(surf, px - surf->x1, py - surf->y1);
-                *buf = color;
-            }
-        }
+    // Clamp the vertical extent of the point to the plot area AND to the
+    // surface's current slice.  The framebuffer is drawn in horizontal
+    // slices (surf->y1..surf->y2), so we must never write outside the
+    // current slice's buffer region or we overflow the buffer.
+    int16_t y0 = y - width / 2;
+    int16_t y1 = y0 + width - 1;
+    if (y0 < area->y1) y0 = area->y1;
+    if (y1 > area->y2) y1 = area->y2;
+    if (y0 < surf->y1) y0 = surf->y1;
+    if (y1 > surf->y2) y1 = surf->y2;
 
-        if (x0 == x1 && y0 == y1) break;
-        e2 = 2 * err;
-        if (e2 > -dy) {
-            err -= dy;
-            x0 += sx;
-        }
-        if (e2 < dx) {
-            err += dx;
-            y0 += sy;
-        }
+    if (x < area->x1 || x > area->x2 || x < surf->x1 || x > surf->x2 || y0 > y1) return;
+
+    sgl_color_t *buf = sgl_surf_get_buf(surf, x - surf->x1, y0 - surf->y1);
+    for (int16_t yy = y0; yy <= y1; yy++) {
+        *buf = color;
+        buf += surf->w;  // advance to next row (surf->w is the row stride)
     }
 }
 
-// Oscilloscope drawing callback function
 static void scope_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *evt)
 {
     sgl_scope_t *scope = (sgl_scope_t*)obj;
@@ -312,45 +232,40 @@ static void scope_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *ev
             }
         }
 
-        // Draw waveform data for each channel
+        int16_t plot_width = plot_area.x2 - plot_area.x1;
+
         for (uint8_t ch = 0; ch < scope->channel_count; ch++) {
-            if (scope->display_counts[ch] > 1) {
-                sgl_pos_t start, end;
-                
-                // Determine number of points to display
-                uint32_t display_points = scope->max_display_points > 0 ? scope->max_display_points : scope->data_len;
-                if (display_points > scope->data_len) display_points = scope->data_len;
-                
-                // Number of actual data points to render
-                uint32_t data_points = scope->display_counts[ch] < display_points ? scope->display_counts[ch] : display_points;
-                
-                // Compute index of the most recent data point (rightmost on screen)
-                uint32_t last_index = (scope->current_indices[ch] == 0) ? scope->data_len - 1 : scope->current_indices[ch] - 1;
-                int16_t last_value = scope->data_buffers[ch][last_index];
-                
+            if (scope->display_counts[ch] == 0) continue;
+
+            // Determine number of points to display
+            uint32_t display_points = scope->max_display_points > 0 ? scope->max_display_points : scope->data_len;
+            if (display_points > scope->data_len) display_points = scope->data_len;
+
+            // Number of actual data points to render
+            uint32_t data_points = scope->display_counts[ch] < display_points ? scope->display_counts[ch] : display_points;
+
+            // Cap the number of points to the plot width so each point maps to
+            // exactly one x column (waveform width == data point count).
+            if (data_points > (uint32_t)(plot_width + 1)) {
+                data_points = (uint32_t)(plot_width + 1);
+            }
+
+            // Draw waveform from right (most recent) to left (oldest).
+            // Point i=0 is the most recent sample at the rightmost column.
+            for (uint32_t i = 0; i < data_points; i++) {
+                uint32_t idx = (scope->current_indices[ch] >= i + 1)
+                             ? scope->current_indices[ch] - (i + 1)
+                             : scope->data_len - (i + 1 - scope->current_indices[ch]);
+
+                int16_t value = scope->data_buffers[ch][idx];
+
                 // Clamp value to display range
-                if (last_value < display_min) last_value = display_min;
-                if (last_value > display_max) last_value = display_max;
-                
-                start.x = plot_area.x2;  // Rightmost X position
-                start.y = plot_area.y2 - ((int32_t)(last_value - display_min) * height) / (display_max - display_min);
-                
-                // Draw waveform from right to left
-                for (uint32_t i = 1; i < data_points; i++) {
-                    uint32_t prev_index = (scope->current_indices[ch] >= i + 1) ? scope->current_indices[ch] - (i + 1) : scope->data_len - (i + 1 - scope->current_indices[ch]);
+                value = sgl_clamp(value, display_min, display_max);
 
-                    int16_t current_value = scope->data_buffers[ch][prev_index];
+                int16_t x = plot_area.x2 - (int16_t)i;  // one column per point
+                int16_t y = plot_area.y2 - ((int32_t)(value - display_min) * height) / (display_max - display_min);
 
-                    // Clamp value to display range
-                    current_value = sgl_clamp(current_value, display_min, display_max);
-
-                    end.x = plot_area.x2 - (i * width / (data_points - 1));  // Move leftward
-                    end.y = plot_area.y2 - ((int32_t)(current_value - display_min) * height) / (display_max - display_min);
-
-                    custom_draw_line(surf, &plot_area, start, end, scope->waveform_colors[ch], scope->line_width);
-
-                    start = end;
-                }
+                scope_plot_point(surf, &plot_area, x, y, scope->line_width, scope->waveform_colors[ch]);
             }
         }
 
@@ -386,8 +301,11 @@ static void scope_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *ev
     }
 }
 
-
-// Create an oscilloscope object
+/**
+ * @brief create scope object
+ * @param parent parent object
+ * @return scope object
+ */
 sgl_obj_t* sgl_scope_create(sgl_obj_t* parent)
 {
     sgl_scope_t *scope = sgl_malloc(sizeof(sgl_scope_t));

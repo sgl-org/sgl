@@ -152,7 +152,7 @@ static void sgl_dropdown_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_even
             const int icon_h = dropdown->option_h / 3;
             const int icon_w = 2 * (icon_h - 1); /* half-width == height: 45-degree sides, 90-degree apex */
             const int icon_y_off = dropdown->is_open ? 2 : 0;
-            const int16_t ix = obj->coords.x2 - icon_w - obj->radius;
+            const int16_t ix = obj->coords.x2 - icon_w - obj->radius - obj->border;
             const int16_t iy = obj->coords.y1 + (dropdown->option_h - icon_h + 1) / 2 + icon_y_off;
             const uint8_t lw = (uint8_t)sgl_max(2, icon_h / 8);
             sgl_draw_line_noaa(surf, &obj->area, ix, iy,
