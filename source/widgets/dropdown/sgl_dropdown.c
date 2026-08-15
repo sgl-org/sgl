@@ -49,25 +49,6 @@ static void sgl_dropdown_scroll_commit(sgl_scroll_t *sc)
     sgl_obj_set_dirty(&dropdown->obj);
 }
 
-static const uint8_t dropdown_bitmap[] = {
-    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x30,0x00,
-    0x0c,0xfa,0x00,0x00,0x00,0x00,0x05,0xee,0x50,
-    0x0c,0xff,0xa0,0x00,0x00,0x00,0x5e,0xfe,0x30,
-    0x00,0xcf,0xfa,0x00,0x00,0x05,0xef,0xe3,0x00,
-    0x00,0x0c,0xff,0xa0,0x00,0x5e,0xfe,0x30,0x00,
-    0x00,0x00,0xcf,0xfa,0x05,0xef,0xe3,0x00,0x00,
-    0x00,0x00,0x0c,0xff,0xae,0xfe,0x30,0x00,0x00,
-    0x00,0x00,0x00,0xcf,0xff,0xe3,0x00,0x00,0x00,
-    0x00,0x00,0x00,0x0c,0xfe,0x30,0x00,0x00,0x00,
-    0x00,0x00,0x00,0x00,0x53,0x00,0x00,0x00,0x00,
-};
-
-static const sgl_icon_pixmap_t dropdown_icon = { 
-    .bitmap = dropdown_bitmap,
-    .height = 10,
-    .width = 18,
-};
-
 static void update_item_count(sgl_dropdown_t *dropdown)
 {
     dropdown->item_num = sgl_string_option_get_count(dropdown->opt_text);
@@ -166,12 +147,20 @@ static void sgl_dropdown_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_even
         sgl_draw_rect(surf, &obj->area, &bg_coords, &bg_desc);
         const int text_pos_y = (dropdown->option_h - sgl_font_get_height(dropdown->font) + 1) / 2;
 
-        /* Draw the dropdown arrow icon */
+        /* Draw the dropdown arrow icon: downward chevron sized to the header height */
         {
+            const int icon_h = dropdown->option_h / 3;
+            const int icon_w = 2 * (icon_h - 1); /* half-width == height: 45-degree sides, 90-degree apex */
             const int icon_y_off = dropdown->is_open ? 2 : 0;
-            sgl_draw_icon(surf, &obj->area, obj->coords.x2 - dropdown_icon.width - obj->radius,
-                          obj->coords.y1 + (dropdown->option_h - dropdown_icon.height + 1) / 2 + icon_y_off,
-                          dropdown->text_color, dropdown->alpha, &dropdown_icon);
+            const int16_t ix = obj->coords.x2 - icon_w - obj->radius;
+            const int16_t iy = obj->coords.y1 + (dropdown->option_h - icon_h + 1) / 2 + icon_y_off;
+            const uint8_t lw = (uint8_t)sgl_max(2, icon_h / 8);
+            sgl_draw_line_noaa(surf, &obj->area, ix, iy,
+                               ix + icon_w / 2, iy + icon_h - 1,
+                               dropdown->text_color, lw, dropdown->alpha);
+            sgl_draw_line_noaa(surf, &obj->area, ix + icon_w / 2, iy + icon_h - 1,
+                               ix + icon_w, iy,
+                               dropdown->text_color, lw, dropdown->alpha);
         }
 
         /* Draw the selected item text on the closed dropdown header */

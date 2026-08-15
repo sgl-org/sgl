@@ -763,6 +763,7 @@ sgl_obj_t* sgl_filebrowser_create(sgl_obj_t *parent)
     fb->obj.construct_fn = sgl_filebrowser_construct_cb;
     sgl_obj_set_clickable(&fb->obj);
     sgl_obj_set_movable(&fb->obj);
+    sgl_obj_set_editable(&fb->obj);
     sgl_obj_set_border_width(&fb->obj, 1);
 
     fb->selected             = &fb->selected_item;
@@ -782,7 +783,6 @@ sgl_obj_t* sgl_filebrowser_create(sgl_obj_t *parent)
     sgl_scroll_reset(&fb->sc);
     strcpy(fb->current_path, "/");
     sgl_filebrowser_update_full_path(fb);
-
     sgl_filebrowser_load_dir(fb, "/");
     return &fb->obj;
 }
