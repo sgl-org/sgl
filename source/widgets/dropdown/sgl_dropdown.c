@@ -269,12 +269,16 @@ static void sgl_dropdown_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_even
 
     case SGL_EVENT_CLICKED:
         if (dropdown->is_open) {
+            /* map the click point back into content space before the reset
+             * clears the scroll offset, otherwise the index falls short by
+             * the scrolled amount */
+            const int32_t click_offset = dropdown->sc.offset;
             dropdown->is_open = false;
             sgl_scroll_anim_stop(&dropdown->sc);
             sgl_scroll_reset(&dropdown->sc);
             obj->coords.y2 = obj->coords.y1 + dropdown->option_h - 1;
             if (evt->pos.y > obj->coords.y2) {
-                int new_sel = (evt->pos.y - obj->coords.y2) / item_height;
+                int new_sel = (int)((evt->pos.y - obj->coords.y2 + click_offset) / item_height);
                 if (new_sel >= 0 && new_sel < dropdown->item_num) {
                     dropdown->item_selected = (int16_t)new_sel;
                     dropdown->text_offset = (uint16_t)sgl_string_option_get_offset(dropdown->opt_text, dropdown->item_selected);
