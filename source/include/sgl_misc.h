@@ -189,17 +189,6 @@ void sgl_scroll_bar_wake(sgl_scroll_t *sc);
 uint8_t sgl_scroll_bar_step(sgl_scroll_t *sc, uint16_t elapsed_ms);
 
 /**
- * @brief Scroll animation step callback (used as the path_cb of sgl_anim)
- * @param anim animation node whose data pointer references the scroll state
- * @param value monotonic elapsed time produced by sgl_anim_path_linear
- * @note advances the physics and scrollbar fade on a >=16ms cadence, commits
- *       changes through sc->commit and stops the node on settle (released by
- *       the animation task together with auto_free). Stops immediately if
- *       the widget cleared sc->commit
- */
-void sgl_scroll_anim_step_cb(sgl_anim_t *anim, int32_t value);
-
-/**
  * @brief Start the inertia/rebound + scrollbar fade-out animation (shared by all widgets)
  * @param sc scroll state
  * @note creates the animation node dynamically (attached to sc->anim) and
