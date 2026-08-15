@@ -729,29 +729,9 @@ uint8_t sgl_scroll_bar_step(sgl_scroll_t *sc, uint16_t elapsed_ms)
 }
 
 /**
- * @brief Scroll animation path algorithm: returns monotonically increasing elaps
- *        so that path_cb is invoked every frame
- * @param elaps elapsed time since animation start
- * @param duration unused
- * @param start unused
- * @param end unused
- * @return elapsed time cast to the animation value
- * @note used together with sgl_scroll_anim_step_cb; duration should be set to
- *       a large value (e.g. 0x7FFF) with SGL_ANIM_REPEAT_LOOP so the physics
- *       keeps stepping
- */
-int32_t sgl_scroll_anim_path_algo(uint16_t elaps, uint16_t duration, int32_t start, int32_t end)
-{
-    SGL_UNUSED(duration);
-    SGL_UNUSED(start);
-    SGL_UNUSED(end);
-    return (int32_t)elaps;
-}
-
-/**
  * @brief Scroll animation step callback (used as the path_cb of sgl_anim)
  * @param anim animation node whose data pointer references the scroll state
- * @param value unused (path_algo only guarantees a per-frame call)
+ * @param value monotonic elapsed time produced by sgl_anim_path_linear
  * @return none
  * @note advances the physics and scrollbar fade on a >=16ms cadence, commits
  *       changes through sc->commit and stops the node on settle (released by
@@ -761,25 +741,20 @@ int32_t sgl_scroll_anim_path_algo(uint16_t elaps, uint16_t duration, int32_t sta
 void sgl_scroll_anim_step_cb(sgl_anim_t *anim, int32_t value)
 {
     sgl_scroll_t *sc = (sgl_scroll_t *)anim->data;
-    uint32_t now;
     uint16_t elapsed;
     uint8_t changed = 0U;
 
-    SGL_UNUSED(value);
     SGL_ASSERT(sc != NULL);
-
     if (sc->commit == NULL) {
         sc->anim = NULL;
         sgl_anim_stop(anim);
         return;
     }
 
-    now = sgl_tick_get();
-    elapsed = (uint16_t)(now - (uint32_t)sc->step_tick);
-
+    elapsed = (uint16_t)((int32_t)value - (int32_t)sc->step_tick);
     if (elapsed < 16U)
         return;
-    sc->step_tick = (uint16_t)now;
+    sc->step_tick = (uint16_t)value;
 
     if (sc->coasting) {
         if (sgl_scroll_anim_step(sc, elapsed, sc->range))
@@ -822,10 +797,14 @@ void sgl_scroll_anim_start(sgl_scroll_t *sc)
         return;
 
     sc->anim = anim;
-    sc->step_tick = (uint16_t)sgl_tick_get();
+    sc->step_tick = 0;
 
     sgl_anim_set_data(anim, sc);
-    sgl_anim_set_path(anim, sgl_scroll_anim_step_cb, sgl_scroll_anim_path_algo);
+    /* linear path with start=0/end=0x7FFF yields value == elaps while
+     * elaps < duration, so path_cb fires every frame with a monotonic tick */
+    sgl_anim_set_path(anim, sgl_scroll_anim_step_cb, sgl_anim_path_linear);
+    sgl_anim_set_start_value(anim, 0);
+    sgl_anim_set_end_value(anim, 0x7FFF);
     sgl_anim_set_act_duration(anim, 0x7FFF);
     sgl_anim_set_auto_free(anim);
     sgl_anim_start(anim, SGL_ANIM_REPEAT_LOOP);
@@ -840,8 +819,7 @@ void sgl_scroll_anim_start(sgl_scroll_t *sc)
 void sgl_scroll_anim_stop(sgl_scroll_t *sc)
 {
     if (sc->anim != NULL) {
-        sgl_anim_stop(sc->anim);
-        sgl_free(sc->anim);
+        sgl_anim_delete(sc->anim);
         sc->anim = NULL;
     }
 }

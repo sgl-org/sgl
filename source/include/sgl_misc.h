@@ -189,23 +189,9 @@ void sgl_scroll_bar_wake(sgl_scroll_t *sc);
 uint8_t sgl_scroll_bar_step(sgl_scroll_t *sc, uint16_t elapsed_ms);
 
 /**
- * @brief Scroll animation path algorithm: returns monotonically increasing elaps
- *        so that path_cb is invoked every frame
- * @param elaps elapsed time since animation start
- * @param duration unused
- * @param start unused
- * @param end unused
- * @return elapsed time cast to the animation value
- * @note used together with sgl_scroll_anim_step_cb; duration should be set to
- *       a large value (e.g. 0x7FFF) with SGL_ANIM_REPEAT_LOOP so the physics
- *       keeps stepping
- */
-int32_t sgl_scroll_anim_path_algo(uint16_t elaps, uint16_t duration, int32_t start, int32_t end);
-
-/**
  * @brief Scroll animation step callback (used as the path_cb of sgl_anim)
  * @param anim animation node whose data pointer references the scroll state
- * @param value unused (path_algo only guarantees a per-frame call)
+ * @param value monotonic elapsed time produced by sgl_anim_path_linear
  * @note advances the physics and scrollbar fade on a >=16ms cadence, commits
  *       changes through sc->commit and stops the node on settle (released by
  *       the animation task together with auto_free). Stops immediately if
