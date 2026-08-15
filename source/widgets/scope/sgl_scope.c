@@ -331,7 +331,7 @@ sgl_obj_t* sgl_scope_create(sgl_obj_t* parent)
     scope->data_buffers = sgl_malloc(sizeof(int16_t*) * scope->channel_count);
     scope->waveform_colors = sgl_malloc(sizeof(sgl_color_t) * scope->channel_count);
     scope->current_indices = sgl_malloc(sizeof(uint32_t) * scope->channel_count);
-    scope->display_counts = sgl_malloc(sizeof(uint8_t) * scope->channel_count);
+    scope->display_counts = sgl_malloc(sizeof(uint16_t) * scope->channel_count);
     
     if (!scope->data_buffers || !scope->waveform_colors || !scope->current_indices || !scope->display_counts) {
         sgl_free(scope->data_buffers);
@@ -368,6 +368,137 @@ sgl_obj_t* sgl_scope_create(sgl_obj_t* parent)
     return obj;
 }
 
+/* scan a contiguous buffer slice for the clamped value envelope; the slice is
+ * indexed directly by buffer index, no per-sample remapping is needed */
+static inline void scope_scan_envelope(const int16_t *buf, int32_t lo, int32_t hi,
+                                       int16_t disp_min, int16_t disp_max,
+                                       int16_t *vmin, int16_t *vmax)
+{
+    for (int32_t idx = lo; idx <= hi; idx++) {
+        int16_t v = sgl_clamp(buf[idx], disp_min, disp_max);
+        if (v < *vmin) *vmin = v;
+        if (v > *vmax) *vmax = v;
+    }
+}
+
+/**
+ * @brief mark tight dirty areas after one sample is appended
+ * @param scope scope object
+ * @param plot plot area (widget coords inset by the border)
+ * @param channel channel that received the sample
+ * @param value the appended sample
+ * @param outgoing sample that was overwritten in the ring buffer
+ * @param was_full whether the ring buffer was already full before the append
+ * @note point i is drawn at column x2 - i, so each band's columns map to a
+ *       contiguous newest-first index range; scanning those samples yields the
+ *       band's vertical envelope and thus its dirty rectangle.
+ */
+static void scope_append_area(sgl_scope_t *scope, sgl_area_t *plot, uint8_t channel,
+                                    int16_t value, int16_t outgoing, uint8_t was_full)
+{
+    int16_t plot_w = plot->x2 - plot->x1;
+    int16_t plot_h = plot->y2 - plot->y1;
+    int16_t disp_min = scope->min_value;
+    int16_t disp_max = scope->max_value;
+    int32_t disp_range;
+    int32_t cols = (int32_t)plot_w + 1;
+
+    if (scope->auto_scale) {
+        if (scope->running_min > scope->running_max ||
+            value < scope->running_min || value > scope->running_max ||
+            (was_full && (outgoing == scope->running_min || outgoing == scope->running_max))) {
+            sgl_update_area(plot);
+            return;
+        }
+        /* stable range: same margin expansion as scope_construct_cb() */
+        disp_min = scope->running_min;
+        disp_max = scope->running_max;
+        int32_t margin = (int32_t)(disp_max - disp_min) / 10;
+        if (margin == 0) margin = 1;
+        disp_min = (disp_min > INT16_MIN + margin) ? disp_min - margin : INT16_MIN;
+        disp_max = (disp_max < INT16_MAX - margin) ? disp_max + margin : INT16_MAX;
+    }
+
+    if (disp_min == disp_max) {
+        if (disp_max < INT16_MAX) {
+            disp_max++;
+        } else {
+            disp_min--;
+        }
+    }
+    disp_range = (int32_t)disp_max - disp_min;
+
+    /* number of points actually shown, same caps as scope_construct_cb() */
+    uint32_t display_points = scope->max_display_points > 0 ? scope->max_display_points : scope->data_len;
+    if (display_points > scope->data_len) display_points = scope->data_len;
+    uint32_t dpts = scope->display_counts[channel] < display_points ? scope->display_counts[channel] : display_points;
+    if (dpts > (uint32_t)(plot_w + 1)) {
+        dpts = (uint32_t)(plot_w + 1);
+    }
+    if (dpts == 0) {
+        return;
+    }
+
+    /* highest newest-first index worth scanning: the displayed points plus at
+     * most one sample pushed off the left display edge that still exists in
+     * the ring buffer */
+    uint32_t scan_max = dpts;
+    if (scan_max > (uint32_t)scope->display_counts[channel] - 1) {
+        scan_max = (uint32_t)scope->display_counts[channel] - 1;
+    }
+
+    /* if the ring is shorter than the plot, the overwritten sample was still
+     * on screen; remember it so its former pixels are covered */
+    int32_t extra_band = -1;
+    int16_t extra_value = 0;
+    if (was_full && scope->data_len <= (uint32_t)(plot_w + 1)) {
+        int32_t off = plot_w - ((int32_t)scope->data_len - 1);
+        extra_band = off * SGL_SCOPE_DIRTY_BAND_NUM / cols;
+        extra_value = sgl_clamp(outgoing, disp_min, disp_max);
+    }
+
+    /* newest-first index i lives in ring slot cur-1-i, so each band maps to
+     * one contiguous buffer slice (wrapping at most once) whose head/tail
+     * indices are computed once; the samples are then fetched directly by
+     * buffer index */
+    const int16_t *buf = scope->data_buffers[channel];
+    int32_t ring_len = (int32_t)scope->data_len;
+    int32_t cur = (int32_t)scope->current_indices[channel];
+
+    for (uint8_t k = 0; k < SGL_SCOPE_DIRTY_BAND_NUM; k++) {
+        /* band k maps to newest-first indices [plot_w - off_hi, plot_w - off_lo];
+         * extend by one index to also cover the pixels before the 1-column
+         * left shift */
+        int32_t i_lo = plot_w - (SGL_SCOPE_DIRTY_BAND_HI(cols, k) - 1);
+        int32_t i_hi = plot_w - SGL_SCOPE_DIRTY_BAND_LO(cols, k) + 1;
+        if (i_lo < 0) i_lo = 0;
+        if (i_hi > (int32_t)scan_max) i_hi = (int32_t)scan_max;
+        if (i_lo > i_hi) {
+            continue;
+        }
+
+        int32_t newest = cur - 1 - i_lo;
+        int32_t oldest = cur - 1 - i_hi;
+        if (newest < 0) newest += ring_len;
+        if (oldest < 0) oldest += ring_len;
+
+        int16_t vmin = INT16_MAX, vmax = INT16_MIN;
+        if (oldest <= newest) {
+            scope_scan_envelope(buf, oldest, newest, disp_min, disp_max, &vmin, &vmax);
+        } else {
+            /* the slice wraps around the end of the ring buffer */
+            scope_scan_envelope(buf, oldest, ring_len - 1, disp_min, disp_max, &vmin, &vmax);
+            scope_scan_envelope(buf, 0, newest, disp_min, disp_max, &vmin, &vmax);
+        }
+        if ((int32_t)k == extra_band) {
+            if (extra_value < vmin) vmin = extra_value;
+            if (extra_value > vmax) vmax = extra_value;
+        }
+
+        SGL_SCOPE_PUSH_DIRTY_BAND(scope, plot, plot_h, vmin, vmax, disp_min, disp_range, k);
+    }
+}
+
 /**
  * @brief Append a new data point to the oscilloscope for a specific channel
  * @param obj The oscilloscope object
@@ -385,6 +516,11 @@ void sgl_scope_append_data(sgl_obj_t* obj, uint8_t channel, int16_t value)
         return;
     }
 
+    /* remember the sample about to be overwritten: it may still bound the
+     * auto-scale range or own on-screen pixels (see scope_append_area) */
+    int16_t outgoing = scope->data_buffers[channel][scope->current_indices[channel]];
+    uint8_t was_full = (scope->display_counts[channel] >= scope->data_len);
+
     // Simply append the data point to the buffer
     scope->data_buffers[channel][scope->current_indices[channel]] = value;
 
@@ -399,7 +535,16 @@ void sgl_scope_append_data(sgl_obj_t* obj, uint8_t channel, int16_t value)
         scope->display_counts[channel]++;
     }
 
-    sgl_obj_set_dirty(obj);
+    sgl_area_t plot_area = obj->coords;
+    if (scope->border_width > 0) {
+        plot_area.x1 += scope->border_width;
+        plot_area.y1 += scope->border_width;
+        plot_area.x2 -= scope->border_width;
+        plot_area.y2 -= scope->border_width;
+    }
+    if (plot_area.x1 <= plot_area.x2 && plot_area.y1 <= plot_area.y2) {
+        scope_append_area(scope, &plot_area, channel, value, outgoing, was_full);
+    }
 }
 
 /**
@@ -437,7 +582,7 @@ void sgl_scope_set_channel_count(sgl_obj_t* obj, uint8_t channel_count)
     scope->data_buffers = sgl_malloc(sizeof(int16_t*) * channel_count);
     scope->waveform_colors = sgl_malloc(sizeof(sgl_color_t) * channel_count);
     scope->current_indices = sgl_malloc(sizeof(uint32_t) * channel_count);
-    scope->display_counts = sgl_malloc(sizeof(uint8_t) * channel_count);
+    scope->display_counts = sgl_malloc(sizeof(uint16_t) * channel_count);
     
     if (!scope->data_buffers || !scope->waveform_colors || !scope->current_indices || !scope->display_counts) {
         SGL_LOG_ERROR("Failed to allocate memory for channel arrays\n");

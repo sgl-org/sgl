@@ -36,7 +36,36 @@
 extern "C" {
 #endif
 
-#define SCOPE_MAGIC 0xDEADBEEF
+#define SCOPE_MAGIC                      0xDEADBEEF
+
+/* One append shifts the waveform left by exactly one column (one point per
+ * column when data_len matches the widget width), so the changed pixels stay
+ * inside the waveform's vertical envelope. Instead of dirtying the whole plot
+ * area, split the plot width into SGL_SCOPE_DIRTY_BAND_NUM vertical bands and
+ * submit one tight dirty rectangle per band. */
+#define SGL_SCOPE_DIRTY_BAND_NUM         4
+
+/* column span of band k over a width of w columns: [LO, HI) */
+#define SGL_SCOPE_DIRTY_BAND_LO(w, k)   ((int32_t)(w) * (k) / SGL_SCOPE_DIRTY_BAND_NUM)
+#define SGL_SCOPE_DIRTY_BAND_HI(w, k)   ((int32_t)(w) * ((k) + 1) / SGL_SCOPE_DIRTY_BAND_NUM)
+
+/* build the dirty rectangle of band k from its value envelope [vmin, vmax]
+ * and submit it; the vertical padding covers each point's brush height */
+#define SGL_SCOPE_PUSH_DIRTY_BAND(scp, plt, h, vmin, vmax, dmin, drange, k)                  \
+    do {                                                                                     \
+        sgl_area_t band_area = {                                                             \
+            .x1 = (plt)->x1 + (int16_t)SGL_SCOPE_DIRTY_BAND_LO((plt)->x2 - (plt)->x1 + 1, k),      \
+            .x2 = (plt)->x1 + (int16_t)SGL_SCOPE_DIRTY_BAND_HI((plt)->x2 - (plt)->x1 + 1, k) - 1,  \
+            .y1 = (plt)->y2 - (int16_t)(((int32_t)((vmax) - (dmin)) * (h)) / (drange)) - (scp)->line_width, \
+            .y2 = (plt)->y2 - (int16_t)(((int32_t)((vmin) - (dmin)) * (h)) / (drange)) + (scp)->line_width, \
+        };                                                                                   \
+        if (band_area.y1 < (plt)->y1) band_area.y1 = (plt)->y1;                              \
+        if (band_area.y2 > (plt)->y2) band_area.y2 = (plt)->y2;                              \
+        if (band_area.x1 <= band_area.x2 && band_area.y1 <= band_area.y2) {                  \
+            sgl_update_area(&band_area);                                                     \
+        }                                                                                    \
+    } while (0)
+
 
 typedef struct {
     sgl_obj_t obj;
