@@ -31,6 +31,7 @@
 #include <sgl_log.h>
 #include <sgl_mm.h>
 #include <sgl_cfgfix.h>
+#include <sgl_misc.h>
 #include <string.h>
 
 #ifdef __cplusplus
@@ -52,13 +53,11 @@ typedef struct sgl_roller {
     sgl_color_t     selected_color;
     int16_t         item_selected;     /**< index of selected item */
     uint16_t        item_num;          /**< total number of options */
-    int16_t         scroll_y;          /**< pixel scroll offset */
+    sgl_scroll_t    sc;                /**< shared scroll physics state (sgl_misc) */
     uint8_t         visible_rows;      /**< number of visible rows (odd recommended) */
     uint8_t         alpha;
     uint8_t         dynamic_text;      /**< 1 = opt_text was malloc'd */
     uint8_t         infinite;          /**< 1 = infinite roller, 0 = bounded roller */
-    int16_t         drag_start_y;      /**< Y position when drag started */
-    int16_t         drag_start_scroll; /**< scroll_y when drag started */
 } sgl_roller_t;
 
 /**

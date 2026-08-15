@@ -74,55 +74,63 @@ static void roller_update_item_count(sgl_roller_t *roller)
     }
 }
 
-/** Clamp scroll_y so the content stays within bounds */
-static void roller_clamp_scroll(sgl_roller_t *roller, int item_h)
+/* Unbounded virtual range for infinite mode (far above any real offset,
+ * keeps the sgl_scroll soft-limit arithmetic overflow-free) */
+#define ROLLER_INFINITE_RANGE   0x3FFFFFFF
+
+/** Scroll upper limit seen by the shared sgl_scroll physics */
+static int32_t roller_range(const sgl_roller_t *roller, int item_h)
 {
-    if (roller->infinite || roller->item_num == 0) {
-        return;
-    }
-
-    /* scroll_y = -idx * item_h, so:
-     * max scroll: idx=0 → scroll_y = 0
-     * min scroll: idx=item_num-1 → scroll_y = -(item_num-1) * item_h */
-    const int max_scroll = 0;
-    const int min_scroll = -(int)(roller->item_num > 0 ? roller->item_num - 1 : 0) * item_h;
-
-    if (roller->scroll_y > max_scroll) roller->scroll_y = (int16_t)max_scroll;
-    if (roller->scroll_y < min_scroll) roller->scroll_y = (int16_t)min_scroll;
+    if (roller->infinite || roller->item_num == 0)
+        return ROLLER_INFINITE_RANGE;
+    return (int32_t)(roller->item_num - 1) * item_h;
 }
 
-/** Snap scroll_y to the nearest item */
-static void roller_snap(sgl_roller_t *roller, int item_h)
+/** Derive the selection from sc.offset; with snap != 0 also quantize the
+ *  offset onto the item grid (infinite mode wraps around the option period) */
+static void roller_sync_selection(sgl_roller_t *roller, int item_h, uint8_t snap)
 {
-    /* scroll_y = -idx * item_h → idx = round(-scroll_y / item_h) */
+    int32_t period = (int32_t)roller->item_num * item_h;
+    int32_t offset = roller->sc.offset;
     int idx;
-    if (roller->scroll_y <= 0) {
-        idx = (-roller->scroll_y + item_h / 2) / item_h;
-    } else {
-        idx = (-roller->scroll_y - item_h / 2) / item_h;
-    }
+
     if (roller->infinite) {
-        idx = roller_wrap_index(idx, roller->item_num);
+        offset %= period;
+        if (offset < 0)
+            offset += period;
+        idx = roller_wrap_index((int)((offset + item_h / 2) / item_h), roller->item_num);
     } else {
-        if (idx < 0) idx = 0;
-        if (idx >= (int)roller->item_num) idx = (int)roller->item_num - 1;
+        if (offset < 0)
+            offset = 0;
+        if (offset > period - item_h)
+            offset = period - item_h;
+        idx = (int)((offset + item_h / 2) / item_h);
     }
 
+    if (snap)
+        roller->sc.offset = (int32_t)idx * item_h;
     roller->item_selected = (int16_t)idx;
     roller->text_offset = (uint16_t)roller_text_offset_for_index(roller, idx);
-    roller->scroll_y = (int16_t)(-idx * item_h);
 }
 
-/** Scroll to make item_selected centered */
-static void roller_scroll_to_selected(sgl_roller_t *roller, int item_h)
+/** Physics commit: live-follow the nearest item while coasting, quantize
+ *  onto the grid once the settle frame is reached (coasting just cleared) */
+static void sgl_roller_scroll_commit(sgl_scroll_t *sc)
 {
-    roller->scroll_y = (int16_t)(-roller->item_selected * item_h);
+    sgl_roller_t *roller = sgl_container_of(sc, sgl_roller_t, sc);
+
+    if (roller->item_num == 0)
+        return;
+
+    roller_sync_selection(roller, roller_item_height(roller), (uint8_t)(sc->coasting == 0U));
+    sgl_obj_set_dirty(&roller->obj);
 }
 
 static void sgl_roller_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_t *evt)
 {
     sgl_roller_t *roller = sgl_container_of(obj, sgl_roller_t, obj);
     const int item_h = roller_item_height(roller);
+    int16_t obj_w = sgl_obj_get_width(obj);
 
     switch (evt->type) {
     case SGL_EVENT_DRAW_MAIN: {
@@ -153,7 +161,7 @@ static void sgl_roller_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
         const int band_y1 = draw_y1 + (widget_h - item_h) / 2;
         const int band_y2 = band_y1 + item_h - 1;
         sgl_area_t band_area = {
-            .x1 = obj->area.x1, .x2 = obj->area.x2,
+            .x1 = obj->area.x1 + obj->border, .x2 = obj->area.x2 - obj->border,
             .y1 = sgl_max((int16_t)band_y1, obj->coords.y1),
             .y2 = sgl_min((int16_t)band_y2, obj->coords.y2),
         };
@@ -162,11 +170,13 @@ static void sgl_roller_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
         /* Text vertical centering within item */
         const int font_h = sgl_font_get_height(roller->font);
         const int text_y_off = (item_h - font_h) / 2;
+        int16_t align_x;
 
-        /* Items start so that item 0 aligns with band when scroll_y == 0 */
+        /* Items start so that item 0 aligns with band when offset == 0 */
         if (roller->infinite) {
             int idx_base = 0;
-            int16_t item_draw_y = band_y1 + roller->scroll_y;
+            int16_t item_draw_y = (int16_t)(band_y1 - roller->sc.offset);
+            
 
             if (item_draw_y > draw_y1) {
                 int delta = (item_draw_y - draw_y1 + item_h - 1) / item_h;
@@ -185,7 +195,9 @@ static void sgl_roller_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
                 memcpy(text_buf, roller->opt_text + offset, copy_len);
                 text_buf[copy_len] = '\0';
 
-                sgl_draw_string(surf, &obj->area, obj->coords.x1 + obj->radius + 2,
+                /* horizontally centered inside the widget */
+                align_x = obj->coords.x1 + (obj_w - (int16_t)sgl_font_get_string_width(text_buf, roller->font)) / 2;
+                sgl_draw_string(surf, &obj->area, align_x,
                                 item_draw_y + text_y_off, text_buf,
                                 roller->text_color, roller->alpha, roller->font);
 
@@ -194,7 +206,7 @@ static void sgl_roller_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
             }
         } else {
             int offset = 0;
-            int16_t item_draw_y = band_y1 + roller->scroll_y;
+            int16_t item_draw_y = (int16_t)(band_y1 - roller->sc.offset);
 
             while (roller->opt_text[offset] != '\0' && item_draw_y + item_h < draw_y1) {
                 int len = sgl_string_option_get_text_len(roller->opt_text, offset);
@@ -209,8 +221,9 @@ static void sgl_roller_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
                 memcpy(text_buf, roller->opt_text + offset, copy_len);
                 text_buf[copy_len] = '\0';
 
-                sgl_draw_string(surf, &obj->area, obj->coords.x1 + obj->radius + 2,
-                                item_draw_y + text_y_off, text_buf,
+                /* horizontally centered inside the widget */
+                align_x = obj->coords.x1 + (obj_w - (int16_t)sgl_font_get_string_width(text_buf, roller->font)) / 2;
+                sgl_draw_string(surf, &obj->area, align_x, item_draw_y + text_y_off, text_buf,
                                 roller->text_color, roller->alpha, roller->font);
 
                 offset += len;
@@ -221,24 +234,50 @@ static void sgl_roller_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
     } break;
 
     case SGL_EVENT_PRESSED:
-        roller->drag_start_y = evt->pos.y;
-        roller->drag_start_scroll = roller->scroll_y;
+        sgl_scroll_press(&roller->sc, evt->pos.y);
         sgl_obj_set_dirty(obj);
         break;
 
     case SGL_EVENT_MOVE_UP:
     case SGL_EVENT_MOVE_DOWN:
-        roller->scroll_y = roller->drag_start_scroll + (evt->pos.y - roller->drag_start_y);
-        roller_clamp_scroll(roller, item_h);
-        sgl_obj_set_dirty(obj);
+        if (sgl_scroll_stay(&roller->sc, evt->pos.y, roller_range(roller, item_h))) {
+            if (roller->infinite && roller->item_num > 0) {
+                /* keep the offset inside one period so endless rotation
+                 * never runs into the soft limits */
+                int32_t period = (int32_t)roller->item_num * item_h;
+                roller->sc.offset %= period;
+                if (roller->sc.offset < 0)
+                    roller->sc.offset += period;
+            }
+            sgl_obj_set_dirty(obj);
+        }
         break;
 
-    case SGL_EVENT_RELEASED:
-        roller_snap(roller, item_h);
+    case SGL_EVENT_RELEASED: {
+        if (roller->item_num == 0)
+            break;
+
+        if (roller->infinite) {
+            int32_t period = (int32_t)roller->item_num * item_h;
+            roller->sc.offset %= period;
+            if (roller->sc.offset < 0)
+                roller->sc.offset += period;
+        }
+
+        const int32_t range = roller_range(roller, item_h);
+        roller->sc.range = range;
+        roller->sc.commit = sgl_roller_scroll_commit;
+        if (sgl_scroll_release(&roller->sc, range)) {
+            sgl_scroll_anim_start(&roller->sc);
+        } else {
+            /* no inertia needed: align onto the nearest item right away */
+            roller_sync_selection(roller, item_h, 1U);
+        }
         sgl_obj_set_dirty(obj);
-        break;
+    } break;
 
     case SGL_EVENT_DESTROYED:
+        sgl_scroll_anim_stop(&roller->sc);
         roller_free_dynamic_text(roller);
         break;
 
@@ -263,8 +302,9 @@ static void sgl_roller_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
         }
 
         if (roller->item_selected >= 0 && roller->item_selected < (int)roller->item_num) {
+            sgl_scroll_anim_stop(&roller->sc);
             roller->text_offset = (uint16_t)roller_text_offset_for_index(roller, roller->item_selected);
-            roller_scroll_to_selected(roller, item_h);
+            roller->sc.offset = (int32_t)roller->item_selected * item_h;
         }
         sgl_obj_set_dirty(obj);
         break;
@@ -308,7 +348,7 @@ sgl_obj_t* sgl_roller_create(sgl_obj_t* parent)
     roller->opt_text = NULL;
     roller->dynamic_text = 0;
     roller->infinite = 0;
-    roller->scroll_y = 0;
+    sgl_scroll_reset(&roller->sc);
 
     /* Set default size based on font */
     const int item_h = roller_item_height(roller);
@@ -331,7 +371,8 @@ void sgl_roller_set_option_static(sgl_obj_t *obj, const char *text)
     roller->dynamic_text = 0;
     roller->item_selected = 0;
     roller_update_item_count(roller);
-    roller_scroll_to_selected(roller, roller_item_height(roller));
+    sgl_scroll_anim_stop(&roller->sc);
+    roller->sc.offset = 0;
     sgl_obj_set_dirty(obj);
 }
 
@@ -358,7 +399,8 @@ void sgl_roller_set_option_dynamic(sgl_obj_t *obj, const char *text)
     roller->dynamic_text = 1;
     roller->item_selected = 0;
     roller_update_item_count(roller);
-    roller_scroll_to_selected(roller, roller_item_height(roller));
+    sgl_scroll_anim_stop(&roller->sc);
+    roller->sc.offset = 0;
     sgl_obj_set_dirty(obj);
 }
 
@@ -386,9 +428,13 @@ void sgl_roller_set_infinite_mode(sgl_obj_t *obj, bool enable)
     if (roller->infinite == new_infinite) return;
     roller->infinite = new_infinite;
 
-    if (!roller->infinite) {
-        roller_clamp_scroll(roller, roller_item_height(roller));
-        roller_snap(roller, roller_item_height(roller));
+    /* re-anchor the offset on the current selection in the new mode */
+    sgl_scroll_anim_stop(&roller->sc);
+    if (roller->item_num > 0 && roller->item_selected >= 0) {
+        if (!roller->infinite && roller->item_selected >= (int)roller->item_num)
+            roller->item_selected = (int16_t)(roller->item_num - 1);
+        roller->text_offset = (uint16_t)roller_text_offset_for_index(roller, roller->item_selected);
+        roller->sc.offset = (int32_t)roller->item_selected * roller_item_height(roller);
     }
 
     sgl_obj_set_dirty(obj);
@@ -427,8 +473,9 @@ void sgl_roller_set_visible_rows(sgl_obj_t *obj, uint8_t rows)
     if (rows < 1) rows = 1;
     if (roller->visible_rows == rows) return;
     roller->visible_rows = rows;
-    const int item_h = roller_item_height(roller);
-    roller_scroll_to_selected(roller, item_h);
+    sgl_scroll_anim_stop(&roller->sc);
+    roller->sc.offset = (roller->item_selected > 0)
+                        ? (int32_t)roller->item_selected * roller_item_height(roller) : 0;
     sgl_obj_set_dirty(obj);
 }
 
@@ -499,8 +546,9 @@ void sgl_roller_set_text_font(sgl_obj_t *obj, const sgl_font_t *font)
     sgl_roller_t *roller = sgl_container_of(obj, sgl_roller_t, obj);
     if (roller->font == font) return;
     roller->font = font;
-    const int item_h = roller_item_height(roller);
-    roller_scroll_to_selected(roller, item_h);
+    sgl_scroll_anim_stop(&roller->sc);
+    roller->sc.offset = (roller->item_selected > 0)
+                        ? (int32_t)roller->item_selected * roller_item_height(roller) : 0;
     sgl_obj_set_dirty(obj);
 }
 
