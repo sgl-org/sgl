@@ -121,8 +121,8 @@ static void arc_update_area(int16_t radius_in, int16_t radius_out, int16_t angle
     int16_t axis_angle;
     int i;
 
-    angle_s = sgl_mod360(angle_s);
-    angle_e = sgl_mod360(angle_e);
+    angle_s = sgl_mod360(angle_s) - 1;
+    angle_e = sgl_mod360(angle_e) + 1;
 
     /* endpoints on the outer radius */
     x_min = x_max = -(int16_t)(((radius_out + 1) * sgl_sin(angle_s)) / SGL_SIN_FIXED_ONE);
