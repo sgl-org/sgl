@@ -181,7 +181,6 @@ void sgl_switch_set_knob_color(sgl_obj_t *obj, sgl_color_t color)
     sgl_obj_set_dirty(obj);
 }
 
-
 /**
  * @brief Set the pixmap of the switch object
  * @param obj  Pointer to the switch object

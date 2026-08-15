@@ -114,7 +114,8 @@ extern "C" {
 #define  SGL_PIXMAP_FMT_RLE_ARGB4444            (10)
 #define  SGL_PIXMAP_FMT_RLE_RGB888              (11)
 #define  SGL_PIXMAP_FMT_RLE_ARGB8888            (12)
-#define  SGL_PIXMAP_FMT_MAX                     (13)
+#define  SGL_PIXMAP_FMT_QOI_RGB565              (13)
+#define  SGL_PIXMAP_FMT_MAX                     (14)
 
 /* the font format */
 #define  SGL_FONT_FMT_NORMAL                    (0)

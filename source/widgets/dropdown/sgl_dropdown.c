@@ -269,9 +269,6 @@ static void sgl_dropdown_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_even
 
     case SGL_EVENT_CLICKED:
         if (dropdown->is_open) {
-            /* map the click point back into content space before the reset
-             * clears the scroll offset, otherwise the index falls short by
-             * the scrolled amount */
             const int32_t click_offset = dropdown->sc.offset;
             dropdown->is_open = false;
             sgl_scroll_anim_stop(&dropdown->sc);

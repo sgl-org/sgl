@@ -141,6 +141,7 @@ uint8_t sgl_pixmal_get_pixel_bytes(const sgl_pixmap_t *pixmap)
         [SGL_PIXMAP_FMT_RLE_RGB888]   = 3,
         [SGL_PIXMAP_FMT_ARGB8888]     = 4,
         [SGL_PIXMAP_FMT_RLE_ARGB8888] = 4,
+        [SGL_PIXMAP_FMT_QOI_RGB565]   = 2,
     };
 
     SGL_ASSERT(pixmap != NULL);

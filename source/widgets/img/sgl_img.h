@@ -131,6 +131,7 @@ typedef struct sgl_img {
     uint8_t         *flash_buffer;
     uint16_t        buffer_lines;   /* Number of lines the flash_buffer can hold */
     uint16_t        buffer_line;    /* Current starting line in flash_buffer */
+    uint32_t        *qoi_line_offsets; /* QOI per-line offset table (allocated on demand) */
 } sgl_img_t;
 
 /**
