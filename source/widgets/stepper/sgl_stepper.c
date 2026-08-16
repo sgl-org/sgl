@@ -46,19 +46,6 @@ static int32_t sgl_stepper_divisor(uint8_t decimals)
 }
 
 /**
- * @brief  clamp value to [min, max]
- * @param  s: stepper pointer
- * @param  v: input value
- * @return clamped value
- */
-static int32_t sgl_stepper_clamp(const sgl_stepper_t *s, int32_t v)
-{
-    if (v < s->min_value) return s->min_value;
-    if (v > s->max_value) return s->max_value;
-    return v;
-}
-
-/**
  * @brief  format value into display string (with sign and decimal point)
  * @param  s: stepper pointer (result written to s->buf)
  * @return none
@@ -145,7 +132,7 @@ static uint8_t sgl_stepper_apply(sgl_stepper_t *s, int8_t dir)
         else if (nv < s->min_value)
             nv = s->max_value - ((s->max_value - nv) % span);
     } else {
-        nv = sgl_stepper_clamp(s, nv);
+        nv = sgl_clamp(nv, s->min_value, s->max_value);
     }
 
     if (nv == s->value) return 0;
@@ -358,7 +345,7 @@ sgl_obj_t* sgl_stepper_create(sgl_obj_t *parent)
 void sgl_stepper_set_value(sgl_obj_t *obj, int32_t value)
 {
     sgl_stepper_t *s = sgl_container_of(obj, sgl_stepper_t, obj);
-    int32_t nv = sgl_stepper_clamp(s, value);
+    int32_t nv = sgl_clamp(value, s->min_value, s->max_value);
     if (nv == s->value) return;
     s->value = nv;
     sgl_obj_set_dirty(obj);
@@ -400,7 +387,7 @@ void sgl_stepper_set_range(sgl_obj_t *obj, int32_t min_value, int32_t max_value)
     if (min_value > max_value) { int32_t t = min_value; min_value = max_value; max_value = t; }
     s->min_value = min_value;
     s->max_value = max_value;
-    int32_t nv = sgl_stepper_clamp(s, s->value);
+    int32_t nv = sgl_clamp(s->value, s->min_value, s->max_value);
     if (nv != s->value) {
         s->value = nv;
     }
