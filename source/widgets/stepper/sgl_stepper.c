@@ -269,7 +269,6 @@ static void sgl_stepper_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event
             s->pressed = 1;
             sgl_stepper_apply(s, side);
         }
-        sgl_obj_set_dirty(obj);
         break;
     }
 
