@@ -664,11 +664,17 @@ static void sgl_filebrowser_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_e
     break;
 
     case SGL_EVENT_CLICKED: {
-        const int16_t item_area_top = list_y1 + SGL_FILEBROWSER_ITEM_SPACE - (int16_t)fb->sc.offset;
-        if (evt->pos.y < item_area_top) break;
+        int16_t clicked_index;
+        if (evt->pos.x == SGL_POS_MIN && evt->pos.y == SGL_POS_MIN) {
+            clicked_index = fb->item_selected;
+            if (clicked_index < 0 || clicked_index >= (int16_t)fb->item_num) break;
+        } else {
+            const int16_t item_area_top = list_y1 + SGL_FILEBROWSER_ITEM_SPACE - (int16_t)fb->sc.offset;
+            if (evt->pos.y < item_area_top) break;
 
-        int16_t clicked_index = (int16_t)((evt->pos.y - item_area_top) / item_height);
-        if (clicked_index < 0 || clicked_index >= (int16_t)fb->item_num) break;
+            clicked_index = (int16_t)((evt->pos.y - item_area_top) / item_height);
+            if (clicked_index < 0 || clicked_index >= (int16_t)fb->item_num) break;
+        }
 
         const int16_t old_selected = fb->item_selected;
         sgl_filebrowser_select_index(fb, clicked_index);
@@ -764,6 +770,7 @@ sgl_obj_t* sgl_filebrowser_create(sgl_obj_t *parent)
     sgl_obj_set_clickable(&fb->obj);
     sgl_obj_set_movable(&fb->obj);
     sgl_obj_set_editable(&fb->obj);
+    sgl_obj_set_keypress_mask(&fb->obj);
     sgl_obj_set_border_width(&fb->obj, 1);
 
     fb->selected             = &fb->selected_item;
