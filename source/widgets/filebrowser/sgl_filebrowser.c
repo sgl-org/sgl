@@ -770,7 +770,7 @@ sgl_obj_t* sgl_filebrowser_create(sgl_obj_t *parent)
     sgl_obj_set_clickable(&fb->obj);
     sgl_obj_set_movable(&fb->obj);
     sgl_obj_set_editable(&fb->obj);
-    sgl_obj_set_keypress_mask(&fb->obj);
+    sgl_obj_set_keypress_click(&fb->obj);
     sgl_obj_set_border_width(&fb->obj, 1);
 
     fb->selected             = &fb->selected_item;

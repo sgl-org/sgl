@@ -772,7 +772,7 @@ void sgl_key_enter_pressed(void)
         }
         else {
             sgl_event_t evt;
-            sgl_event_type_t type = sgl_obj_is_keypress_mask(obj) ? SGL_EVENT_CLICKED : SGL_EVENT_PRESSED;
+            sgl_event_type_t type = sgl_obj_is_keypress_click(obj) ? SGL_EVENT_CLICKED : SGL_EVENT_PRESSED;
             event_type_callback(obj, &evt, type);
             key_grp_active->pressed = 1;
         }
