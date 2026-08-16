@@ -69,7 +69,7 @@ static void sgl_battery_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event
     const bool    vert    = b->vertical;
 
     /* Cap protrudes outside the body: reserve space on cap side */
-    const int16_t cap_len = vert ? sgl_max(body_h / 12, 3) : sgl_max(body_w / 12, 3);
+    const int16_t cap_len = vert ? sgl_max(body_h / 20, 2) : sgl_max(body_w / 20, 2);
     const int16_t cap_thick_w = vert ? body_w / 2 : sgl_max(body_h / 3, 4);
     const int16_t cap_thick_h = vert ? sgl_max(body_w / 3, 4) : body_h / 3;
 
@@ -201,28 +201,6 @@ static void sgl_battery_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event
                               bx2 + cap_len, cy + cap_thick_h };
         sgl_draw_fill_rect(surf, &obj->area, &cap_sh, 0,
                            SGL_COLOR_BLACK, (uint8_t)(alpha * 60 / 255));
-    }
-
-    /* Charging lightning bolt */
-    if (b->charging) {
-        sgl_draw_line_t ln = {
-            .alpha = SGL_ALPHA_MAX,
-            .width = 2,
-            .color = b->charging_color,
-        };
-        int16_t cx = (bx1 + bx2) / 2;
-        int16_t cy = (by1 + by2) / 2;
-        int16_t hw = bw / 6;
-        int16_t hh = bh / 3;
-        ln.x1 = cx + hw / 2;  ln.y1 = cy - hh;
-        ln.x2 = cx - hw / 4;  ln.y2 = cy - hh / 6;
-        sgl_draw_line(surf, &obj->area, &ln);
-        ln.x1 = ln.x2;  ln.y1 = ln.y2;
-        ln.x2 = cx + hw / 4;  ln.y2 = cy + hh / 6;
-        sgl_draw_line(surf, &obj->area, &ln);
-        ln.x1 = ln.x2;  ln.y1 = ln.y2;
-        ln.x2 = cx - hw / 2;  ln.y2 = cy + hh;
-        sgl_draw_line(surf, &obj->area, &ln);
     }
 
     /* Percentage text */
