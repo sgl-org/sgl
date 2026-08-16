@@ -273,9 +273,11 @@ static void sgl_stepper_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event
     }
 
     case SGL_EVENT_KEY_UP:
+    case SGL_EVENT_KEY_RIGHT:
         sgl_stepper_apply(s, 1);
         break;
     case SGL_EVENT_KEY_DOWN: 
+    case SGL_EVENT_KEY_LEFT:
         sgl_stepper_apply(s, -1);
         break;
 
