@@ -68,32 +68,53 @@ static void sgl_battery_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event
     const int16_t body_h  = body_y2 - body_y1;
     const bool    vert    = b->vertical;
 
-    /* cap: horizontal -> right side, vertical -> top side */
-    const int16_t cap_w = vert ? body_w / 3 : sgl_max(body_w / 8, 3);
-    const int16_t cap_h = vert ? sgl_max(body_h / 8, 3) : body_h / 3;
+    /* Cap protrudes outside the body: reserve space on cap side */
+    const int16_t cap_len = vert ? sgl_max(body_h / 12, 3) : sgl_max(body_w / 12, 3);
+    const int16_t cap_thick_w = vert ? body_w / 2 : sgl_max(body_h / 3, 4);
+    const int16_t cap_thick_h = vert ? sgl_max(body_w / 3, 4) : body_h / 3;
 
-    /* body rect (full widget minus border) */
-    sgl_area_t body = { body_x1, body_y1, body_x2, body_y2 };
+    /* body rect: shrink on cap side to make room for protruding cap */
+    sgl_area_t body;
+    if (vert) {
+        body = (sgl_area_t){ body_x1, body_y1 + cap_len, body_x2, body_y2 };
+    } else {
+        body = (sgl_area_t){ body_x1, body_y1, body_x2 - cap_len, body_y2 };
+    }
     sgl_draw_fill_rect_border(surf, &obj->area, &body, r,
                               b->border_color, 2, alpha);
     sgl_draw_fill_rect(surf, &obj->area, &body, r, b->bg_color, alpha);
 
-    /* fill area: inset by pad, shrink on cap side */
-    const int16_t pad = 3;
-    int16_t fill_x1, fill_y1, fill_x2, fill_y2;
+    /* Recalculate body extents from the actual body rect */
+    const int16_t bx1 = body.x1, by1 = body.y1;
+    const int16_t bx2 = body.x2, by2 = body.y2;
+    const int16_t bw  = bx2 - bx1;
+    const int16_t bh  = by2 - by1;
+
+    /* 3-D body edge: highlight and shadow adapt to orientation */
     if (vert) {
-        /* vertical: cap at top, fill below */
-        fill_x1 = body_x1 + pad;
-        fill_y1 = body_y1 + cap_h + pad;
-        fill_x2 = body_x2 - pad;
-        fill_y2 = body_y2 - pad;
+        /* vertical: highlight left, shadow right */
+        sgl_area_t hl = { bx1, by1, bx1 + sgl_max(bw / 8, 1), by2 };
+        sgl_draw_fill_rect(surf, &obj->area, &hl, r,
+                           SGL_COLOR_WHITE, (uint8_t)(alpha * 80 / 255));
+        sgl_area_t sh = { bx2 - sgl_max(bw / 10, 1), by1, bx2, by2 };
+        sgl_draw_fill_rect(surf, &obj->area, &sh, 0,
+                           SGL_COLOR_BLACK, (uint8_t)(alpha * 90 / 255));
     } else {
-        /* horizontal: cap at right, fill to the left */
-        fill_x1 = body_x1 + pad;
-        fill_y1 = body_y1 + pad;
-        fill_x2 = body_x2 - cap_w - pad;
-        fill_y2 = body_y2 - pad;
+        /* horizontal: highlight top, shadow bottom */
+        sgl_area_t hl = { bx1, by1, bx2, by1 + sgl_max(bh / 8, 1) };
+        sgl_draw_fill_rect(surf, &obj->area, &hl, r,
+                           SGL_COLOR_WHITE, (uint8_t)(alpha * 80 / 255));
+        sgl_area_t sh = { bx1, by2 - sgl_max(bh / 10, 1), bx2, by2 };
+        sgl_draw_fill_rect(surf, &obj->area, &sh, 0,
+                           SGL_COLOR_BLACK, (uint8_t)(alpha * 90 / 255));
     }
+
+    /* fill area: inset by pad */
+    const int16_t pad = 3;
+    int16_t fill_x1 = bx1 + pad;
+    int16_t fill_y1 = by1 + pad;
+    int16_t fill_x2 = bx2 - pad;
+    int16_t fill_y2 = by2 - pad;
     const int16_t fw = fill_x2 - fill_x1;
     const int16_t fh = fill_y2 - fill_y1;
 
@@ -114,14 +135,14 @@ static void sgl_battery_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event
                 sgl_draw_fill_rect(surf, &obj->area, &fill, r - 1, fc, alpha);
                 /* 3-D highlight: left strip */
                 sgl_area_t hl = { fill_x1, fill_y2 - level_h,
-                                  fill_x1 + sgl_max(fw / 5, 1), fill_y2 };
+                                  fill_x1 + sgl_max(fw / 5, 2), fill_y2 };
                 sgl_draw_fill_rect(surf, &obj->area, &hl, r - 1,
                                    SGL_COLOR_WHITE, (uint8_t)(alpha * 90 / 255));
                 /* 3-D shadow: right strip */
-                sgl_area_t sh = { fill_x2 - sgl_max(fw / 8, 1), fill_y2 - level_h,
+                sgl_area_t sh = { fill_x2 - sgl_max(fw / 6, 1), fill_y2 - level_h,
                                   fill_x2, fill_y2 };
                 sgl_draw_fill_rect(surf, &obj->area, &sh, 0,
-                                   SGL_COLOR_BLACK, (uint8_t)(alpha * 60 / 255));
+                                   SGL_COLOR_BLACK, (uint8_t)(alpha * 100 / 255));
             }
         } else {
             /* horizontal: fill grows rightward from left */
@@ -131,31 +152,55 @@ static void sgl_battery_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event
                 sgl_draw_fill_rect(surf, &obj->area, &fill, r - 1, fc, alpha);
                 /* 3-D highlight: top strip */
                 sgl_area_t hl = { fill_x1, fill_y1, fill_x1 + level_w,
-                                  fill_y1 + sgl_max(fh / 5, 1) };
+                                  fill_y1 + sgl_max(fh / 5, 2) };
                 sgl_draw_fill_rect(surf, &obj->area, &hl, r - 1,
                                    SGL_COLOR_WHITE, (uint8_t)(alpha * 90 / 255));
                 /* 3-D shadow: bottom strip */
-                sgl_area_t sh = { fill_x1, fill_y2 - sgl_max(fh / 8, 1),
+                sgl_area_t sh = { fill_x1, fill_y2 - sgl_max(fh / 6, 1),
                                   fill_x1 + level_w, fill_y2 };
                 sgl_draw_fill_rect(surf, &obj->area, &sh, 0,
-                                   SGL_COLOR_BLACK, (uint8_t)(alpha * 60 / 255));
+                                   SGL_COLOR_BLACK, (uint8_t)(alpha * 100 / 255));
             }
         }
     }
 
-    /* Cap (positive terminal) */
+    /* Cap (positive terminal) — protrudes outside the body */
     if (vert) {
-        /* vertical: cap at top center */
-        const int16_t cap_x = body_x1 + (body_w - cap_w) / 2;
-        sgl_area_t cap = { cap_x, body_y1, cap_x + cap_w, body_y1 + cap_h };
-        sgl_draw_fill_rect(surf, &obj->area, &cap, sgl_max(r / 2, 1),
-                           b->border_color, alpha);
+        /* vertical: cap sticks up above the body top */
+        const int16_t cx = bx1 + (bw - cap_thick_w) / 2;
+        sgl_area_t cap_bg = { cx - 1, by1 - cap_len, cx + cap_thick_w + 1, by1 };
+        sgl_draw_fill_rect(surf, &obj->area, &cap_bg, 0, b->bg_color, alpha);
+        sgl_area_t cap = { cx, by1 - cap_len, cx + cap_thick_w, by1 };
+        sgl_draw_fill_rect(surf, &obj->area, &cap, 2,
+                           sgl_color_mixer(b->bg_color, b->border_color, 180), alpha);
+        /* 3-D cap: left highlight */
+        sgl_area_t cap_hl = { cx, by1 - cap_len,
+                              cx + sgl_max(cap_thick_w / 4, 1), by1 };
+        sgl_draw_fill_rect(surf, &obj->area, &cap_hl, 2,
+                           SGL_COLOR_WHITE, (uint8_t)(alpha * 70 / 255));
+        /* 3-D cap: right shadow */
+        sgl_area_t cap_sh = { cx + cap_thick_w - sgl_max(cap_thick_w / 5, 1), by1 - cap_len,
+                              cx + cap_thick_w, by1 };
+        sgl_draw_fill_rect(surf, &obj->area, &cap_sh, 0,
+                           SGL_COLOR_BLACK, (uint8_t)(alpha * 60 / 255));
     } else {
-        /* horizontal: cap at right center */
-        const int16_t cap_y = body_y1 + (body_h - cap_h) / 2;
-        sgl_area_t cap = { body_x2 - cap_w + 1, cap_y, body_x2, cap_y + cap_h };
-        sgl_draw_fill_rect(surf, &obj->area, &cap, sgl_max(r / 2, 1),
-                           b->border_color, alpha);
+        /* horizontal: cap sticks out to the right of the body */
+        const int16_t cy = by1 + (bh - cap_thick_h) / 2;
+        sgl_area_t cap_bg = { bx2, cy - 1, bx2 + cap_len, cy + cap_thick_h + 1 };
+        sgl_draw_fill_rect(surf, &obj->area, &cap_bg, 0, b->bg_color, alpha);
+        sgl_area_t cap = { bx2, cy, bx2 + cap_len, cy + cap_thick_h };
+        sgl_draw_fill_rect(surf, &obj->area, &cap, 2,
+                           sgl_color_mixer(b->bg_color, b->border_color, 180), alpha);
+        /* 3-D cap: top highlight */
+        sgl_area_t cap_hl = { bx2, cy, bx2 + cap_len,
+                              cy + sgl_max(cap_thick_h / 4, 1) };
+        sgl_draw_fill_rect(surf, &obj->area, &cap_hl, 2,
+                           SGL_COLOR_WHITE, (uint8_t)(alpha * 70 / 255));
+        /* 3-D cap: bottom shadow */
+        sgl_area_t cap_sh = { bx2, cy + cap_thick_h - sgl_max(cap_thick_h / 5, 1),
+                              bx2 + cap_len, cy + cap_thick_h };
+        sgl_draw_fill_rect(surf, &obj->area, &cap_sh, 0,
+                           SGL_COLOR_BLACK, (uint8_t)(alpha * 60 / 255));
     }
 
     /* Charging lightning bolt */
@@ -165,10 +210,10 @@ static void sgl_battery_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event
             .width = 2,
             .color = b->charging_color,
         };
-        int16_t cx = (body_x1 + body_x2) / 2;
-        int16_t cy = (body_y1 + body_y2) / 2;
-        int16_t hw = body_w / 6;
-        int16_t hh = body_h / 3;
+        int16_t cx = (bx1 + bx2) / 2;
+        int16_t cy = (by1 + by2) / 2;
+        int16_t hw = bw / 6;
+        int16_t hh = bh / 3;
         ln.x1 = cx + hw / 2;  ln.y1 = cy - hh;
         ln.x2 = cx - hw / 4;  ln.y2 = cy - hh / 6;
         sgl_draw_line(surf, &obj->area, &ln);
@@ -189,9 +234,9 @@ static void sgl_battery_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event
         if (f != NULL) {
             int16_t tw = sgl_font_get_string_width(txt, f);
             int16_t th = sgl_font_get_height(f);
-            int16_t tx = body_x1 + (body_w - tw) / 2;
-            int16_t ty = body_y1 + (body_h - th) / 2;
-            sgl_area_t ta = { body_x1, body_y1, body_x2, body_y2 };
+            int16_t tx = bx1 + (bw - tw) / 2;
+            int16_t ty = by1 + (bh - th) / 2;
+            sgl_area_t ta = { bx1, by1, bx2, by2 };
             sgl_draw_string(surf, &ta, tx, ty, txt, b->text_color, SGL_ALPHA_MAX, f);
         }
     }
@@ -217,7 +262,7 @@ sgl_obj_t* sgl_battery_create(sgl_obj_t *parent)
     b->obj.radius       = 4;
 
     b->level          = 100;
-    b->alpha          = 160;
+    b->alpha          = 140;
     b->border_color   = sgl_rgb(180, 180, 180);
     b->fill_color     = (sgl_color_t){0};  /* auto */
     b->low_color      = sgl_rgb(231, 76, 60);
