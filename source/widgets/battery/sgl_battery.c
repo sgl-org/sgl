@@ -1,10 +1,10 @@
-/* source/widgets/sgl_battery.c
+/* source/widgets/battery/sgl_battery.c
  *
  * MIT License
  *
- * Copyright(c) 2023-present All contributors of SGL  
+ * Copyright(c) 2023-present All contributors of SGL
  * Document reference link: https://sgl-docs.readthedocs.io
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -31,548 +31,386 @@
 #include <sgl_cfgfix.h>
 #include "sgl_battery.h"
 
+/**
+ * @brief  get battery level color
+ * @param  b: battery object pointer
+ * @return color based on current level (low/medium/high)
+ */
+static sgl_color_t sgl_battery_level_color(const sgl_battery_t *b)
+{
+    if (b->level < 20)  return b->low_color;
+    if (b->level < 50)  return b->medium_color;
+    return b->high_color;
+}
 
 /**
- * @brief construct function of battery object
- * @param surf pointer to surface
- * @param obj pointer to object
- * @param evt pointer to event
+ * @brief  battery construct callback
+ * @param  surf: surface pointer
+ * @param  obj: object pointer
+ * @param  evt: event pointer
  * @return none
+ * @note   this function is called when the object is created or redraw
  */
-static void sgl_battery_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *evt)
+static void sgl_battery_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_t *evt)
 {
-    sgl_battery_t *battery = sgl_container_of(obj, sgl_battery_t, obj);
-    
-    if(evt->type == SGL_EVENT_DRAW_MAIN) {
-        int16_t x1 = obj->coords.x1;
-        int16_t y1 = obj->coords.y1;
-        int16_t x2 = obj->coords.x2;
-        int16_t y2 = obj->coords.y2;
-        
-        int16_t width = x2 - x1;
-        int16_t height = y2 - y1;
-        
-        int16_t battery_width, battery_height;
-        int16_t battery_x, battery_y;
-        int16_t cap_width, cap_height;
-        int16_t cap_x, cap_y;
-        
-        if (battery->direction == SGL_BATTERY_DIR_HORIZONTAL) {
-            battery_width = width - battery->cap_size;
-            battery_height = height - (height / 5);
-            
-            cap_width = battery->cap_size;
-            cap_height = battery_height / 3;
-            
-            if (battery->cap_pos == SGL_BATTERY_CAP_RIGHT) {
-                battery_x = x1;
-                battery_y = y1 + (height - battery_height) / 2;
-                cap_x = battery_x + battery_width;
-                cap_y = battery_y + (battery_height - cap_height) / 2;
-            } else {
-                battery_x = x1 + cap_width;
-                battery_y = y1 + (height - battery_height) / 2;
-                cap_x = x1;
-                cap_y = battery_y + (battery_height - cap_height) / 2;
+    if (evt->type != SGL_EVENT_DRAW_MAIN) return;
+
+    sgl_battery_t *b = sgl_container_of(obj, sgl_battery_t, obj);
+    const uint8_t  alpha  = b->alpha;
+    const uint8_t  border = obj->border;
+    const int16_t  r      = sgl_max(obj->radius, 1);
+
+    const int16_t body_x1 = obj->coords.x1 + border;
+    const int16_t body_y1 = obj->coords.y1 + border;
+    const int16_t body_x2 = obj->coords.x2 - border;
+    const int16_t body_y2 = obj->coords.y2 - border;
+    const int16_t body_w  = body_x2 - body_x1;
+    const int16_t body_h  = body_y2 - body_y1;
+    const bool    vert    = b->vertical;
+
+    /* cap: horizontal -> right side, vertical -> top side */
+    const int16_t cap_w = vert ? body_w / 3 : sgl_max(body_w / 8, 3);
+    const int16_t cap_h = vert ? sgl_max(body_h / 8, 3) : body_h / 3;
+
+    /* body rect (full widget minus border) */
+    sgl_area_t body = { body_x1, body_y1, body_x2, body_y2 };
+    sgl_draw_fill_rect_border(surf, &obj->area, &body, r,
+                              b->border_color, 2, alpha);
+    sgl_draw_fill_rect(surf, &obj->area, &body, r, b->bg_color, alpha);
+
+    /* fill area: inset by pad, shrink on cap side */
+    const int16_t pad = 3;
+    int16_t fill_x1, fill_y1, fill_x2, fill_y2;
+    if (vert) {
+        /* vertical: cap at top, fill below */
+        fill_x1 = body_x1 + pad;
+        fill_y1 = body_y1 + cap_h + pad;
+        fill_x2 = body_x2 - pad;
+        fill_y2 = body_y2 - pad;
+    } else {
+        /* horizontal: cap at right, fill to the left */
+        fill_x1 = body_x1 + pad;
+        fill_y1 = body_y1 + pad;
+        fill_x2 = body_x2 - cap_w - pad;
+        fill_y2 = body_y2 - pad;
+    }
+    const int16_t fw = fill_x2 - fill_x1;
+    const int16_t fh = fill_y2 - fill_y1;
+
+    if (fw > 0 && fh > 0) {
+        /* Dark inner base for depth */
+        sgl_area_t fill_bg = { fill_x1, fill_y1, fill_x2, fill_y2 };
+        sgl_draw_fill_rect(surf, &obj->area, &fill_bg, r - 1,
+                           sgl_color_mixer(b->bg_color, SGL_COLOR_BLACK, 40), alpha);
+
+        /* Colored fill */
+        sgl_color_t fc = b->fill_color.full ? b->fill_color
+                                             : sgl_battery_level_color(b);
+        if (vert) {
+            /* vertical: fill grows upward from bottom */
+            const int16_t level_h = (int16_t)((int32_t)fh * sgl_min(b->level, 100) / 100);
+            if (level_h > 0) {
+                sgl_area_t fill = { fill_x1, fill_y2 - level_h, fill_x2, fill_y2 };
+                sgl_draw_fill_rect(surf, &obj->area, &fill, r - 1, fc, alpha);
+                /* 3-D highlight: left strip */
+                sgl_area_t hl = { fill_x1, fill_y2 - level_h,
+                                  fill_x1 + sgl_max(fw / 5, 1), fill_y2 };
+                sgl_draw_fill_rect(surf, &obj->area, &hl, r - 1,
+                                   SGL_COLOR_WHITE, (uint8_t)(alpha * 90 / 255));
+                /* 3-D shadow: right strip */
+                sgl_area_t sh = { fill_x2 - sgl_max(fw / 8, 1), fill_y2 - level_h,
+                                  fill_x2, fill_y2 };
+                sgl_draw_fill_rect(surf, &obj->area, &sh, 0,
+                                   SGL_COLOR_BLACK, (uint8_t)(alpha * 60 / 255));
             }
         } else {
-            battery_height = height - battery->cap_size;
-            battery_width = width - (width / 5);
-            
-            cap_height = battery->cap_size;
-            cap_width = battery_width / 3;
-            
-            battery_y = y1 + cap_height;
-            battery_x = x1 + (width - battery_width) / 2;
-            cap_y = y1;
-            cap_x = battery_x + (battery_width - cap_width) / 2;
-        }
-        
-        int16_t border_width = 2;
-        int16_t padding = 2;
-        int16_t fill_width = battery_width - 2 * border_width - 2 * padding;
-        int16_t fill_height = battery_height - 2 * border_width - 2 * padding;
-        int16_t fill_x = battery_x + border_width + padding;
-        int16_t fill_y = battery_y + border_width + padding;
-        
-        uint8_t level = battery->level > 100 ? 100 : battery->level;
-        sgl_color_t fill_color = battery->fill_color;
-        sgl_color_t border_color = battery->border_color;
-        
-        if (level < 20) {
-            fill_color = battery->low_color;
-        } else if (level < 50) {
-            fill_color = battery->medium_color;
-        } else {
-            fill_color = battery->high_color;
-        }
-        
-        sgl_area_t battery_rect = {
-            .x1 = battery_x,
-            .y1 = battery_y,
-            .x2 = battery_x + battery_width,
-            .y2 = battery_y + battery_height
-        };
-        
-        sgl_area_t cap_rect = {
-            .x1 = cap_x,
-            .y1 = cap_y,
-            .x2 = cap_x + cap_width,
-            .y2 = cap_y + cap_height
-        };
-        
-        sgl_draw_fill_rect(surf, &obj->area, &battery_rect, 3, 
-            border_color, SGL_ALPHA_MAX);
-        
-        sgl_draw_fill_rect(surf, &obj->area, &cap_rect, 0, 
-            border_color, SGL_ALPHA_MAX);
-        
-        sgl_area_t bg_rect = {
-            .x1 = battery_x + border_width,
-            .y1 = battery_y + border_width,
-            .x2 = battery_x + battery_width - border_width,
-            .y2 = battery_y + battery_height - border_width
-        };
-        sgl_draw_fill_rect(surf, &obj->area, &bg_rect, 1, 
-            battery->bg_color, SGL_ALPHA_MAX);
-        
-        if (level > 0) {
-            int16_t active_cells = (level * battery->num_cells + 99) / 100;
-            if (active_cells > battery->num_cells) active_cells = battery->num_cells;
-            
-            if (battery->direction == SGL_BATTERY_DIR_HORIZONTAL) {
-                int16_t min_gap = 2;
-                int16_t total_min_gap = (battery->num_cells - 1) * min_gap;
-                
-                if (total_min_gap >= fill_width) {
-                    min_gap = 1;
-                    total_min_gap = battery->num_cells - 1;
-                }
-                
-                int16_t cell_width = (fill_width - total_min_gap) / battery->num_cells;
-                if (cell_width < 1) cell_width = 1;
-                
-                int16_t used_width = cell_width * battery->num_cells + total_min_gap;
-                int16_t remaining_width = fill_width - used_width;
-                
-                int16_t cell_height = fill_height;
-                
-                if (battery->cap_pos == SGL_BATTERY_CAP_RIGHT) {
-                    int16_t pos_x = fill_x;
-                    
-                    for (int i = 0; i < active_cells; i++) {
-                        int16_t cur_cell_width = cell_width;
-                        if (i < remaining_width) {
-                            cur_cell_width++;
-                        }
-                        
-                        sgl_area_t cell_rect = {
-                            .x1 = pos_x,
-                            .y1 = fill_y,
-                            .x2 = pos_x + cur_cell_width,
-                            .y2 = fill_y + cell_height
-                        };
-                        
-                        sgl_draw_fill_rect(surf, &obj->area, &cell_rect, 1, 
-                        fill_color, SGL_ALPHA_MAX);
-                        
-                        if (i < battery->num_cells - 1) {
-                            pos_x += cur_cell_width + min_gap;
-                        }
-                    }
-                } else {
-                    int16_t pos_x = fill_x + fill_width;
-                    
-                    for (int i = 0; i < active_cells; i++) {
-                        int16_t cur_cell_width = cell_width;
-                        if (i < remaining_width) {
-                            cur_cell_width++;
-                        }
-                        
-                        pos_x -= cur_cell_width;
-                        
-                        sgl_area_t cell_rect = {
-                            .x1 = pos_x,
-                            .y1 = fill_y,
-                            .x2 = pos_x + cur_cell_width,
-                            .y2 = fill_y + cell_height
-                        };
-                        
-                        sgl_draw_fill_rect(surf, &obj->area, &cell_rect, 1, 
-                        fill_color, SGL_ALPHA_MAX);
-                        
-                        if (i < battery->num_cells - 1) {
-                            pos_x -= min_gap;
-                        }
-                    }
-                }
-            } else {
-                int16_t min_gap = 2;
-                int16_t total_min_gap = (battery->num_cells - 1) * min_gap;
-                
-                if (total_min_gap >= fill_height) {
-                    min_gap = 1;
-                    total_min_gap = battery->num_cells - 1;
-                }
-                
-                int16_t cell_height = (fill_height - total_min_gap) / battery->num_cells;
-                if (cell_height < 1) cell_height = 1;
-                
-                int16_t used_height = cell_height * battery->num_cells + total_min_gap;
-                int16_t remaining_height = fill_height - used_height;
-                
-                int16_t cell_width = fill_width;
-                
-                int16_t pos_y = fill_y;
-                for (int i = battery->num_cells - 1; i >= 0; i--) {
-                    int16_t cur_cell_height = cell_height;
-                    if (i < remaining_height) {
-                        cur_cell_height++;
-                    }
-                    
-                    if (i < active_cells) {
-                        sgl_area_t cell_rect = {
-                            .x1 = fill_x,
-                            .y1 = pos_y,
-                            .x2 = fill_x + cell_width,
-                            .y2 = pos_y + cur_cell_height
-                        };
-                        
-                        sgl_draw_fill_rect(surf, &obj->area, &cell_rect, 1, 
-                        fill_color, SGL_ALPHA_MAX);
-                    }
-                    
-                    pos_y += cur_cell_height + min_gap;
-                }
+            /* horizontal: fill grows rightward from left */
+            const int16_t level_w = (int16_t)((int32_t)fw * sgl_min(b->level, 100) / 100);
+            if (level_w > 0) {
+                sgl_area_t fill = { fill_x1, fill_y1, fill_x1 + level_w, fill_y2 };
+                sgl_draw_fill_rect(surf, &obj->area, &fill, r - 1, fc, alpha);
+                /* 3-D highlight: top strip */
+                sgl_area_t hl = { fill_x1, fill_y1, fill_x1 + level_w,
+                                  fill_y1 + sgl_max(fh / 5, 1) };
+                sgl_draw_fill_rect(surf, &obj->area, &hl, r - 1,
+                                   SGL_COLOR_WHITE, (uint8_t)(alpha * 90 / 255));
+                /* 3-D shadow: bottom strip */
+                sgl_area_t sh = { fill_x1, fill_y2 - sgl_max(fh / 8, 1),
+                                  fill_x1 + level_w, fill_y2 };
+                sgl_draw_fill_rect(surf, &obj->area, &sh, 0,
+                                   SGL_COLOR_BLACK, (uint8_t)(alpha * 60 / 255));
             }
         }
+    }
 
-        if (battery->charging) {
-            int16_t cx = battery_x + battery_width / 2;
-            int16_t cy = battery_y + battery_height / 2;
-            int16_t h = battery_height / 2;
-            int16_t w = battery_width / 6;
-            int16_t px1, py1, px2, py2, px3, py3, px4, py4, px5, py5, px6, py6;
-            
-            sgl_draw_line_t line = {
-                .alpha = SGL_ALPHA_MAX,
-                .width = 4,
-                .color = battery->charging_color
-            };
+    /* Cap (positive terminal) */
+    if (vert) {
+        /* vertical: cap at top center */
+        const int16_t cap_x = body_x1 + (body_w - cap_w) / 2;
+        sgl_area_t cap = { cap_x, body_y1, cap_x + cap_w, body_y1 + cap_h };
+        sgl_draw_fill_rect(surf, &obj->area, &cap, sgl_max(r / 2, 1),
+                           b->border_color, alpha);
+    } else {
+        /* horizontal: cap at right center */
+        const int16_t cap_y = body_y1 + (body_h - cap_h) / 2;
+        sgl_area_t cap = { body_x2 - cap_w + 1, cap_y, body_x2, cap_y + cap_h };
+        sgl_draw_fill_rect(surf, &obj->area, &cap, sgl_max(r / 2, 1),
+                           b->border_color, alpha);
+    }
 
-            if (battery->direction == SGL_BATTERY_DIR_HORIZONTAL) {
-                px1 = cx - w / 2; py1 = cy - h / 2;
-                px2 = cx + w * 2; py2 = cy + h / 9;
-                px3 = cx + w / 4; py3 = cy - h / 8;
-                px4 = cx + w / 2; py4 = cy + h / 2;
-                px5 = cx - w * 2; py5 = cy - h / 9;
-                px6 = cx - w / 4; py6 = cy + h / 8;
-            } else {
-                px1 = cx + w / 2; py1 = cy - h / 2;
-                px2 = cx - w / 2; py2 = cy - h / 15;
-                px3 = cx + w * 2; py3 = cy - h / 9;
-                px4 = cx - w / 2; py4 = cy + h / 2;
-                px5 = cx + w / 2; py5 = cy + h / 15;
-                px6 = cx - w * 2; py6 = cy + h / 9;
-            }
-            
-            line.x1 = px1; line.y1 = py1; line.x2 = px2; line.y2 = py2; sgl_draw_line(surf, &obj->area, &line);
-            line.x1 = px2; line.y1 = py2; line.x2 = px3; line.y2 = py3; sgl_draw_line(surf, &obj->area, &line);
-            line.x1 = px3; line.y1 = py3; line.x2 = px4; line.y2 = py4; sgl_draw_line(surf, &obj->area, &line);
-            line.x1 = px4; line.y1 = py4; line.x2 = px5; line.y2 = py5; sgl_draw_line(surf, &obj->area, &line);
-            line.x1 = px5; line.y1 = py5; line.x2 = px6; line.y2 = py6; sgl_draw_line(surf, &obj->area, &line);
-            line.x1 = px6; line.y1 = py6; line.x2 = px1; line.y2 = py1; sgl_draw_line(surf, &obj->area, &line);
-        }
+    /* Charging lightning bolt */
+    if (b->charging) {
+        sgl_draw_line_t ln = {
+            .alpha = SGL_ALPHA_MAX,
+            .width = 2,
+            .color = b->charging_color,
+        };
+        int16_t cx = (body_x1 + body_x2) / 2;
+        int16_t cy = (body_y1 + body_y2) / 2;
+        int16_t hw = body_w / 6;
+        int16_t hh = body_h / 3;
+        ln.x1 = cx + hw / 2;  ln.y1 = cy - hh;
+        ln.x2 = cx - hw / 4;  ln.y2 = cy - hh / 6;
+        sgl_draw_line(surf, &obj->area, &ln);
+        ln.x1 = ln.x2;  ln.y1 = ln.y2;
+        ln.x2 = cx + hw / 4;  ln.y2 = cy + hh / 6;
+        sgl_draw_line(surf, &obj->area, &ln);
+        ln.x1 = ln.x2;  ln.y1 = ln.y2;
+        ln.x2 = cx - hw / 2;  ln.y2 = cy + hh;
+        sgl_draw_line(surf, &obj->area, &ln);
+    }
 
-        if (battery->show_percentage && battery->font) {
-            char text[8];
-            sgl_sprintf(text, "%d%%", level);
-
-            sgl_area_t text_area = {
-                .x1 = x1,
-                .y1 = y1,
-                .x2 = x2,
-                .y2 = y2
-            };
-
-            int8_t x_offset = 0;
-            int8_t y_offset = 0;
-            if (battery->cap_pos == SGL_BATTERY_CAP_RIGHT) {
-                x_offset = -battery->cap_size;
-            } else if (battery->cap_pos == SGL_BATTERY_CAP_LEFT) {
-                x_offset = battery->cap_size;
-            } else if (battery->cap_pos == SGL_BATTERY_CAP_TOP) {
-                y_offset = battery->cap_size;
-            }
-            sgl_draw_string(surf, &text_area, 
-                x1 + (width - sgl_font_get_string_width(text, battery->font) + x_offset) / 2, 
-                y1 + (height - battery->font->font_height + y_offset) / 2, 
-                text, battery->text_color, SGL_ALPHA_MAX, battery->font);
+    /* Percentage text */
+    if (b->show_percentage) {
+        char txt[8];
+        sgl_sprintf(txt, "%d%%", b->level);
+        const sgl_font_t *f = b->font;
+        if (f == NULL) f = sgl_get_system_font();
+        if (f != NULL) {
+            int16_t tw = sgl_font_get_string_width(txt, f);
+            int16_t th = sgl_font_get_height(f);
+            int16_t tx = body_x1 + (body_w - tw) / 2;
+            int16_t ty = body_y1 + (body_h - th) / 2;
+            sgl_area_t ta = { body_x1, body_y1, body_x2, body_y2 };
+            sgl_draw_string(surf, &ta, tx, ty, txt, b->text_color, SGL_ALPHA_MAX, f);
         }
     }
 }
 
-
 /**
- * @brief create a battery object
- * @param parent parent of object
- * @return pointer to battery object
+ * @brief  create a battery object
+ * @param  parent: parent object pointer
+ * @return battery object pointer, NULL on failure
  */
-sgl_obj_t* sgl_battery_create(sgl_obj_t* parent)
+sgl_obj_t* sgl_battery_create(sgl_obj_t *parent)
 {
-    sgl_battery_t *battery = sgl_malloc(sizeof(sgl_battery_t));
-    if(battery == NULL) {
+    sgl_battery_t *b = sgl_malloc(sizeof(sgl_battery_t));
+    if (!b) {
         SGL_LOG_ERROR("sgl_battery_create: malloc failed");
         return NULL;
     }
+    memset(b, 0, sizeof(*b));
 
-    memset(battery, 0, sizeof(sgl_battery_t));
+    sgl_obj_init(&b->obj, parent);
+    b->obj.construct_fn = sgl_battery_construct_cb;
+    b->obj.border       = 1;
+    b->obj.radius       = 4;
 
-    sgl_obj_t *obj = &battery->obj;
-    sgl_obj_init(&battery->obj, parent);
-    obj->construct_fn = sgl_battery_construct_cb;
-    obj->border = 0;
+    b->level          = 100;
+    b->alpha          = 160;
+    b->border_color   = sgl_rgb(180, 180, 180);
+    b->fill_color     = (sgl_color_t){0};  /* auto */
+    b->low_color      = sgl_rgb(231, 76, 60);
+    b->medium_color   = sgl_rgb(243, 156, 18);
+    b->high_color     = sgl_rgb(46, 204, 113);
+    b->bg_color       = sgl_rgb(30, 30, 30);
+    b->charging       = 0;
+    b->charging_color = sgl_rgb(241, 196, 15);
+    b->show_percentage = 0;
+    b->font           = NULL;
+    b->text_color     = sgl_rgb(255, 255, 255);
 
-    battery->level = 100;
-    battery->border_color = sgl_rgb(255, 255,255);
-    battery->fill_color = sgl_rgb(0, 255, 0);
-    battery->low_color = sgl_rgb(255, 0, 0);
-    battery->medium_color = sgl_rgb(255, 165, 0);
-    battery->high_color = sgl_rgb(0, 255, 0);
-    battery->bg_color = sgl_rgb(30, 30, 30);
-    battery->num_cells = 6;
-    battery->direction = SGL_BATTERY_DIR_HORIZONTAL;
-    battery->cap_size = 4;
-    battery->cap_pos = SGL_BATTERY_CAP_RIGHT;
-    battery->charging = 0;
-    battery->charging_color = sgl_rgb(255, 255, 0);
-    battery->show_percentage = 0;
-    battery->font = NULL;
-    battery->text_color = sgl_rgb(255, 255, 255);
-
-    return obj;
+    return &b->obj;
 }
-
 
 /**
  * @brief set battery level
- * @param obj pointer to battery object
- * @param level battery level (0-100)
+ * @param  obj: battery object pointer
+ * @param  level: battery level (0-100)
  * @return none
  */
-void sgl_battery_set_level(sgl_obj_t* obj, uint8_t level)
+void sgl_battery_set_level(sgl_obj_t *obj, uint8_t level)
 {
-    sgl_battery_t *battery = sgl_container_of(obj, sgl_battery_t, obj);
-    battery->level = level;
+    sgl_battery_t *b = sgl_container_of(obj, sgl_battery_t, obj);
+    b->level = level > 100 ? 100 : level;
     sgl_obj_set_dirty(obj);
 }
-
 
 /**
- * @brief set border color
- * @param obj pointer to battery object
- * @param color border color
+ * @brief set battery border color
+ * @param  obj: battery object pointer
+ * @param  color: border color to set
  * @return none
  */
-void sgl_battery_set_border_color(sgl_obj_t* obj, sgl_color_t color)
+void sgl_battery_set_border_color(sgl_obj_t *obj, sgl_color_t color)
 {
-    sgl_battery_t *battery = sgl_container_of(obj, sgl_battery_t, obj);
-    battery->border_color = color;
+    sgl_battery_t *b = sgl_container_of(obj, sgl_battery_t, obj);
+    b->border_color = color;
     sgl_obj_set_dirty(obj);
 }
-
 
 /**
- * @brief set fill color
- * @param obj pointer to battery object
- * @param color fill color
+ * @brief set battery fill color
+ * @param  obj: battery object pointer
+ * @param  color: fill color to set
  * @return none
  */
-void sgl_battery_set_fill_color(sgl_obj_t* obj, sgl_color_t color)
+void sgl_battery_set_fill_color(sgl_obj_t *obj, sgl_color_t color)
 {
-    sgl_battery_t *battery = sgl_container_of(obj, sgl_battery_t, obj);
-    battery->fill_color = color;
+    sgl_battery_t *b = sgl_container_of(obj, sgl_battery_t, obj);
+    b->fill_color = color;
     sgl_obj_set_dirty(obj);
 }
-
 
 /**
- * @brief set low battery color (below 20%)
- * @param obj pointer to battery object
- * @param color low battery color
+ * @brief set low battery color (below 20%%)
+ * @param  obj: battery object pointer
+ * @param  color: low battery color to set
  * @return none
  */
-void sgl_battery_set_low_color(sgl_obj_t* obj, sgl_color_t color)
+void sgl_battery_set_low_color(sgl_obj_t *obj, sgl_color_t color)
 {
-    sgl_battery_t *battery = sgl_container_of(obj, sgl_battery_t, obj);
-    battery->low_color = color;
+    sgl_battery_t *b = sgl_container_of(obj, sgl_battery_t, obj);
+    b->low_color = color;
     sgl_obj_set_dirty(obj);
 }
-
 
 /**
- * @brief set medium battery color (20-50%)
- * @param obj pointer to battery object
- * @param color medium battery color
+ * @brief set medium battery color (20-50%%)
+ * @param  obj: battery object pointer
+ * @param  color: medium battery color to set
  * @return none
  */
-void sgl_battery_set_medium_color(sgl_obj_t* obj, sgl_color_t color)
+void sgl_battery_set_medium_color(sgl_obj_t *obj, sgl_color_t color)
 {
-    sgl_battery_t *battery = sgl_container_of(obj, sgl_battery_t, obj);
-    battery->medium_color = color;
+    sgl_battery_t *b = sgl_container_of(obj, sgl_battery_t, obj);
+    b->medium_color = color;
     sgl_obj_set_dirty(obj);
 }
-
 
 /**
- * @brief set high battery color (above 50%)
- * @param obj pointer to battery object
- * @param color high battery color
+ * @brief set high battery color (above 50%%)
+ * @param  obj: battery object pointer
+ * @param  color: high battery color to set
  * @return none
  */
-void sgl_battery_set_high_color(sgl_obj_t* obj, sgl_color_t color)
+void sgl_battery_set_high_color(sgl_obj_t *obj, sgl_color_t color)
 {
-    sgl_battery_t *battery = sgl_container_of(obj, sgl_battery_t, obj);
-    battery->high_color = color;
+    sgl_battery_t *b = sgl_container_of(obj, sgl_battery_t, obj);
+    b->high_color = color;
     sgl_obj_set_dirty(obj);
 }
-
 
 /**
- * @brief set background color
- * @param obj pointer to battery object
- * @param color background color
+ * @brief set battery background color
+ * @param  obj: battery object pointer
+ * @param  color: background color to set
  * @return none
  */
-void sgl_battery_set_bg_color(sgl_obj_t* obj, sgl_color_t color)
+void sgl_battery_set_bg_color(sgl_obj_t *obj, sgl_color_t color)
 {
-    sgl_battery_t *battery = sgl_container_of(obj, sgl_battery_t, obj);
-    battery->bg_color = color;
+    sgl_battery_t *b = sgl_container_of(obj, sgl_battery_t, obj);
+    b->bg_color = color;
     sgl_obj_set_dirty(obj);
 }
-
-
-/**
- * @brief set number of cells
- * @param obj pointer to battery object
- * @param num number of cells (1-10)
- * @return none
- */
-void sgl_battery_set_num_cells(sgl_obj_t* obj, uint8_t num)
-{
-    sgl_battery_t *battery = sgl_container_of(obj, sgl_battery_t, obj);
-    battery->num_cells = (num < 1) ? 1 : (num > 10) ? 10 : num;
-    sgl_obj_set_dirty(obj);
-}
-
-
-/**
- * @brief set battery direction
- * @param obj pointer to battery object
- * @param dir direction (horizontal or vertical)
- * @return none
- */
-void sgl_battery_set_direction(sgl_obj_t* obj, sgl_battery_dir_t dir)
-{
-    sgl_battery_t *battery = sgl_container_of(obj, sgl_battery_t, obj);
-    battery->direction = dir;
-    sgl_obj_set_dirty(obj);
-}
-
-
-/**
- * @brief set battery cap size (in pixels)
- * @param obj pointer to battery object
- * @param size cap size in pixels, 0 means no visible cap
- * @return none
- */
-void sgl_battery_set_cap_size(sgl_obj_t* obj, uint8_t size)
-{
-    sgl_battery_t *battery = sgl_container_of(obj, sgl_battery_t, obj);
-    battery->cap_size = size;
-    sgl_obj_set_dirty(obj);
-}
-
-
-/**
- * @brief set battery cap position
- * @param obj pointer to battery object
- * @param pos cap position (right, left, top, bottom)
- * @return none
- */
-void sgl_battery_set_cap_pos(sgl_obj_t* obj, sgl_battery_cap_pos_t pos)
-{
-    sgl_battery_t *battery = sgl_container_of(obj, sgl_battery_t, obj);
-    battery->cap_pos = pos;
-    sgl_obj_set_dirty(obj);
-}
-
 
 /**
  * @brief set charging status
- * @param obj pointer to battery object
- * @param charging charging status (1 = charging, 0 = not charging)
+ * @param  obj: battery object pointer
+ * @param  charging: charging status (1 = charging, 0 = not charging)
  * @return none
  */
-void sgl_battery_set_charging(sgl_obj_t* obj, bool charging)
+void sgl_battery_set_charging(sgl_obj_t *obj, bool charging)
 {
-    sgl_battery_t *battery = sgl_container_of(obj, sgl_battery_t, obj);
-    battery->charging = charging;
+    sgl_battery_t *b = sgl_container_of(obj, sgl_battery_t, obj);
+    b->charging = charging;
     sgl_obj_set_dirty(obj);
 }
-
 
 /**
  * @brief set charging indicator color
- * @param obj pointer to battery object
- * @param color charging indicator color
+ * @param  obj: battery object pointer
+ * @param  color: charging indicator color to set
  * @return none
  */
-void sgl_battery_set_charging_color(sgl_obj_t* obj, sgl_color_t color)
+void sgl_battery_set_charging_color(sgl_obj_t *obj, sgl_color_t color)
 {
-    sgl_battery_t *battery = sgl_container_of(obj, sgl_battery_t, obj);
-    battery->charging_color = color;
+    sgl_battery_t *b = sgl_container_of(obj, sgl_battery_t, obj);
+    b->charging_color = color;
     sgl_obj_set_dirty(obj);
 }
 
-
 /**
- * @brief show/hide percentage text
- * @param obj pointer to battery object
- * @param show show percentage text (1 = show, 0 = hide)
+ * @brief show or hide percentage text
+ * @param  obj: battery object pointer
+ * @param  show: show percentage text (1 = show, 0 = hide)
  * @return none
  */
-void sgl_battery_show_percentage(sgl_obj_t* obj, bool show)
+void sgl_battery_show_percentage(sgl_obj_t *obj, bool show)
 {
-    sgl_battery_t *battery = sgl_container_of(obj, sgl_battery_t, obj);
-    battery->show_percentage = show;
+    sgl_battery_t *b = sgl_container_of(obj, sgl_battery_t, obj);
+    b->show_percentage = show;
     sgl_obj_set_dirty(obj);
 }
 
-
 /**
- * @brief set font for percentage text
- * @param obj pointer to battery object
- * @param font font for percentage text
+ * @brief set text font for percentage display
+ * @param  obj: battery object pointer
+ * @param  font: font pointer to set
  * @return none
  */
-void sgl_battery_set_font(sgl_obj_t* obj, const sgl_font_t *font)
+void sgl_battery_set_font(sgl_obj_t *obj, const sgl_font_t *font)
 {
-    sgl_battery_t *battery = sgl_container_of(obj, sgl_battery_t, obj);
-    battery->font = font;
+    sgl_battery_t *b = sgl_container_of(obj, sgl_battery_t, obj);
+    b->font = font;
     sgl_obj_set_dirty(obj);
 }
 
-
 /**
- * @brief set text color
- * @param obj pointer to battery object
- * @param color text color
+ * @brief set percentage text color
+ * @param  obj: battery object pointer
+ * @param  color: text color to set
  * @return none
  */
-void sgl_battery_set_text_color(sgl_obj_t* obj, sgl_color_t color)
+void sgl_battery_set_text_color(sgl_obj_t *obj, sgl_color_t color)
 {
-    sgl_battery_t *battery = sgl_container_of(obj, sgl_battery_t, obj);
-    battery->text_color = color;
+    sgl_battery_t *b = sgl_container_of(obj, sgl_battery_t, obj);
+    b->text_color = color;
+    sgl_obj_set_dirty(obj);
+}
+
+/**
+ * @brief set battery transparency
+ * @param  obj: battery object pointer
+ * @param  alpha: alpha value (0 = transparent, 255 = opaque)
+ * @return none
+ */
+void sgl_battery_set_alpha(sgl_obj_t *obj, uint8_t alpha)
+{
+    sgl_battery_t *b = sgl_container_of(obj, sgl_battery_t, obj);
+    b->alpha = alpha;
+    sgl_obj_set_dirty(obj);
+}
+
+/**
+ * @brief set battery orientation
+ * @param  obj: battery object pointer
+ * @param  vertical: true for vertical, false for horizontal
+ * @return none
+ */
+void sgl_battery_set_vertical(sgl_obj_t *obj, bool vertical)
+{
+    sgl_battery_t *b = sgl_container_of(obj, sgl_battery_t, obj);
+    b->vertical = vertical;
     sgl_obj_set_dirty(obj);
 }
