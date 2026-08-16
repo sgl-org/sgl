@@ -149,9 +149,12 @@ static void sgl_slider_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_
         sgl_obj_update_area(&dirty);
         break;
 
+    case SGL_EVENT_KEY_UP:
+    case SGL_EVENT_KEY_DOWN:
     case SGL_EVENT_KEY_LEFT:
     case SGL_EVENT_KEY_RIGHT:
-        value = evt->type == SGL_EVENT_KEY_LEFT ? slider->value - 1 : slider->value + 1;
+        value = (evt->type == SGL_EVENT_KEY_LEFT || evt->type == SGL_EVENT_KEY_DOWN)
+                ? slider->value - 1 : slider->value + 1;
         slider->value = sgl_clamp(value, 0, 100);
         sgl_slider_get_knob_dirty_area(obj, slider, &dirty);
         dirty.y1 = obj->coords.y1 - 2;
