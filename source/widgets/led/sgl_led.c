@@ -55,7 +55,7 @@ static void sgl_led_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *
         const int r2 = sgl_max(sgl_pow2(diameter - 6), 0); 
         const int r2_fix_diff = (SGL_ALPHA_MAX  << SGL_FIXED_SHIFT) / sgl_max(r2_max - r2, 1);
         int ds_alpha = SGL_ALPHA_MIN;
-        sgl_color_t *blend, *buf = sgl_surf_get_buf(surf, clip.x1 - surf->x1, clip.y1 - surf->y1);
+        sgl_color_t *blend, *buf;
 
         buf = sgl_surf_get_buf(surf, clip.x1 - surf->x1, clip.y1 - surf->y1);
         for (int y = clip.y1; y <= clip.y2; y++) {
