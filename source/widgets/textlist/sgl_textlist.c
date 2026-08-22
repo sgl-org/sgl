@@ -171,7 +171,7 @@ static void sgl_textlist_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
             item_idx++;
         }
 
-        sgl_scroll_draw_bar(surf, obj, &textlist->sc, sgl_textlist_max_scroll(textlist, item_height), &obj->coords);
+        sgl_scroll_draw_bar(surf, obj, &textlist->sc, sgl_textlist_max_scroll(textlist, item_height), &obj->coords, sgl_color_invert(textlist->bg_color));
     }
     break;
 

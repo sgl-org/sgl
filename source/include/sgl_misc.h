@@ -214,11 +214,13 @@ void sgl_scroll_anim_stop(sgl_scroll_t *sc);
  * @param range current scroll upper limit; nothing is drawn when range<=0 (no scrollable content)
  * @param viewport vertical track extent (y1/y2 of the scrollable list area,
  *                 which may start below the widget top, e.g. under a dropdown header)
+ * @param color scrollbar color
+ * @return none
  * @note thumb height is proportional to viewport / content height (min 8px);
  *       thumb position maps offset into the track; drawn with the theme
  *       scroll foreground color at bar_alpha opacity
  */
-void sgl_scroll_draw_bar(sgl_surf_t *surf, sgl_obj_t *obj, const sgl_scroll_t *sc, int32_t range, const sgl_area_t *viewport);
+void sgl_scroll_draw_bar(sgl_surf_t *surf, sgl_obj_t *obj, const sgl_scroll_t *sc, int32_t range, const sgl_area_t *viewport, sgl_color_t color);
 
 #ifdef __cplusplus
 } /*extern "C"*/

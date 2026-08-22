@@ -569,7 +569,7 @@ static void sgl_filebrowser_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_e
         };
 
         if (fb->item_num == 0) {
-            sgl_scroll_draw_bar(surf, obj, &fb->sc, max_scroll, &viewport);
+            sgl_scroll_draw_bar(surf, obj, &fb->sc, max_scroll, &viewport, sgl_color_invert(fb->bg_color));
             break;
         }
 
@@ -582,7 +582,7 @@ static void sgl_filebrowser_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_e
         sgl_filebrowser_ensure_visible(fb, first, last);
 
         if (fb->cache_items == NULL || fb->cache_count == 0) {
-            sgl_scroll_draw_bar(surf, obj, &fb->sc, max_scroll, &viewport);
+            sgl_scroll_draw_bar(surf, obj, &fb->sc, max_scroll, &viewport, sgl_color_invert(fb->bg_color));
             break;
         }
 
@@ -631,7 +631,7 @@ static void sgl_filebrowser_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_e
                             item->text, fb->item_text_color, fb->alpha, fb->font);
         }
 
-        sgl_scroll_draw_bar(surf, obj, &fb->sc, max_scroll, &viewport);
+        sgl_scroll_draw_bar(surf, obj, &fb->sc, max_scroll, &viewport, sgl_color_invert(fb->bg_color));
     }
     break;
 
@@ -787,6 +787,7 @@ sgl_obj_t* sgl_filebrowser_create(sgl_obj_t *parent)
     fb->item_selected        = -1;
     fb->cache_start_index    = -1;
     fb->dir_handle           = -1;
+    fb->sc.bar_alpha         = 200;
     sgl_scroll_reset(&fb->sc);
     strcpy(fb->current_path, "/");
     sgl_filebrowser_update_full_path(fb);

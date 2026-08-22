@@ -243,7 +243,7 @@ static void sgl_dropdown_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_even
                 if (dropdown->opt_text[offset] == '\n') offset++;
             }
 
-            sgl_scroll_draw_bar(surf, obj, &dropdown->sc, sgl_dropdown_max_scroll(dropdown, item_height), &bg_coords);
+            sgl_scroll_draw_bar(surf, obj, &dropdown->sc, sgl_dropdown_max_scroll(dropdown, item_height), &bg_coords, sgl_color_invert(dropdown->bg_color));
         }
     } break;
 

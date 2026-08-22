@@ -1780,6 +1780,37 @@ static inline sgl_color_t sgl_color_mixer(sgl_color_t fg_color, sgl_color_t bg_c
 }
 
 /**
+ * @brief Invert a color value
+ * @param color the color to invert
+ * @return inverted color
+ * @note For RGB formats, each channel is inverted (max_value - channel).
+ *       For ARGB8888, alpha channel is preserved.
+ */
+static inline sgl_color_t sgl_color_invert(sgl_color_t color)
+{
+    sgl_color_t ret;
+#if (CONFIG_SGL_FBDEV_PIXEL_DEPTH == SGL_COLOR_RGB332)
+    ret.ch.red   = 0x07 - color.ch.red;
+    ret.ch.green = 0x07 - color.ch.green;
+    ret.ch.blue  = 0x03 - color.ch.blue;
+#elif (CONFIG_SGL_FBDEV_PIXEL_DEPTH == SGL_COLOR_RGB565)
+    ret.ch.red   = 0x1F - color.ch.red;
+    ret.ch.green = 0x3F - color.ch.green;
+    ret.ch.blue  = 0x1F - color.ch.blue;
+#elif (CONFIG_SGL_FBDEV_PIXEL_DEPTH == SGL_COLOR_RGB888)
+    ret.ch.red   = 0xFF - color.ch.red;
+    ret.ch.green = 0xFF - color.ch.green;
+    ret.ch.blue  = 0xFF - color.ch.blue;
+#elif (CONFIG_SGL_FBDEV_PIXEL_DEPTH == SGL_COLOR_ARGB8888)
+    ret.ch.alpha = color.ch.alpha;
+    ret.ch.red   = 0xFF - color.ch.red;
+    ret.ch.green = 0xFF - color.ch.green;
+    ret.ch.blue  = 0xFF - color.ch.blue;
+#endif
+    return ret;
+}
+
+/**
  * @brief Fills a block of memory with a solid color.
  *
  * Writes the specified `color` value to `len` consecutive elements starting at `dest`.
