@@ -128,7 +128,7 @@ static void sgl_gauge_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t
             sgl_sprintf(text, "%d", scale_mask);
             text_len = sgl_font_get_string_width(text, gauge->font);
 
-            if ((count & gauge->text_interval) == 0) {
+            if ((count % (gauge->text_interval + 1)) == 0) {
                 int32_t tx = (text_cr * cos_val) / SGL_SIN_FIXED_ONE + cx;
                 int32_t ty = (text_cr * sin_val) / SGL_SIN_FIXED_ONE + cy;
                 txt_x = tx - (text_len) / 2 - 2;
