@@ -43,13 +43,13 @@ static void sgl_checkbox_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
 {
     sgl_checkbox_t *checkbox = sgl_container_of(obj, sgl_checkbox_t, obj);
     const int16_t font_h = sgl_font_get_height(checkbox->font);
-    const int16_t box_w = font_h - 2;
+    const int16_t box_w = font_h;
     sgl_pos_t align_pos = sgl_get_text_pos(&obj->coords, checkbox->font, checkbox->text, 0, SGL_ALIGN_LEFT_MID);
     sgl_area_t icon = {
         .x1 = obj->coords.x1 + 1,
         .y1 = align_pos.y + 1,
-        .x2 = obj->coords.x1 + box_w - 2,
-        .y2 = align_pos.y + box_w - 2,
+        .x2 = obj->coords.x1 + box_w,
+        .y2 = align_pos.y + box_w,
     };
 
     SGL_ASSERT(checkbox->font != NULL);
@@ -83,7 +83,7 @@ static void sgl_checkbox_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
             sgl_draw_fill_rect_border(surf, &obj->area, &icon, box_w / 4, checkbox->box_color, 2, checkbox->alpha);
         }
 
-        sgl_draw_string(surf, &obj->area, align_pos.x + box_w + 2, align_pos.y, checkbox->text, checkbox->text_color, checkbox->alpha, checkbox->font);
+        sgl_draw_string(surf, &obj->area, align_pos.x + box_w + 4, align_pos.y, checkbox->text, checkbox->text_color, checkbox->alpha, checkbox->font);
     }
     else if(evt->type == SGL_EVENT_PRESSED) {
         checkbox->status = !checkbox->status;
