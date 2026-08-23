@@ -297,7 +297,6 @@ static const uint8_t font_bitmap[] = {
     0x02, 0xae, 0xeb, 0x20
 };
 
-
 static const sgl_font_table_t font_table[] = {
     {.bitmap_index = 0, .adv_w = 0, .box_w = 0, .box_h = 0, .ofs_x = 0, .ofs_y = 0} /* id = 0 reserved */,
     {.bitmap_index = 0, .adv_w = 128, .box_w = 8, .box_h = 9, .ofs_x = 0, .ofs_y = 0},
@@ -371,7 +370,6 @@ void sgl_monitor_trace(sgl_surf_t *surf)
             return;
         } 
 #endif
-
         /* update monitor page */
         sgl_event_t evt = {0};
         sgl_obj_t *child;
@@ -588,8 +586,11 @@ uint8_t sgl_scroll_release(sgl_scroll_t *sc, int32_t range)
     if (since_win > SGL_SCROLL_VEL_WINDOW_MS) {
         sc->speed = 0;
     } else if (sc->win_dist != 0) {
-        if (since_win < 16U)
-            since_win = 16U;
+        /* normalize over the measured span itself; the floor only guards
+         * against div-by-zero / single-tick noise, a 16ms floor would
+         * under-estimate the launch speed of quick flicks */
+        if (since_win < 4U)
+            since_win = 4U;
         sc->speed = (int16_t)(-(int32_t)sc->win_dist * 16 / (int32_t)since_win);
     }
 
@@ -797,7 +798,11 @@ void sgl_scroll_anim_start(sgl_scroll_t *sc)
         return;
 
     sc->anim = anim;
-    sc->step_tick = 0;
+    /* pre-charge step_tick so the first path_cb call (value ~= 1) already
+     * sees elapsed >= 16ms and steps immediately, avoiding a 16ms frozen
+     * gap between release and the first inertia frame (uint16 wrap is
+     * intentional: elapsed = value - 0xFFF0 ~= value + 16) */
+    sc->step_tick = (uint16_t)(0 - 16);
 
     sgl_anim_set_data(anim, sc);
     /* linear path with start=0/end=0x7FFF yields value == elaps while
