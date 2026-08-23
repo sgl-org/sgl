@@ -145,6 +145,33 @@ void sgl_anim_delete(sgl_anim_t *anim)
 }
 
 /**
+ * @brief delete animation object by object
+ * @param  obj object
+ * @return none
+*/
+void sgl_anim_delete_by_obj(sgl_obj_t *obj)
+{
+    sgl_anim_t *anim = sgl_anim_get_by_obj(obj);
+    if (anim) {
+        sgl_anim_delete(anim);
+    }
+}
+
+/**
+ * @brief delete all animation object
+ * @param  none
+ * @return none
+*/
+void sgl_anim_delete_all(void)
+{
+    sgl_anim_t *pos = NULL, *next = NULL;
+
+    sgl_list_for_each_entry_safe(pos, next, &anim_head, sgl_anim_t, node) {
+        sgl_anim_delete(pos);
+    }
+}
+
+/**
  * @brief animation task, it will foreach all animation
  * @param  none
  * @return none

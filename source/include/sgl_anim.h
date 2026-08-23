@@ -148,6 +148,20 @@ void sgl_anim_stop(sgl_anim_t *anim);
 void sgl_anim_delete(sgl_anim_t *anim);
 
 /**
+ * @brief delete animation object by object
+ * @param  obj object
+ * @return none
+*/
+void sgl_anim_delete_by_obj(sgl_obj_t *obj);
+
+/**
+ * @brief delete all animation object
+ * @param  none
+ * @return none
+*/
+void sgl_anim_delete_all(void);
+
+/**
  * @brief set animation private data
  * @param  anim animation object
  * @param  data pointer to private data
