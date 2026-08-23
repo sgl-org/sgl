@@ -975,6 +975,22 @@ int sgl_obj_init(sgl_obj_t *obj, sgl_obj_t *parent)
 }
 
 /**
+ * @brief  cleanup an object
+ * @param  obj: object to cleanup
+ * @return none
+ * @note this function will call the construct function of the object to free some resources
+ */
+static void sgl_obj_cleanup(sgl_obj_t *obj)
+{
+    sgl_event_t evt = { .type = SGL_EVENT_DESTROYED,};
+
+    /* check construct function */
+    SGL_ASSERT(obj->construct_fn != NULL);
+    obj->construct_fn(NULL, obj, &evt);
+    sgl_free(obj);
+}
+
+/**
  * @brief  free an object chain
  * @param  obj: object to free
  * @retval none
@@ -983,7 +999,6 @@ int sgl_obj_init(sgl_obj_t *obj, sgl_obj_t *parent)
 static void sgl_obj_free_chain(sgl_obj_t *obj)
 {
     SGL_ASSERT(obj != NULL);
-    sgl_event_t evt = { .type = SGL_EVENT_DESTROYED,};
     sgl_obj_t *stack[SGL_OBJ_DEPTH_MAX];
     int top = 0;
     stack[top++] = obj;
@@ -999,11 +1014,7 @@ static void sgl_obj_free_chain(sgl_obj_t *obj)
         if (obj->child != NULL) {
             stack[top++] = obj->child;
         }
-
-        /* check construct function */
-        SGL_ASSERT(obj->construct_fn != NULL);
-        obj->construct_fn(NULL, obj, &evt);
-        sgl_free(obj);
+        sgl_obj_cleanup(obj);
     }
 }
 
@@ -1017,15 +1028,10 @@ static void sgl_obj_free_chain(sgl_obj_t *obj)
 void sgl_obj_free(sgl_obj_t *obj)
 {
     SGL_ASSERT(obj != NULL);
-    sgl_event_t evt = { .type = SGL_EVENT_DESTROYED,};
-
     if (obj->child) {
         sgl_obj_free_chain(obj->child);
     }
-    /* check construct function */
-    SGL_ASSERT(obj->construct_fn != NULL);
-    obj->construct_fn(NULL, obj, &evt);
-    sgl_free(obj);
+    sgl_obj_cleanup(obj);
 }
 
 /**
