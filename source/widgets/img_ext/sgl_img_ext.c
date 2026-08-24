@@ -191,8 +191,8 @@ static void img_ext_update_coords(sgl_img_ext_t *img_ext)
         int32_t pv_sy = SGL_IMG_SCALE(pv_y, img_ext->scale_y);
         obj->coords.x1 = sp_x - pv_sx;
         obj->coords.y1 = sp_y - pv_sy;
-        obj->coords.x2 = obj->coords.x1 + scaled_w + 2;
-        obj->coords.y2 = obj->coords.y1 + scaled_h + 2;
+        obj->coords.x2 = obj->coords.x1 + scaled_w - 1;
+        obj->coords.y2 = obj->coords.y1 + scaled_h - 1;
     } else {
         int16_t rotation = sgl_mod360(img_ext->rotation);
         int32_t sin_val = sgl_sin(rotation);
