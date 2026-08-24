@@ -36,62 +36,40 @@
 extern "C" {
 #endif
 
-#define SCOPE_MAGIC                      0xDEADBEEF
+/* max number of waveform channels */
+#define SGL_SCOPE_MAX_CHANNELS      (4)
 
-/* One append shifts the waveform left by exactly one column (one point per
- * column when data_len matches the widget width), so the changed pixels stay
- * inside the waveform's vertical envelope. Instead of dirtying the whole plot
- * area, split the plot width into SGL_SCOPE_DIRTY_BAND_NUM vertical bands and
- * submit one tight dirty rectangle per band. */
-#define SGL_SCOPE_DIRTY_BAND_NUM         4
-
-/* column span of band k over a width of w columns: [LO, HI) */
-#define SGL_SCOPE_DIRTY_BAND_LO(w, k)   ((int32_t)(w) * (k) / SGL_SCOPE_DIRTY_BAND_NUM)
-#define SGL_SCOPE_DIRTY_BAND_HI(w, k)   ((int32_t)(w) * ((k) + 1) / SGL_SCOPE_DIRTY_BAND_NUM)
-
-/* build the dirty rectangle of band k from its value envelope [vmin, vmax]
- * and submit it; the vertical padding covers each point's brush height */
-#define SGL_SCOPE_PUSH_DIRTY_BAND(scp, plt, h, vmin, vmax, dmin, drange, k)                  \
-    do {                                                                                     \
-        sgl_area_t band_area = {                                                             \
-            .x1 = (plt)->x1 + (int16_t)SGL_SCOPE_DIRTY_BAND_LO((plt)->x2 - (plt)->x1 + 1, k),      \
-            .x2 = (plt)->x1 + (int16_t)SGL_SCOPE_DIRTY_BAND_HI((plt)->x2 - (plt)->x1 + 1, k) - 1,  \
-            .y1 = (plt)->y2 - (int16_t)(((int32_t)((vmax) - (dmin)) * (h)) / (drange)) - (scp)->line_width, \
-            .y2 = (plt)->y2 - (int16_t)(((int32_t)((vmin) - (dmin)) * (h)) / (drange)) + (scp)->line_width, \
-        };                                                                                   \
-        if (band_area.y1 < (plt)->y1) band_area.y1 = (plt)->y1;                              \
-        if (band_area.y2 > (plt)->y2) band_area.y2 = (plt)->y2;                              \
-        if (band_area.x1 <= band_area.x2 && band_area.y1 <= band_area.y2) {                  \
-            sgl_update_area(&band_area);                                                     \
-        }                                                                                    \
-    } while (0)
-
-
+/**
+ * @brief scope widget, multi-channel oscilloscope style waveform display
+ *
+ * @note FIFO model: each channel owns the user-provided sample buffer as a
+ *       ring FIFO. `sgl_scope_append_data()` is the producer (writes at `in`,
+ *       overwrites the oldest sample and advances `out` when full); the draw
+ *       pass is the consumer (scans oldest -> newest, one sample per pixel
+ *       column). The buffer length of each channel MUST equal the widget
+ *       width in pixels, so the hot draw loop needs no scaling at all.
+ *
+ * @data_buffers  base of user-owned [channel_count][width] sample array
+ * @wave_colors   user-owned [channel_count] waveform color array
+ * @in / @out     per-channel FIFO write index / oldest displayed index
+ * @count         per-channel number of valid samples
+ */
 typedef struct {
     sgl_obj_t obj;
-    int16_t  **data_buffers;          // array of channel data buffers
-    sgl_color_t *waveform_colors;      // array of waveform colors per channel
-    uint16_t *display_counts;          // array of display counts per channel
-    const sgl_font_t *y_label_font;    // font of Y axis labels
-    uint32_t *current_indices;         // array of current indices per channel    
+    int16_t *data_buffers;             // user-owned [channels][width] samples
+    sgl_color_t *wave_colors;          // user-owned [channels] wave colors
+    uint16_t in[SGL_SCOPE_MAX_CHANNELS];     // FIFO write index
+    uint16_t out[SGL_SCOPE_MAX_CHANNELS];    // FIFO read (oldest) index
+    uint16_t count[SGL_SCOPE_MAX_CHANNELS];  // valid samples per channel
+    uint16_t cap;                      // ring capacity (= plot width), 0 = unset
+    int16_t v_min;                     // waveform full-scale lower value
+    int16_t v_max;                     // waveform full-scale upper value
     sgl_color_t bg_color;              // background color
     sgl_color_t grid_color;            // grid line color
     sgl_color_t border_color;          // border color
-    sgl_color_t y_label_color;         // color of Y axis labels
-    uint32_t  magic;                   // magic number for validity check
-    uint32_t  data_len;                // data length per channel
-    uint32_t  max_display_points;      // max display points
-    int16_t   min_value;               // min value of data
-    int16_t   max_value;               // max value of data
-    int16_t   running_min;             // min value of runtime
-    int16_t   running_max;             // max value of runtime
-    uint8_t   channel_count;           // number of channels (1-4)
-    uint8_t   border_width;            // outer border width
-    uint8_t   line_width;              // width of waveform line
-    uint8_t   alpha;                   // aplha of waveform
-    uint8_t   grid_style;              // grid line style（0-solid line，other: dashed line
-    uint8_t   auto_scale : 1;          // whether to automatically scale
-    uint8_t   show_y_labels : 1;       // whether to show Y axis labels
+    uint8_t channel_count;             // number of channels (1-4)
+    uint8_t border_width;              // border width in pixels
+    uint8_t alpha;                     // alpha of waveform
 } sgl_scope_t;
 
 /**
@@ -102,62 +80,40 @@ typedef struct {
 sgl_obj_t* sgl_scope_create(sgl_obj_t* parent);
 
 /**
- * @brief set scope channel count
+ * @brief bind the sample/color arrays to the scope
  * @param obj scope object
- * @param channel_count number of channels (1-4)
- * @return none
+ * @param data_buffers base of [channel_count][widget_width] sample array
+ * @param wave_colors [channel_count] waveform color array
+ * @param channel_count number of channels (1 - SGL_SCOPE_MAX_CHANNELS)
+ * @note resets the FIFO of every channel
  */
-void sgl_scope_set_channel_count(sgl_obj_t* obj, uint8_t channel_count);
-
-/**
- * @brief set scope data buffer for a specific channel
- * @param obj scope object
- * @param channel channel number (0-based)
- * @param data_buffer data buffer
- * @param data_len data length
- * @return none
- */
-void sgl_scope_set_channel_data_buffer(sgl_obj_t* obj, uint8_t channel, int16_t *data_buffer, uint32_t data_len);
+void sgl_scope_set_buffers(sgl_obj_t *obj, int16_t *data_buffers, sgl_color_t *wave_colors, uint8_t channel_count);
 
 /**
  * @brief Append a new data point to the oscilloscope for a specific channel
  * @param obj The oscilloscope object
  * @param channel Channel number (0-based)
  * @param value The new data point
- * @note This function appends a new data point to the specified channel of the oscilloscope. 
- *       If the oscilloscope is configured to auto-scale, the function updates the running minimum and maximum values. 
- *       The function also updates the display count and marks the oscilloscope object as dirty.
+ * @note producer side of the FIFO: writes at `in` and advances it; when the
+ *       ring is full the oldest sample is overwritten and `out` advances.
+ *       Marks the object dirty so the waveform is refreshed.
  */
 void sgl_scope_append_data(sgl_obj_t* obj, uint8_t channel, int16_t value);
 
 /**
- * @brief get scope data for a specific channel
+ * @brief clear all samples of a channel (or all channels when channel == 0xFF)
  * @param obj scope object
- * @param channel channel number (0-based)
- * @param index data index
- * @return data value
+ * @param channel channel number (0-based), 0xFF clears all
  */
-static inline int16_t sgl_scope_get_channel_data(sgl_obj_t* obj, uint8_t channel, uint32_t index)
-{
-    sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
-    if (channel >= scope->channel_count || index >= scope->data_len) 
-        return 0;
-
-    return scope->data_buffers[channel][index];
-}
+void sgl_scope_clear(sgl_obj_t *obj, uint8_t channel);
 
 /**
- * @brief set scope max display points
+ * @brief set the value range mapped to the widget height
  * @param obj scope object
- * @param max_points max display points
- * @return none
+ * @param v_min value mapped to the bottom edge
+ * @param v_max value mapped to the top edge
  */
-static inline void sgl_scope_set_max_display_points(sgl_obj_t* obj, uint8_t max_points)
-{
-    sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
-    scope->max_display_points = max_points;
-    sgl_obj_set_dirty(obj);
-}
+void sgl_scope_set_vrange(sgl_obj_t *obj, int16_t v_min, int16_t v_max);
 
 /**
  * @brief set scope waveform color for a specific channel
@@ -195,48 +151,6 @@ static inline void sgl_scope_set_grid_color(sgl_obj_t* obj, sgl_color_t color)
 }
 
 /**
- * @brief set scope range
- * @param obj scope object
- * @param min_value minimum value
- * @param max_value maximum value
- * @return none
- */
-static inline void sgl_scope_set_range(sgl_obj_t* obj, uint16_t min_value, uint16_t max_value)
-{
-    sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
-    scope->min_value = min_value;
-    scope->max_value = max_value;
-    scope->auto_scale = 0;  // disable auto scale
-    sgl_obj_set_dirty(obj);
-}
-
-/**
- * @brief set scope line width
- * @param obj scope object
- * @param width line width
- * @return none
- */
-static inline void sgl_scope_set_line_width(sgl_obj_t* obj, uint8_t width)
-{
-    sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
-    scope->line_width = width;
-    sgl_obj_set_dirty(obj);
-}
-
-/**
- * @brief enable/disable auto scale
- * @param obj scope object
- * @param enable enable/disable
- * @return none
- */
-static inline void sgl_scope_enable_auto_scale(sgl_obj_t* obj, bool enable)
-{
-    sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
-    scope->auto_scale = (uint8_t)enable;
-    sgl_obj_set_dirty(obj);
-}
-
-/**
  * @brief set scope alpha
  * @param obj scope object
  * @param alpha alpha
@@ -246,45 +160,6 @@ static inline void sgl_scope_set_alpha(sgl_obj_t* obj, uint8_t alpha)
 {
     sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
     scope->alpha = alpha;
-    sgl_obj_set_dirty(obj);
-}
-
-/**
- * @brief show/hide Y axis labels
- * @param obj scope object
- * @param show show/hide
- * @return none
- */
-static inline void sgl_scope_show_y_labels(sgl_obj_t* obj, bool show)
-{
-    sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
-    scope->show_y_labels = (uint8_t)show;
-    sgl_obj_set_dirty(obj);
-}
-
-/**
- * @brief set scope Y axis labels font
- * @param obj scope object
- * @param font font
- * @return none
- */
-static inline void sgl_scope_set_y_label_font(sgl_obj_t* obj, const sgl_font_t *font)
-{
-    sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
-    scope->y_label_font = font;
-    sgl_obj_set_dirty(obj);
-}
-
-/**
- * @brief set scope Y axis labels color
- * @param obj scope object
- * @param color color
- * @return none
- */
-static inline void sgl_scope_set_y_label_color(sgl_obj_t* obj, sgl_color_t color)
-{
-    sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
-    scope->y_label_color = color;
     sgl_obj_set_dirty(obj);
 }
 
@@ -312,19 +187,6 @@ static inline void sgl_scope_set_border_width(sgl_obj_t* obj, uint8_t width)
     sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
     scope->border_width = width;
     sgl_obj_set_border_width(obj, width);
-}
-
-/**
- * @brief set scope grid line
- * @param obj scope object
- * @param style grid size, 0: solid line，other: dashed line
- * @return none
- */
-static inline void sgl_scope_set_grid_line(sgl_obj_t* obj, uint8_t grid)
-{
-    sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
-    scope->grid_style = grid;
-    sgl_obj_set_dirty(obj);
 }
 
 #ifdef __cplusplus
