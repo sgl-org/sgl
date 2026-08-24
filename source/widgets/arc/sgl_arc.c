@@ -34,12 +34,15 @@
 
 /**
  * @brief Check whether an angle lies inside the arc range [angle_s, angle_e].
- *        The arc sweeps clockwise (0 deg = bottom, 90 deg = left, ...) and may
+ *        The arc sweeps clockwise (0 deg = top, 90 deg = right, ...) and may
  *        wrap across 0 deg.
  * @param angle  angle to test, in [0, 360)
  * @param angle_s start angle, in [0, 360)
  * @param angle_e end angle, in [0, 360)
  * @return true if angle is inside the arc range
+ * @note angles here are user-facing (0 deg = top, clockwise); the renderer
+ *       works in the opposite convention, so every angle handed down to
+ *       sgl_draw_fill_arc must be rotated by 180 deg (see construct cb)
  */
 static bool arc_angle_in_range(int16_t angle, int16_t angle_s, int16_t angle_e)
 {
@@ -54,8 +57,8 @@ static bool arc_angle_in_range(int16_t angle, int16_t angle_s, int16_t angle_e)
  * @brief Evaluate the point on a circle of given radius at given angle and
  *        fold it into the running bounding box. Coordinates are relative to
  *        the arc center (0,0).
- *        Angle convention: 0 deg = bottom, 90 deg = left, 180 deg = top,
- *        270 deg = right (clockwise sweep). Point = (-R*sin(a), R*cos(a)).
+ *        Angle convention: 0 deg = top, 90 deg = right, 180 deg = bottom,
+ *        270 deg = left (clockwise sweep). Point = (R*sin(a), -R*cos(a)).
  * @param radius  radius of the circle
  * @param angle   angle in degrees [0, 360)
  * @param x_min   in/out min x
@@ -65,8 +68,8 @@ static bool arc_angle_in_range(int16_t angle, int16_t angle_s, int16_t angle_e)
  */
 static void arc_fold_point(int16_t radius, int16_t angle, int16_t *x_min, int16_t *x_max, int16_t *y_min, int16_t *y_max)
 {
-    int16_t x = -(int16_t)((radius * sgl_sin(angle)) / SGL_SIN_FIXED_ONE);
-    int16_t y = (int16_t)((radius * sgl_cos(angle)) / SGL_SIN_FIXED_ONE);
+    int16_t x = (int16_t)((radius * sgl_sin(angle)) / SGL_SIN_FIXED_ONE);
+    int16_t y = -(int16_t)((radius * sgl_cos(angle)) / SGL_SIN_FIXED_ONE);
 
     if (x < *x_min) *x_min = x;
     if (x > *x_max) *x_max = x;
@@ -87,8 +90,8 @@ static void arc_fold_point(int16_t radius, int16_t angle, int16_t *x_min, int16_
  */
 static void arc_fold_cap(int16_t mid_r, int16_t angle, int16_t cap_r, int16_t *x_min, int16_t *x_max, int16_t *y_min, int16_t *y_max)
 {
-    int16_t cx = -(int16_t)((mid_r * sgl_sin(angle)) / SGL_SIN_FIXED_ONE);
-    int16_t cy = (int16_t)((mid_r * sgl_cos(angle)) / SGL_SIN_FIXED_ONE);
+    int16_t cx = (int16_t)((mid_r * sgl_sin(angle)) / SGL_SIN_FIXED_ONE);
+    int16_t cy = -(int16_t)((mid_r * sgl_cos(angle)) / SGL_SIN_FIXED_ONE);
 
     if (cx - cap_r < *x_min) *x_min = cx - cap_r;
     if (cx + cap_r > *x_max) *x_max = cx + cap_r;
@@ -101,7 +104,7 @@ static void arc_fold_cap(int16_t mid_r, int16_t angle, int16_t cap_r, int16_t *x
  *        defined by inner/outer radius and start/end angle, and store it into
  *        area. The box is expressed relative to the arc center (0,0); the
  *        caller is responsible for translating it by the actual center.
- *        Angle convention: 0 deg = bottom, clockwise sweep.
+ *        Angle convention: 0 deg = top, clockwise sweep.
  * @param radius_in  inner radius of the ring
  * @param radius_out outer radius of the ring
  * @param angle_s    start angle in degrees [0, 360)
@@ -125,15 +128,15 @@ static void arc_update_area(int16_t radius_in, int16_t radius_out, int16_t angle
     angle_e = sgl_mod360(angle_e) + 1;
 
     /* endpoints on the outer radius */
-    x_min = x_max = -(int16_t)(((radius_out + 1) * sgl_sin(angle_s)) / SGL_SIN_FIXED_ONE);
-    y_min = y_max = (int16_t)(((radius_out + 1) * sgl_cos(angle_s)) / SGL_SIN_FIXED_ONE);
+    x_min = x_max = (int16_t)(((radius_out + 1) * sgl_sin(angle_s)) / SGL_SIN_FIXED_ONE);
+    y_min = y_max = -(int16_t)(((radius_out + 1) * sgl_cos(angle_s)) / SGL_SIN_FIXED_ONE);
     arc_fold_point(radius_out + 1, angle_e, &x_min, &x_max, &y_min, &y_max);
 
     /* axis-crossing points of the outer arc within range:
-     * 0 deg  -> (0, +R)  bottom (y_max)
-     * 90 deg -> (-R, 0)  left   (x_min)
-     * 180 deg-> (0, -R)  top    (y_min)
-     * 270 deg-> (+R, 0)  right  (x_max)
+     * 0 deg  -> (0, -R)  top    (y_min)
+     * 90 deg -> (+R, 0)  right  (x_max)
+     * 180 deg-> (0, +R)  bottom (y_max)
+     * 270 deg-> (-R, 0)  left   (x_min)
      */
     for (i = 0; i < 4; i++) {
         axis_angle = i * 90;
@@ -182,14 +185,21 @@ static void sgl_arc_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *
             sgl_draw_fill_ring(surf, &obj->area, arc->desc.cx, arc->desc.cy, arc->desc.radius_in, arc->desc.radius_out, arc->desc.color, arc->desc.alpha);
         }
         else if (arc->desc.start_angle != arc->desc.end_angle) {
-            sgl_draw_fill_arc(surf, &obj->area, &arc->desc);
+            /* user convention is 0 deg = top clockwise while the renderer
+             * sweeps from the opposite origin, so rotate both ends by 180
+             * deg before handing them down */
+            sgl_draw_arc_t rd = arc->desc;
+            rd.start_angle = (int16_t)(sgl_mod360((int16_t)(arc->desc.start_angle + 180)));
+            rd.end_angle = (int16_t)(sgl_mod360((int16_t)(arc->desc.end_angle + 180)));
+            sgl_draw_fill_arc(surf, &obj->area, &rd);
         }
     }
     else if(evt->type == SGL_EVENT_PRESSED ||
         evt->type == SGL_EVENT_MOVE_DOWN || evt->type == SGL_EVENT_MOVE_UP || evt->type == SGL_EVENT_MOVE_LEFT || evt->type == SGL_EVENT_MOVE_RIGHT
     ) {
-        tb_angle = sgl_atan2(evt->pos.x - arc->desc.cx, evt->pos.y - arc->desc.cy);
-        tb_angle = 360 - tb_angle;
+        /* angle convention: 0 deg = top, clockwise; sgl_atan2(x, y) yields
+         * the angle whose (sin, cos) direction is (x, y), so flip dy */
+        tb_angle = sgl_atan2(evt->pos.x - arc->desc.cx, arc->desc.cy - evt->pos.y);
         if ((tb_angle != arc->desc.end_angle) && tb_angle >= 0 && tb_angle <= 360) {
             arc->desc.end_angle = tb_angle;
         }
