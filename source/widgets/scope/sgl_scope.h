@@ -39,6 +39,17 @@ extern "C" {
 /* max number of waveform channels */
 #define SGL_SCOPE_MAX_CHANNELS      (4)
 
+/* number of dirty strips the plot is split into while the FIFO is full
+ * (scrolling): each strip is 1/N of the plot width and is marked only
+ * as tall as the y extent of the samples it covers. 1 = whole-plot mark.
+ * Strips beyond SGL_DIRTY_AREA_NUM_MAX simply merge into the last area */
+#ifndef SGL_SCOPE_SCROLL_STRIPS
+#define SGL_SCOPE_SCROLL_STRIPS     (4)
+#endif
+#if SGL_SCOPE_SCROLL_STRIPS < 1
+#error "SGL_SCOPE_SCROLL_STRIPS must be >= 1"
+#endif
+
 /**
  * @brief scope widget, multi-channel oscilloscope style waveform display
  *

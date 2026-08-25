@@ -296,6 +296,13 @@ void sgl_scope_set_buffers(sgl_obj_t *obj, int16_t *data_buffers, sgl_color_t *w
 
 /**
  * @brief producer side of the per-channel ring FIFO
+ * @note pushes dirty rectangles instead of the whole-widget dirty flag:
+ *       while the ring is still filling up only the vertical span of the
+ *       newest column changes; once the ring is full every new sample
+ *       shifts the whole waveform left, so the plot is split into
+ *       SGL_SCOPE_SCROLL_STRIPS equal-width strips and each strip is
+ *       marked only as tall as the y extent of the samples it covers
+ *       (the border never changes)
  */
 void sgl_scope_append_data(sgl_obj_t* obj, uint8_t channel, int16_t value)
 {
@@ -310,13 +317,20 @@ void sgl_scope_append_data(sgl_obj_t* obj, uint8_t channel, int16_t value)
         return;
 
     int16_t *buf = scope->data_buffers + (int32_t)channel * cap;
+    bool scrolled = (scope->count[channel] >= cap);   /* ring already full */
+    int16_t dropped = 0;
+    if (scrolled) {
+        /* ring full: in == out, the slot we are about to overwrite holds
+         * the oldest sample that scrolls off the left edge this update */
+        dropped = buf[scope->in[channel]];
+    }
 
     buf[scope->in[channel]] = value;
     scope->in[channel]++;
     if (scope->in[channel] >= cap)
         scope->in[channel] = 0;
 
-    if (scope->count[channel] < cap) {
+    if (!scrolled) {
         scope->count[channel]++;
     } else {
         /* ring full: oldest sample got overwritten, display consumes it */
@@ -324,7 +338,96 @@ void sgl_scope_append_data(sgl_obj_t* obj, uint8_t channel, int16_t value)
         if (scope->out[channel] >= cap)
             scope->out[channel] = 0;
     }
-    sgl_obj_set_dirty(obj);
+
+    /* plot area inside the border, same as the draw pass */
+    sgl_area_t area;
+    int16_t bw = scope->border_width;
+    area.x1 = obj->coords.x1 + bw;
+    area.y1 = obj->coords.y1 + bw;
+    area.x2 = obj->coords.x2 - bw;
+    area.y2 = obj->coords.y2 - bw;
+
+    int16_t h = area.y2 - area.y1 + 1;
+    int32_t span = (int32_t)scope->v_max - scope->v_min;
+
+    if (span <= 0 || h <= 0) {
+        /* no valid value mapping, be conservative with the full plot */
+        sgl_update_area(&area);
+        return;
+    }
+
+    /* same Q16 mapping as scope_draw_channel, so the rectangles exactly
+     * cover what the draw pass renders */
+    int32_t scale_q16 = ((int32_t)(h - 1) << 16) / span;
+
+    if (!scrolled) {
+        uint16_t n = scope->count[channel];
+        int16_t x = area.x1 + (int16_t)n - 1;
+        int16_t y = scope_map_y(value, scope->v_min, scale_q16, area.y1, area.y2);
+        int16_t prev_y = y;
+
+        if (n >= 2) {
+            uint16_t prev_idx = (scope->in[channel] + cap - 2) % cap;
+            prev_y = scope_map_y(buf[prev_idx], scope->v_min, scale_q16, area.y1, area.y2);
+        }
+
+        area.x1 = area.x2 = x;
+        area.y1 = sgl_min(y, prev_y);
+        area.y2 = sgl_max(y, prev_y);
+        sgl_update_area(&area);
+        return;
+    }
+
+    /* ring full: the waveform shifted left by one column. Mark
+     * SGL_SCOPE_SCROLL_STRIPS equal-width strips, each one as tall as
+     * the y extent of the samples it covers. The pixels that change at
+     * column c are bounded by the samples at c-2..c of the shifted
+     * waveform: the previous frame drew span(c-2, c-1) there, the new
+     * frame draws span(c-1, c).
+     * The first strip also includes the dropped sample, whose last pixel
+     * at the left edge must be erased */
+    uint16_t out = scope->out[channel];
+    for (int32_t q = 0; q < SGL_SCOPE_SCROLL_STRIPS; q++) {
+        int32_t c1 = ((int32_t)cap * q) / SGL_SCOPE_SCROLL_STRIPS;
+        int32_t c2 = ((int32_t)cap * (q + 1)) / SGL_SCOPE_SCROLL_STRIPS - 1;
+        if (c1 > c2)
+            continue;               /* cap < strips: this strip is empty */
+
+        /* one extra sample on each side covers the vertical joins that
+         * cross the strip borders */
+        int32_t s1 = c1 - 2;
+        int32_t s2 = c2 + 1;
+        if (s1 < 0)
+            s1 = 0;
+        if (s2 > (int32_t)cap - 1)
+            s2 = cap - 1;
+
+        int16_t ymin = INT16_MAX;
+        int16_t ymax = INT16_MIN;
+        for (int32_t s = s1; s <= s2; s++) {
+            uint16_t idx = (uint16_t)(((uint32_t)out + (uint32_t)s) % cap);
+            int16_t y = scope_map_y(buf[idx], scope->v_min, scale_q16, area.y1, area.y2);
+            if (y < ymin)
+                ymin = y;
+            if (y > ymax)
+                ymax = y;
+        }
+        if (q == 0) {
+            /* the dropped sample just scrolled off the left edge */
+            int16_t y = scope_map_y(dropped, scope->v_min, scale_q16, area.y1, area.y2);
+            if (y < ymin)
+                ymin = y;
+            if (y > ymax)
+                ymax = y;
+        }
+
+        sgl_area_t strip = area;
+        strip.x1 = area.x1 + (int16_t)c1;
+        strip.x2 = area.x1 + (int16_t)c2;
+        strip.y1 = ymin;
+        strip.y2 = ymax;
+        sgl_update_area(&strip);
+    }
 }
 
 /**
