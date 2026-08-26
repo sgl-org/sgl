@@ -181,7 +181,7 @@ static void sgl_arc_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *
         arc->desc.cx = (obj->coords.x2 + obj->coords.x1) / 2;
         arc->desc.cy = (obj->coords.y2 + obj->coords.y1) / 2;
 
-        if(arc->desc.start_angle == 0 && arc->desc.end_angle == 360) {
+        if(sgl_mod360(arc->desc.start_angle + arc->desc.end_angle) == 0) {
             sgl_draw_fill_ring(surf, &obj->area, arc->desc.cx, arc->desc.cy, arc->desc.radius_in, arc->desc.radius_out, arc->desc.color, arc->desc.alpha);
         }
         else if (arc->desc.start_angle != arc->desc.end_angle) {

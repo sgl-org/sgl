@@ -107,7 +107,13 @@ void sgl_scope_set_buffers(sgl_obj_t *obj, int16_t *wave_buffers, sgl_color_t *w
  * @param value The new data point
  * @note producer side of the FIFO: writes at `in` and advances it; when the
  *       ring is full the oldest sample is overwritten and `out` advances.
- *       Marks the object dirty so the waveform is refreshed.
+ *       Refresh is done with dirty rectangles instead of the whole-widget
+ *       dirty flag: while the ring is still filling up only the vertical
+ *       span of the newest column changes; once the ring is full every new
+ *       sample shifts the whole waveform left, so the plot is split into
+ *       SGL_SCOPE_SCROLL_STRIPS equal-width strips and each strip is marked
+ *       only as tall as the y extent of the samples it covers (the border
+ *       never changes)
  */
 void sgl_scope_append_data(sgl_obj_t* obj, uint8_t channel, int16_t value);
 

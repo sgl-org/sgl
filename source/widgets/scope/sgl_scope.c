@@ -244,6 +244,8 @@ static void sgl_scope_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_t
 
 /**
  * @brief create scope object
+ * @param parent parent object
+ * @return scope object
  */
 sgl_obj_t* sgl_scope_create(sgl_obj_t* parent)
 {
@@ -273,6 +275,11 @@ sgl_obj_t* sgl_scope_create(sgl_obj_t* parent)
 
 /**
  * @brief bind the sample/color arrays to the scope
+ * @param obj scope object
+ * @param wave_buffers base of [wave_count][widget_width] sample array
+ * @param wave_colors [wave_count] waveform color array
+ * @param wave_count number of channels (1 - SGL_SCOPE_MAX_CHANNELS)
+ * @note resets the FIFO of every channel
  */
 void sgl_scope_set_buffers(sgl_obj_t *obj, int16_t *wave_buffers, sgl_color_t *wave_colors, uint8_t wave_count)
 {
@@ -295,14 +302,19 @@ void sgl_scope_set_buffers(sgl_obj_t *obj, int16_t *wave_buffers, sgl_color_t *w
 }
 
 /**
- * @brief producer side of the per-channel ring FIFO
- * @note pushes dirty rectangles instead of the whole-widget dirty flag:
- *       while the ring is still filling up only the vertical span of the
- *       newest column changes; once the ring is full every new sample
- *       shifts the whole waveform left, so the plot is split into
- *       SGL_SCOPE_SCROLL_STRIPS equal-width strips and each strip is
- *       marked only as tall as the y extent of the samples it covers
- *       (the border never changes)
+ * @brief Append a new data point to the oscilloscope for a specific channel
+ * @param obj The oscilloscope object
+ * @param channel Channel number (0-based)
+ * @param value The new data point
+ * @note producer side of the FIFO: writes at `in` and advances it; when the
+ *       ring is full the oldest sample is overwritten and `out` advances.
+ *       Refresh is done with dirty rectangles instead of the whole-widget
+ *       dirty flag: while the ring is still filling up only the vertical
+ *       span of the newest column changes; once the ring is full every new
+ *       sample shifts the whole waveform left, so the plot is split into
+ *       SGL_SCOPE_SCROLL_STRIPS equal-width strips and each strip is marked
+ *       only as tall as the y extent of the samples it covers (the border
+ *       never changes)
  */
 void sgl_scope_append_data(sgl_obj_t* obj, uint8_t channel, int16_t value)
 {
@@ -431,7 +443,9 @@ void sgl_scope_append_data(sgl_obj_t* obj, uint8_t channel, int16_t value)
 }
 
 /**
- * @brief clear all samples of a channel, or of every channel with 0xFF
+ * @brief clear all samples of a channel (or all channels when channel == 0xFF)
+ * @param obj scope object
+ * @param channel channel number (0-based), 0xFF clears all
  */
 void sgl_scope_clear(sgl_obj_t *obj, uint8_t channel)
 {
@@ -451,6 +465,9 @@ void sgl_scope_clear(sgl_obj_t *obj, uint8_t channel)
 
 /**
  * @brief set the value range mapped to the widget height
+ * @param obj scope object
+ * @param v_min value mapped to the bottom edge
+ * @param v_max value mapped to the top edge
  */
 void sgl_scope_set_vrange(sgl_obj_t *obj, int16_t v_min, int16_t v_max)
 {
@@ -467,6 +484,10 @@ void sgl_scope_set_vrange(sgl_obj_t *obj, int16_t v_min, int16_t v_max)
 
 /**
  * @brief set scope waveform color for a specific channel
+ * @param obj scope object
+ * @param channel channel number (0-based)
+ * @param color waveform color
+ * @return none
  */
 void sgl_scope_set_channel_waveform_color(sgl_obj_t* obj, uint8_t channel, sgl_color_t color)
 {

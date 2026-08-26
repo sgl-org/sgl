@@ -27,9 +27,7 @@
 #include <sgl_log.h>
 #include <sgl_math.h>
 
-
-typedef struct sgl_arc_dot
-{
+typedef struct sgl_arc_dot {
     int16_t  cx;
     int16_t  cy;
     int16_t  r;
@@ -37,7 +35,6 @@ typedef struct sgl_arc_dot
     uint16_t rmax;
     uint16_t outer;
 } sgl_arc_dot_t;
-
 
 static void arc_dot_sin_cos(int16_t cx, int16_t cy, int16_t radius_in, int16_t radius_out, sgl_arc_dot_t *dot,int sin, int cos)
 {
