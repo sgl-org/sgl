@@ -88,7 +88,6 @@ static void sgl_rectangle_ext_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl
     }
 }
 
-
 /**
  * @brief  create a rectangle
  * @param  parent: parent object

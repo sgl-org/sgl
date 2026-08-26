@@ -513,7 +513,6 @@ void sgl_arc_label_set_orig_size(sgl_obj_t *obj, int16_t w, int16_t h)
     sgl_obj_set_dirty(obj);
 }
 
-
 /**
  * @brief set arc label text rotation angle
  * @param obj pointer to the arc label object
@@ -546,7 +545,6 @@ void sgl_arc_label_set_angle(sgl_obj_t *obj, int16_t angle)
     sgl_arc_label_update_rotation_bounds(label);
     sgl_obj_set_dirty(obj);
 }
-
 
 /**
  * @brief get arc label current rotation angle

@@ -31,7 +31,6 @@
 #include <sgl_theme.h>
 #include "sgl_textbox.h"
 
-
 #define  SGL_TEXTBOX_SCROLL_WIDTH                  (4)
 
 static int16_t textbox_scroll_get_pos(sgl_obj_t* obj, int16_t scroll_h)
@@ -104,7 +103,6 @@ static void sgl_textbox_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event
         textbox->bg.border --;
     }
 }
-
 
 /**
  * @brief create a textbox object

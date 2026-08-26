@@ -153,10 +153,8 @@ static uint8_t sgl_stepper_apply(sgl_stepper_t *s, int8_t dir)
  * @param  color: sign color
  * @param  alpha: transparency
  */
-static void sgl_stepper_draw_sign(sgl_surf_t *surf, sgl_area_t *area,
-                                  int16_t cx, int16_t cy, int16_t half,
-                                  int16_t thick, uint8_t is_plus,
-                                  sgl_color_t color, uint8_t alpha)
+static void sgl_stepper_draw_sign(sgl_surf_t *surf, sgl_area_t *area, int16_t cx, int16_t cy, int16_t half,
+                                  int16_t thick, uint8_t is_plus, sgl_color_t color, uint8_t alpha)
 {
     /* horizontal bar */
     sgl_draw_fill_hline(surf, area, cy, (int16_t)(cx - half), (int16_t)(cx + half),

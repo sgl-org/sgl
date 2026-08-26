@@ -31,7 +31,6 @@
 #include <sgl_theme.h>
 #include "sgl_textline.h"
 
-
 static void sgl_textline_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *evt)
 {
     sgl_textline_t *textline = sgl_container_of(obj, sgl_textline_t, obj);
@@ -55,7 +54,6 @@ static void sgl_textline_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
         sgl_draw_string_mult_line(surf, &text_area, obj->coords.x1 + obj->radius, obj->coords.y1 + obj->radius, textline->text, textline->color, textline->alpha, textline->font, textline->line_margin);
     }
 }
-
 
 /**
  * @brief create a textline object

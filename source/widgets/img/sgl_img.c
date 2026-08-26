@@ -273,7 +273,6 @@ static inline void rle_decompress_line(sgl_img_t *img, sgl_area_t *coords, sgl_a
     };
 }
 
-
 static void sgl_img_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *evt)
 {
     sgl_area_t clip = SGL_AREA_INVALID;

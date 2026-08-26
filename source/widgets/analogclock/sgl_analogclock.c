@@ -26,7 +26,6 @@
 #include <string.h>
 #include "sgl_analogclock.h"
 
-
 static void analogclock_update_area(sgl_analogclock_t *clock)
 {
     const int16_t cx = (clock->obj.coords.x1 + clock->obj.coords.x2) / 2;

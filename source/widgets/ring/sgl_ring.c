@@ -48,7 +48,6 @@ static void sgl_ring_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t 
     }
 }
 
-
 /**
  * @brief Create a ring object
  * @param parent The parent object of the ring

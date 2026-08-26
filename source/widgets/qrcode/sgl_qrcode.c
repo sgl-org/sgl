@@ -53,7 +53,6 @@ static void qrcode_get_pixmap_size(sgl_qrcode_t *qrcode, sgl_area_t *mod)
     mod->y2 = mod->y1 + mod_size * qrcode->scale - 1;
 }
 
-
 static void sgl_qrcode_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *evt)
 {
     sgl_qrcode_t *qrcode = sgl_container_of(obj, sgl_qrcode_t, obj);
@@ -105,7 +104,6 @@ static void sgl_qrcode_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_
         sgl_free(qrcode->data);
     }
 }
-
 
 /**
  * @brief create a qrcode object

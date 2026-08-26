@@ -66,7 +66,6 @@ static void sgl_progress_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
     }
 }
 
-
 /**
  * @brief create a progress object
  * @param parent parent object of the progress

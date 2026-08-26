@@ -32,7 +32,6 @@
 #include <string.h>
 #include "sgl_rect.h"
 
-
 /**
  * @brief rectangle construct callback
  * @param  surf: surface
@@ -75,7 +74,6 @@ static void sgl_rectangle_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_eve
         sgl_obj_set_dirty(obj);
     }
 }
-
 
 /**
  * @brief  create a rectangle

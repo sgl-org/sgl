@@ -32,7 +32,6 @@
 #include <string.h>
 #include "sgl_spectrum.h"
 
-
 static void sgl_spectrum_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *evt)
 {
     sgl_spectrum_t *spectrum = sgl_container_of(obj, sgl_spectrum_t, obj);

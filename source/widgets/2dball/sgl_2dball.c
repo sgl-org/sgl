@@ -85,7 +85,6 @@ static void sgl_2dball_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_
     }
 }
 
-
 /**
  * @brief create a 2dball object
  * @param parent parent of the 2dball
@@ -112,7 +111,6 @@ sgl_obj_t* sgl_2dball_create(sgl_obj_t* parent)
 
     return obj;
 }
-
 
 /**
  * @brief set the color of the 2dball

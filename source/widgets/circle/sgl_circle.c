@@ -32,7 +32,6 @@
 #include <string.h>
 #include "sgl_circle.h"
 
-
 /**
  * @brief construct function of the circle object
  * @param surf pointer to the surface
@@ -63,7 +62,6 @@ static void sgl_circle_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_
         sgl_draw_circle(surf, &obj->area, &desc);
     }
 }
-
 
 /**
  * @brief create a circle object

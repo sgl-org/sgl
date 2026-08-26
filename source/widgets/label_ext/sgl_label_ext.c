@@ -32,7 +32,6 @@
 #include <string.h>
 #include "sgl_label_ext.h"
 
-
 /**
  * @brief to update text of the label_ext
  * @param label_ext pointer to the label_ext object
@@ -52,7 +51,6 @@ static void sgl_label_ext_update_area(sgl_label_ext_t *label_ext, const char *te
         }
     }
 }
-
 
 /**
  * @brief construct the label_ext object

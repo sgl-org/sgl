@@ -132,7 +132,6 @@ static void sgl_line_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t 
     }
 }
 
-
 /**
  * @brief create a line object
  * @param parent parent of the line
@@ -159,7 +158,6 @@ sgl_obj_t* sgl_line_create(sgl_obj_t* parent)
 
     return obj;
 }
-
 
 /**
  * @brief set line start position
