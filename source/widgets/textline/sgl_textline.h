@@ -33,6 +33,9 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief sgl textline struct
@@ -127,5 +130,9 @@ void sgl_textline_set_edge_margin(sgl_obj_t *obj, uint8_t margin);
  * @return none
  */
 void sgl_textline_set_line_margin(sgl_obj_t *obj, uint8_t margin);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_TEXTLINE_H__

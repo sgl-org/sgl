@@ -33,6 +33,10 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief sgl arc label object
  * 
@@ -240,5 +244,9 @@ void sgl_arc_label_set_angle(sgl_obj_t *obj, int16_t angle);
  * @return current rotation angle (0-360)
  */
 int16_t sgl_arc_label_get_angle(sgl_obj_t *obj);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_ARC_LABEL_H__

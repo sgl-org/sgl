@@ -33,6 +33,9 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief sgl slider struct
@@ -50,7 +53,6 @@ typedef struct sgl_slider {
     uint8_t            value : 7;
     uint8_t            thickness;
 }sgl_slider_t;
-
 
 /**
  * @brief create a slider object
@@ -128,5 +130,9 @@ uint8_t sgl_slider_get_value(sgl_obj_t *obj);
  * @param width border width
  */
 void sgl_slider_set_border_width(sgl_obj_t *obj, uint8_t width);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_SLIDER_H__

@@ -35,6 +35,10 @@
 #include <sgl_anim.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @file sgl_viewlist.h
  * You can use this file to create a viewlist object
@@ -164,5 +168,9 @@ void sgl_viewlist_set_item_margin(sgl_obj_t *obj, uint8_t margin_x, uint8_t marg
  * @return none
  */
 void sgl_viewlist_append_obj(sgl_obj_t *list, sgl_obj_t *obj);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_VIEWLIST_H__

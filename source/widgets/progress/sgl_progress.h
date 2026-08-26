@@ -33,6 +33,9 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief sgl progress struct
@@ -50,7 +53,6 @@ typedef struct sgl_progress {
     uint8_t            knob_radius;
     uint8_t            knob_width;
 }sgl_progress_t;
-
 
 /**
  * @brief create a progress object
@@ -161,5 +163,9 @@ void sgl_progress_set_value(sgl_obj_t *obj, uint8_t value);
  * @return progress value
  */
 uint8_t sgl_progress_get_value(sgl_obj_t *obj);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_PROGRESS_H__

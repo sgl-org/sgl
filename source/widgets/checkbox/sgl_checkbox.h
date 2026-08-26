@@ -33,6 +33,10 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct sgl_checkbox {
     sgl_obj_t          obj;
     const char         *text;
@@ -121,5 +125,9 @@ void sgl_checkbox_set_status(sgl_obj_t *obj, bool status);
  * @return status of checkbox
  */
 bool sgl_checkbox_get_status(sgl_obj_t *obj);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_CHECKBOX_H__

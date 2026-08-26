@@ -33,6 +33,9 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief sgl bar struct
@@ -140,5 +143,9 @@ void sgl_bar_set_pixmap(sgl_obj_t *obj, const sgl_pixmap_t *pixmap);
  * @return none
  */
 void sgl_bar_set_alpha(sgl_obj_t *obj, uint8_t alpha);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_BAR_H__

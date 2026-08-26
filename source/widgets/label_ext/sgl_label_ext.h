@@ -33,6 +33,10 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief sgl label_ext object
  * @obj: sgl general object
@@ -173,5 +177,9 @@ void sgl_label_ext_set_text_offset(sgl_obj_t *obj, int8_t offset_x, int8_t offse
  * @return none
  */
 void sgl_label_ext_set_text_rotation(sgl_obj_t *obj, int16_t text_rotation);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_LABEL_EXT_H__

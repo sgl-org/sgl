@@ -33,6 +33,10 @@
 #ifndef __SGL_ARC_H__
 #define __SGL_ARC_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct sgl_arc {
     sgl_obj_t       obj;
     sgl_draw_arc_t  desc;
@@ -111,5 +115,9 @@ void sgl_arc_set_end_angle(sgl_obj_t *obj, int16_t angle);
  * @return normalized included angle in range [0, 360]
  */
 int16_t sgl_arc_get_included_angle(sgl_obj_t *obj);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_ARC_H__

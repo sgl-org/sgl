@@ -33,6 +33,9 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief sgl line struct
@@ -111,5 +114,9 @@ void sgl_line_set_pos(sgl_obj_t *obj, int16_t x1, int16_t y1, int16_t x2, int16_
  * @return none
  */
 void sgl_line_set_width(sgl_obj_t *obj, uint8_t width);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_LINE_H__

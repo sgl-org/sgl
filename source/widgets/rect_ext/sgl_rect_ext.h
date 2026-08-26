@@ -33,6 +33,9 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief sgl rectangle
@@ -123,5 +126,9 @@ void sgl_rect_ext_set_border_alpha(sgl_obj_t *obj, uint8_t alpha);
  * @retval none
  */
 void sgl_rect_ext_set_pixmap(sgl_obj_t *obj, const sgl_pixmap_t *pixmap);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_RECTANGLE_EXT_H__

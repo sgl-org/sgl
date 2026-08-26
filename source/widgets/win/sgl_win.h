@@ -32,6 +32,10 @@
 #include <sgl_mm.h>
 #include <sgl_cfgfix.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief sgl window struct
  * @obj: sgl general object
@@ -165,5 +169,9 @@ void sgl_win_set_close_btn_color(sgl_obj_t *obj, sgl_color_t color);
  * @return title height
  */
 int16_t sgl_win_title_height(sgl_obj_t *obj);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_WIN_H__

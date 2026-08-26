@@ -33,6 +33,10 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief battery widget structure — semi-transparent 3D battery indicator
  * @obj:          sgl general object
@@ -185,5 +189,9 @@ void sgl_battery_set_alpha(sgl_obj_t* obj, uint8_t alpha);
  * @return none
  */
 void sgl_battery_set_vertical(sgl_obj_t* obj, bool vertical);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __SGL_BATTERY_H__ */

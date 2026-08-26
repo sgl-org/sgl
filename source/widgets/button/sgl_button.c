@@ -32,7 +32,6 @@
 #include <string.h>
 #include "sgl_button.h"
 
-
 /**
  * @brief  button construct callback
  * @param  surf: surface pointer
@@ -88,7 +87,6 @@ static void sgl_button_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_
         break;
     }
 }
-
 
 /**
  * @brief  create a button object

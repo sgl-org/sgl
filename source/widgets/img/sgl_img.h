@@ -33,6 +33,10 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * description:
  * 1. Extern Flash image object:
@@ -190,5 +194,9 @@ void sgl_img_set_pixmap_next(sgl_obj_t *obj);
  * @return none
  */
 void sgl_img_set_pixmap_index(sgl_obj_t *obj, uint8_t index);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_IMG_H__

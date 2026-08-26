@@ -32,7 +32,6 @@
 #include <string.h>
 #include "sgl_canvas.h"
 
-
 static void sgl_canvas_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *evt)
 {
     sgl_canvas_t *canvas = sgl_container_of(obj, sgl_canvas_t, obj);

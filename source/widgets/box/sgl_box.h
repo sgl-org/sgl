@@ -38,6 +38,10 @@
 #define SGL_BOX_SCROLL_HORIZONTAL_ONLY    (0x02)  // Horizontal scrolling only
 #define SGL_BOX_SCROLL_BOTH               (0x03)  // Both vertical and horizontal scrolling enabled
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief sgl box struct
  * @desc: Container for scrolling child widgets
@@ -58,14 +62,12 @@ typedef struct sgl_box {
     uint8_t         show_h_scrollbar : 1; // Whether to show the horizontal scrollbar
 } sgl_box_t;
 
-
 /**
  * @brief create a box object
  * @param parent parent of the box
  * @return box object
  */
 sgl_obj_t* sgl_box_create(sgl_obj_t* parent);
-
 
 /**
  * @brief set background color of the box
@@ -142,5 +144,9 @@ void sgl_box_set_show_scrollbar(sgl_obj_t *obj, uint8_t show_vertical, uint8_t s
  * @return none
  */
 void sgl_box_set_alpha(sgl_obj_t *obj, uint8_t alpha);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_BOX_H__

@@ -33,6 +33,10 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief For example, you can use the canvas widget:
  *        void painter_func(sgl_surf_t *surf, sgl_area_t *area, sgl_obj_t *obj)
@@ -83,5 +87,9 @@ void sgl_canvas_set_painter_cb(sgl_obj_t *obj, sgl_painter_cb_t painter);
  * @param none
  */
 void sgl_canvas_set_private(sgl_obj_t *obj, void *priv);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_CANVAS_H__

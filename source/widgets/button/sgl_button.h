@@ -25,7 +25,6 @@
 #ifndef __SGL_BUTTON_H__
 #define __SGL_BUTTON_H__
 
-
 #include <sgl_core.h>
 #include <sgl_draw.h>
 #include <sgl_math.h>
@@ -34,6 +33,9 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief Button object
@@ -52,7 +54,6 @@ typedef struct sgl_button {
     uint8_t                 alpha;
     uint8_t                 align;
 }sgl_button_t;
-
 
 /**
  * @brief  create a button object
@@ -141,5 +142,9 @@ void sgl_button_set_text_align(sgl_obj_t *obj, uint8_t align);
  * @return none
  */
 void sgl_button_set_font(sgl_obj_t *obj, const sgl_font_t *font);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_BUTTON_H__

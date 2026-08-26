@@ -39,6 +39,10 @@
 #define  SGL_MSGBOX_STATUS_RIGHT                (1 << 1)
 #define  SGL_MSGBOX_STATUS_EXIT                 (1 << 2)
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief sgl message box struct
  * @obj: sgl general object
@@ -279,5 +283,9 @@ void sgl_msgbox_set_msg_x_offset(sgl_obj_t *obj, uint8_t offset);
  * @return none
  */
 void sgl_msgbox_set_msg_y_offset(sgl_obj_t *obj, uint8_t offset);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_MSGBOX_H__

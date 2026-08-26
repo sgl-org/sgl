@@ -35,6 +35,10 @@
 #include <sgl_anim.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * NOTE: can use this callback function to handle the click event of the textlist
  * 
@@ -189,5 +193,9 @@ void sgl_textlist_delete_item_by_index(sgl_obj_t *obj, int16_t index);
  * @return none
  */
 void sgl_textlist_delete_item_by_text(sgl_obj_t *obj, char *text);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_TEXTLIST_H__

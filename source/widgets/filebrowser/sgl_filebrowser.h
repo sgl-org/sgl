@@ -85,6 +85,10 @@
 #include <sgl_core.h>
 #include <sgl_misc.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define SGL_FILEBROWSER_PATH_MAX_LEN  (128)
 #define SGL_FILEBROWSER_NAME_MAX_LEN  (64)
 
@@ -305,5 +309,9 @@ void sgl_filebrowser_set_border_width(sgl_obj_t *obj, uint8_t width);
  * @return none
  */
 void sgl_filebrowser_set_path_prefix(sgl_obj_t *obj, const char *prefix);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __SGL_FILEBROWSER_H__ */

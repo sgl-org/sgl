@@ -33,6 +33,9 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief sgl switch struct
@@ -147,5 +150,9 @@ bool sgl_switch_get_status(sgl_obj_t *obj);
  * @return none
  */
 void sgl_switch_set_knob_margin(sgl_obj_t *obj, int16_t margin);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_SWITCH_H__

@@ -33,6 +33,9 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief sgl number keyboard struct
@@ -176,5 +179,9 @@ void sgl_numberkbd_set_btn_pixmap(sgl_obj_t *obj, const sgl_pixmap_t *pixmap);
  * @return opcode [0 ~ 255]
  */
 uint8_t sgl_numberkbd_get_opcode(sgl_obj_t *obj);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_NUMBERKBD_H__

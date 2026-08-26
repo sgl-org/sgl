@@ -33,6 +33,9 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief sgl keyboard struct
@@ -221,5 +224,9 @@ uint8_t sgl_keyboard_get_opcode(sgl_obj_t *obj);
  * @param buf_max_len edit buffer max length
  */
 void sgl_keyboard_set_textarea(sgl_obj_t *obj, char *buffer, int buf_max_len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_KEYBOARD_H__

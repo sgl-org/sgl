@@ -33,6 +33,9 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief sgl textbox struct
@@ -50,7 +53,6 @@ typedef struct sgl_textbox {
     uint32_t         scroll_enable: 1;
     uint8_t          line_margin;
 }sgl_textbox_t;
-
 
 /**
  * @brief create a textbox object
@@ -129,5 +131,9 @@ void sgl_textbox_set_pixmap(sgl_obj_t *obj, const sgl_pixmap_t *pixmap);
  * @return none
  */
 void sgl_textbox_set_line_margin(sgl_obj_t *obj, uint8_t margin);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // !__SGL_TEXTBOX_H__

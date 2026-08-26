@@ -33,6 +33,9 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief sgl label object
@@ -168,6 +171,10 @@ void sgl_label_set_text_offset(sgl_obj_t *obj, int8_t offset_x);
  * @return none
  */
 void sgl_label_set_long_mode(sgl_obj_t *obj, uint32_t speed_ms, bool flag);
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif // !__SGL_LABEL_H__
