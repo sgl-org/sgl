@@ -95,7 +95,7 @@ static void scope_draw_channel(sgl_surf_t *surf, sgl_scope_t *scope, uint8_t ch,
     if (n == 0)
         return;
 
-    const int16_t *buf_data = scope->data_buffers + (int32_t)ch * cap;
+    const int16_t *buf_data = scope->wave_buffers + (int32_t)ch * cap;
     sgl_color_t color = scope->wave_colors ? scope->wave_colors[ch] : SGL_COLOR_GREEN;
 
     /* visible column range = plot clipped to the dirty area */
@@ -189,7 +189,7 @@ static void sgl_scope_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_t
     bg.radius = obj->radius;
     sgl_draw_rect(surf, &obj->area, &obj->coords, &bg);
 
-    if (scope->data_buffers == NULL || scope->channel_count == 0)
+    if (scope->wave_buffers == NULL || scope->channel_count == 0)
         return;
 
     uint16_t cap = scope_capacity(scope);
@@ -274,17 +274,17 @@ sgl_obj_t* sgl_scope_create(sgl_obj_t* parent)
 /**
  * @brief bind the sample/color arrays to the scope
  */
-void sgl_scope_set_buffers(sgl_obj_t *obj, int16_t *data_buffers, sgl_color_t *wave_colors, uint8_t channel_count)
+void sgl_scope_set_buffers(sgl_obj_t *obj, int16_t *wave_buffers, sgl_color_t *wave_colors, uint8_t wave_count)
 {
     SGL_ASSERT(obj != NULL);
     sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
 
-    if (channel_count == 0 || channel_count > SGL_SCOPE_MAX_CHANNELS)
+    if (wave_count == 0 || wave_count > SGL_SCOPE_MAX_CHANNELS)
         return;
 
-    scope->data_buffers = data_buffers;
+    scope->wave_buffers = wave_buffers;
     scope->wave_colors = wave_colors;
-    scope->channel_count = channel_count;
+    scope->channel_count = wave_count;
     scope->cap = 0;                     /* re-derive from the size later */
     for (uint8_t c = 0; c < SGL_SCOPE_MAX_CHANNELS; c++) {
         scope->in[c] = 0;
@@ -309,14 +309,14 @@ void sgl_scope_append_data(sgl_obj_t* obj, uint8_t channel, int16_t value)
     SGL_ASSERT(obj != NULL);
     sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
 
-    if (scope->data_buffers == NULL || channel >= scope->channel_count)
+    if (scope->wave_buffers == NULL || channel >= scope->channel_count)
         return;
 
     uint16_t cap = scope_capacity(scope);
     if (cap == 0)
         return;
 
-    int16_t *buf = scope->data_buffers + (int32_t)channel * cap;
+    int16_t *buf = scope->wave_buffers + (int32_t)channel * cap;
     bool scrolled = (scope->count[channel] >= cap);   /* ring already full */
     int16_t dropped = 0;
     if (scrolled) {

@@ -60,14 +60,14 @@ extern "C" {
  *       column). The buffer length of each channel MUST equal the widget
  *       width in pixels, so the hot draw loop needs no scaling at all.
  *
- * @data_buffers  base of user-owned [channel_count][width] sample array
+ * @wave_buffers  base of user-owned [channel_count][width] sample array
  * @wave_colors   user-owned [channel_count] waveform color array
  * @in / @out     per-channel FIFO write index / oldest displayed index
  * @count         per-channel number of valid samples
  */
 typedef struct {
     sgl_obj_t obj;
-    int16_t *data_buffers;             // user-owned [channels][width] samples
+    int16_t *wave_buffers;             // user-owned [channels][width] samples
     sgl_color_t *wave_colors;          // user-owned [channels] wave colors
     uint16_t in[SGL_SCOPE_MAX_CHANNELS];     // FIFO write index
     uint16_t out[SGL_SCOPE_MAX_CHANNELS];    // FIFO read (oldest) index
@@ -93,12 +93,12 @@ sgl_obj_t* sgl_scope_create(sgl_obj_t* parent);
 /**
  * @brief bind the sample/color arrays to the scope
  * @param obj scope object
- * @param data_buffers base of [channel_count][widget_width] sample array
- * @param wave_colors [channel_count] waveform color array
- * @param channel_count number of channels (1 - SGL_SCOPE_MAX_CHANNELS)
+ * @param wave_buffers base of [wave_count][widget_width] sample array
+ * @param wave_colors [wave_count] waveform color array
+ * @param wave_count number of channels (1 - SGL_SCOPE_MAX_CHANNELS)
  * @note resets the FIFO of every channel
  */
-void sgl_scope_set_buffers(sgl_obj_t *obj, int16_t *data_buffers, sgl_color_t *wave_colors, uint8_t channel_count);
+void sgl_scope_set_buffers(sgl_obj_t *obj, int16_t *wave_buffers, sgl_color_t *wave_colors, uint8_t wave_count);
 
 /**
  * @brief Append a new data point to the oscilloscope for a specific channel
