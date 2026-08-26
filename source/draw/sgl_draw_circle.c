@@ -26,7 +26,6 @@
 #include <sgl_draw.h>
 #include <sgl_math.h>
 
-
 /**
  * @brief Draw a circle
  * @param surf Surface

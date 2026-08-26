@@ -62,7 +62,6 @@ void sgl_draw_fill_hline(sgl_surf_t *surf, sgl_area_t *area, int16_t y, int16_t 
     }
 }
 
-
 /**
  * @brief draw a vertical line with alpha
  * @param surf surface

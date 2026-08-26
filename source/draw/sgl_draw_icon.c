@@ -27,7 +27,6 @@
 #include <sgl_draw.h>
 #include <sgl_math.h>
 
-
 /**
  * @brief draw icon with alpha
  * @param surf   surface

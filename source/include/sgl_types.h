@@ -35,17 +35,14 @@ extern "C" {
 
 /**
  * @brief Get the offset of internal members of the structure
- * 
  * @struct_t: structure typedef 
  * @member: member in structure
- * 
  * @return offset of member in the structure
 */
 #define sgl_offsetof(struct_t, member)          ((size_t)&((struct_t*)0)->member)
 
 /**
  * @brief Get the address of the structure instance.
- *
  * @ptr: address of the structure member.
  * @type: type of the structure.
  * @member: member name of the ptr in structure.

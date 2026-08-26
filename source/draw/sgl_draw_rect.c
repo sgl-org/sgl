@@ -58,7 +58,6 @@ void sgl_draw_wireframe(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, in
     }
 }
 
-
 /**
  * @brief fill a round rectangle with alpha
  * @param surf point to surface

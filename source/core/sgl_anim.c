@@ -840,6 +840,7 @@ void sgl_anim_run_once(int16_t start, int16_t end, uint16_t duration, sgl_anim_p
         SGL_LOG_ERROR("Failed to create animation object for run_once");
         return;
     }
+    sgl_anim_start(anim, SGL_ANIM_REPEAT_ONCE);
 }
 
 #endif // !CONFIG_SGL_ANIMATION

@@ -45,7 +45,6 @@ typedef struct sgl_mm_monitor {
     size_t  free_size;
     size_t  used_size;
     size_t  used_rate;
-
 } sgl_mm_monitor_t;
 
 /**
@@ -65,9 +64,7 @@ void sgl_mm_add_pool(void *mem_start, size_t len);
 /**
  * @brief  memory alloc, the function is unsafe, you should ensure that 
  *         the requested size is smaller than the free size of memory
- * 
  * @param  size   request size of memory
- * 
  * @return point to request memory address
 */
 void* sgl_malloc(size_t size);
@@ -82,16 +79,13 @@ void* sgl_realloc(void *p, size_t size);
 
 /**
  * @brief  memory free
- * 
  * @param  p  the pointer of request size of memory
- * 
  * @return none
 */
 void sgl_free(void *p);
 
 /**
  * @brief  get memory monitor info
- * 
  * @param  none
  * @return memory monitor info
  */

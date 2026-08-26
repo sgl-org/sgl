@@ -27,7 +27,6 @@
 #include <sgl_draw.h>
 #include <sgl_math.h>
 
-
 #if (CONFIG_SGL_FONT_COMPRESSED)
 /**
  * @brief RLE state, refrence LVGL
@@ -165,7 +164,6 @@ static inline void font_rle_init(const uint8_t * in, uint8_t bpp)
 }
 #endif // (!CONFIG_SGL_FONT_COMPRESSED)
 
-
 /**
  * @brief Draw a character on the surface with alpha blending
  * @param surf Pointer to the surface where the character will be drawn
@@ -273,7 +271,6 @@ void sgl_draw_character(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y
 #endif
 }
 
-
 /**
  * @brief Draw a string on the surface with alpha blending
  * @param surf Pointer to the surface where the string will be drawn
@@ -298,7 +295,6 @@ void sgl_draw_string(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, c
         x += ((font->table[ch_index].adv_w + 8)>> 4);
     }
 }
-
 
 /**
  * @brief Draw a string on the surface with alpha blending and multiple lines
@@ -341,7 +337,6 @@ void sgl_draw_string_mult_line(sgl_surf_t *surf, sgl_area_t *area, int16_t x, in
         x_off += ch_width;
     }
 }
-
 
 /**
  * @brief generate mask for an character
@@ -406,7 +401,6 @@ void sgl_draw_label_mask(uint8_t *mask, sgl_area_t *area,  int16_t x, int16_t y,
         alpha_buf += buf_w;
     }
 }
-
 
 void sgl_draw_string_mask(uint8_t *mask, sgl_area_t *area, int16_t x, int16_t y, const char *str, const sgl_font_t *font)
 {
