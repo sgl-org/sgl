@@ -44,6 +44,7 @@ struct sgl_anim;
 /* Anim path callback */
 typedef void (*sgl_anim_path_cb_t)(struct sgl_anim *anim, int32_t value);
 typedef int32_t (*sgl_anim_path_algo_t)(uint16_t elaps, uint16_t duration, int32_t start, int32_t end);
+typedef void (*sgl_anim_finish_cb_t)(struct sgl_anim *anim);
 
 /**
  * @brief Animation object structure used to manage a single animation instance.
@@ -105,7 +106,7 @@ typedef struct sgl_anim {
     int32_t               end_value;
     sgl_anim_path_cb_t    path_cb;
     sgl_anim_path_algo_t  path_algo;
-    void                  (*finish_cb)(struct sgl_anim *anim);
+    sgl_anim_finish_cb_t  finish_cb;
 } sgl_anim_t;
 
 #define  SGL_ANIM_REPEAT_LOOP                          (0x3FFF)
@@ -469,55 +470,69 @@ int32_t sgl_anim_path_step(uint16_t elaps, uint16_t duration, int32_t start, int
 #define SGL_ANIM_PATH_STEP  sgl_anim_path_step
 
 /**
- * sgl_anim_apply_obj_hori - Move an object horizontally
+ * sgl_anim_move_obj_hori - Move an object horizontally
  * @param obj       Pointer to the object to move
  * @param distance  Distance to move the object horizontally
  * @param duration  Duration of the animation (in milliseconds)
  * @param effect    Animation path effect (e.g., SGL_ANIM_PATH_EASE_IN_OUT, SGL_ANIM_PATH_EASE_IN, SGL_ANIM_PATH_EASE_OUT)
  * @return none
  */
-void sgl_anim_apply_obj_hori(sgl_obj_t *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect);
+void sgl_anim_move_obj_hori(sgl_obj_t *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect);
 
 /**
- * sgl_anim_apply_obj_hori_auto_free - Move an object horizontally and free it automatically
+ * sgl_anim_move_obj_hori_with_free - Move an object horizontally and free object automatically
  * @param obj       Pointer to the object to move
  * @param distance  Distance to move the object horizontally
  * @param duration  Duration of the animation (in milliseconds)
  * @param effect    Animation path effect (e.g., SGL_ANIM_PATH_EASE_IN_OUT, SGL_ANIM_PATH_EASE_IN, SGL_ANIM_PATH_EASE_OUT)
  * @return none
  */
-void sgl_anim_apply_obj_hori_auto_free(sgl_obj_t *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect);
+void sgl_anim_move_obj_hori_with_free(sgl_obj_t *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect);
 
 /**
- * sgl_anim_apply_obj_vert - Move an object vertically
+ * sgl_anim_move_obj_vert - Move an object vertically
  * @param obj       Pointer to the object to move
  * @param distance  Distance to move the object vertically
  * @param duration  Duration of the animation (in milliseconds)
  * @param effect    Animation path effect (e.g., SGL_ANIM_PATH_EASE_IN_OUT, SGL_ANIM_PATH_EASE_IN, SGL_ANIM_PATH_EASE_OUT)
  * @return none
  */
-void sgl_anim_apply_obj_vert(sgl_obj_t *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect);
+void sgl_anim_move_obj_vert(sgl_obj_t *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect);
 
 /**
- * sgl_anim_apply_obj_vert_auto_free - Move an object vertically and free it automatically
+ * sgl_anim_move_obj_vert_with_free - Move an object vertically and free object automatically
  * @param obj       Pointer to the object to move
  * @param distance  Distance to move the object vertically
  * @param duration  Duration of the animation (in milliseconds)
  * @param effect    Animation path effect (e.g., SGL_ANIM_PATH_EASE_IN_OUT, SGL_ANIM_PATH_EASE_IN, SGL_ANIM_PATH_EASE_OUT)
  * @return none
  */
-void sgl_anim_apply_obj_vert_auto_free(sgl_obj_t *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect);
+void sgl_anim_move_obj_vert_with_free(sgl_obj_t *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect);
 
 /**
- * sgl_anim_run_once - Run an animation once
+ * sgl_anim_move_to - Move to a specific position
  * @param start     Start value of the animation
  * @param end       End value of the animation
  * @param duration  Duration of the animation (in milliseconds)
  * @param cb        Callback function for the animation
- * @param effect    Animation path effect ()
+ * @param effect    Animation path effect (e.g., SGL_ANIM_PATH_EASE_IN_OUT, SGL_ANIM_PATH_EASE_IN, SGL_ANIM_PATH_EASE_OUT)
+ * @param finish_cb Callback function to be called when the animation finishes
  * @return none
  */
-void sgl_anim_run_once(int16_t start, int16_t end, uint16_t duration, sgl_anim_path_cb_t cb, sgl_anim_path_algo_t effect);
+void sgl_anim_move_to(int16_t start, int16_t end, uint16_t duration, sgl_anim_path_cb_t cb, sgl_anim_path_algo_t effect, sgl_anim_finish_cb_t finish_cb);
+
+/**
+ * sgl_anim_move_obj_to - Move an object to a specific position
+ * @param obj       Pointer to the object to move
+ * @param start     Start position of the object
+ * @param end       End position of the object
+ * @param duration  Duration of the animation (in milliseconds)
+ * @param cb        Callback function for the animation
+ * @param effect    Animation path effect (e.g., SGL_ANIM_PATH_EASE_IN_OUT, SGL_ANIM_PATH_EASE_IN, SGL_ANIM_PATH_EASE_OUT)
+ * @param finish_cb Callback function to be called when the animation finishes
+ * @return none
+ */
+void sgl_anim_move_obj_to(sgl_obj_t *obj, int16_t start, int16_t end, uint16_t duration, sgl_anim_path_cb_t cb, sgl_anim_path_algo_t effect, sgl_anim_finish_cb_t finish_cb);
 
 #endif // ! CONFIG_SGL_ANIMATION
 

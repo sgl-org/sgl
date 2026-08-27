@@ -69,7 +69,7 @@ static void sgl_launcher_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
         target_page = sgl_clamp(target_page, 0, launcher->page_count - 1);
         ctx.current_page = target_page;
         int16_t target = -(target_page * launcher->page_width) - obj->coords.x1;
-        sgl_anim_apply_obj_hori(obj, target, 200, SGL_ANIM_PATH_EASE_OUT);
+        sgl_anim_move_obj_hori(obj, target, 200, SGL_ANIM_PATH_EASE_OUT);
     } break;
 
     break;
