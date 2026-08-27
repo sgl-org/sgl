@@ -1739,6 +1739,22 @@ void sgl_obj_delete(sgl_obj_t *obj);
 void sgl_obj_delete_sync(sgl_obj_t *obj);
 
 /**
+ * @brief delete object's all children
+ * @param obj point to object
+ * @return none
+ * @note this function will delete object's all children, but not the object itself.
+ */
+void sgl_obj_delete_children(sgl_obj_t *obj);
+
+/**
+ * @brief delete object's all children immediately
+ * @param obj point to object
+ * @return none
+ * @note this function will delete object's all children immediately, but not the object itself.
+ */
+void sgl_obj_delete_children_sync(sgl_obj_t *obj);
+
+/**
  * @brief color mixer
  * @param fg_color : foreground color
  * @param bg_color : background color

@@ -800,4 +800,6 @@ void sgl_game2048_destroy(void)
         g_pop_l[i] = NULL;
     }
     g_pop_cnt = 0;
+
+    sgl_obj_delete_children(g_ov_bg);
 }

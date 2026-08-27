@@ -1201,6 +1201,36 @@ void sgl_obj_delete_sync(sgl_obj_t *obj)
 }
 
 /**
+ * @brief delete object's all children
+ * @param obj point to object
+ * @return none
+ * @note this function will delete object's all children, but not the object itself.
+ */
+void sgl_obj_delete_children(sgl_obj_t *obj)
+{
+    if (obj == NULL) {
+        return;
+    }
+    if (obj->child) {
+        sgl_obj_free_chain(obj->child);
+    }
+    sgl_obj_node_init(obj);
+    sgl_obj_set_dirty(obj);
+}
+
+/**
+ * @brief delete object's all children immediately
+ * @param obj point to object
+ * @return none
+ * @note this function will delete object's all children immediately, but not the object itself.
+ */
+void sgl_obj_delete_children_sync(sgl_obj_t *obj)
+{
+    sgl_obj_delete_children(obj);
+    sgl_task_handler_sync();
+}
+
+/**
  * @brief Convert UTF-8 string to Unicode
  * @param utf8_str Pointer to the UTF-8 string to be converted
  * @param p_unicode_buffer Pointer to the buffer where the converted Unicode will be stored
