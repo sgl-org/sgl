@@ -33,36 +33,36 @@
 extern "C" {
 #endif
 
-#define GRID_N                   4
-#define ANIM_MS                  250                     /* slide duration */
-#define POP_MS                   120                     /* merge pop duration */
-#define MAX_MOVES                (GRID_N * GRID_N)       /* moving tiles per move */
-#define MAX_POPS                 (GRID_N * GRID_N / 2)   /* merges per move */
+#define SGL_2048_GRID_N          4
+#define SGL_2048_ANIM_MS         250                                         /* slide duration */
+#define SGL_2048_POP_MS          120                                         /* merge pop duration */
+#define SGL_2048_MAX_MOVES       (SGL_2048_GRID_N * SGL_2048_GRID_N)         /* moving tiles per move */
+#define SGL_2048_MAX_POPS        (SGL_2048_GRID_N * SGL_2048_GRID_N / 2)     /* merges per move */
 
 /* geometry helpers reading the runtime layout */
-#define GRID_PX                  (g_grid_px)
-#define CELL_SZ                  (g_cell_sz)
-#define CELL_R                   (g_cell_r)
-#define GRID_BG_R                (g_grid_bg_r)
-#define CELL_X(c)                (g_margin_x + (c) * (g_cell_sz + g_cell_gap))
-#define CELL_Y(r)                (g_margin_y + (r) * (g_cell_sz + g_cell_gap))
+#define SGL_2048_GRID_PX         (g_grid_px)
+#define SGL_2048_CELL_SZ         (g_cell_sz)
+#define SGL_2048_CELL_R          (g_cell_r)
+#define SGL_2048_GRID_BG_R       (g_grid_bg_r)
+#define SGL_2048_CELL_X(c)       (g_margin_x + (c) * (g_cell_sz + g_cell_gap))
+#define SGL_2048_CELL_Y(r)       (g_margin_y + (r) * (g_cell_sz + g_cell_gap))
 
-#define C_BG                     sgl_rgb(250, 248, 240)
-#define C_EMPTY                  sgl_rgb(191, 177, 165)
-#define C_2                      sgl_color_hex(0xEEE4DA)
-#define C_4                      sgl_color_hex(0xEDE0C8)
-#define C_8                      sgl_color_hex(0xF2B179)
-#define C_16                     sgl_color_hex(0xF59563)
-#define C_32                     sgl_color_hex(0xF67C5F)
-#define C_64                     sgl_color_hex(0xF65E3B)
-#define C_128                    sgl_color_hex(0xEDCF72)
-#define C_256                    sgl_color_hex(0xEDCC61)
-#define C_512                    sgl_color_hex(0xEDC850)
-#define C_1024                   sgl_color_hex(0xEDC53F)
-#define C_2048                   sgl_color_hex(0xEDC22E)
-#define C_TXT_D                  sgl_color_hex(0x776E65)   /* dark text (2, 4) */
-#define C_TXT_L                  SGL_COLOR_WHITE           /* light text (8+) */
-#define C_SBOX                   sgl_color_hex(0x8F7A66)   /* score box background */
+#define SGL_2048_C_BG            sgl_rgb(250, 248, 240)
+#define SGL_2048_C_EMPTY         sgl_rgb(191, 177, 165)
+#define SGL_2048_C_2             sgl_color_hex(0xEEE4DA)
+#define SGL_2048_C_4             sgl_color_hex(0xEDE0C8)
+#define SGL_2048_C_8             sgl_color_hex(0xF2B179)
+#define SGL_2048_C_16            sgl_color_hex(0xF59563)
+#define SGL_2048_C_32            sgl_color_hex(0xF67C5F)
+#define SGL_2048_C_64            sgl_color_hex(0xF65E3B)
+#define SGL_2048_C_128           sgl_color_hex(0xEDCF72)
+#define SGL_2048_C_256           sgl_color_hex(0xEDCC61)
+#define SGL_2048_C_512           sgl_color_hex(0xEDC850)
+#define SGL_2048_C_1024          sgl_color_hex(0xEDC53F)
+#define SGL_2048_C_2048          sgl_color_hex(0xEDC22E)
+#define SGL_2048_C_TXT_D         sgl_color_hex(0x776E65)   /* dark text (2, 4) */
+#define SGL_2048_C_TXT_L         SGL_COLOR_WHITE           /* light text (8+) */
+#define SGL_2048_C_SBOX          sgl_color_hex(0x8F7A66)   /* score box background */
 
 /**
  * @brief Start the 2048 game: build the whole UI under parent, sized to

@@ -31,31 +31,31 @@ static int16_t g_cell_sz, g_cell_gap;         /* tile edge / spacing */
 static int16_t g_cell_r, g_grid_bg_r;         /* corner radii */
 static int16_t g_grid_px;                     /* whole grid square edge */
 
-static int g_grid[GRID_N][GRID_N];
-static int g_prev[GRID_N][GRID_N];
+static int g_grid[SGL_2048_GRID_N][SGL_2048_GRID_N];
+static int g_prev[SGL_2048_GRID_N][SGL_2048_GRID_N];
 static int g_score, g_best, g_over, g_won, g_busy;
 
 /* permanent widgets */
 static sgl_obj_t *g_scr_score, *g_scr_best;       /* score value labels */
-static sgl_obj_t *g_cell_bg[GRID_N][GRID_N];    /* empty cell backgrounds */
-static sgl_obj_t *g_tile_r[GRID_N][GRID_N];     /* tile rect */
-static sgl_obj_t *g_tile_l[GRID_N][GRID_N];     /* tile label (child of rect) */
+static sgl_obj_t *g_cell_bg[SGL_2048_GRID_N][SGL_2048_GRID_N];    /* empty cell backgrounds */
+static sgl_obj_t *g_tile_r[SGL_2048_GRID_N][SGL_2048_GRID_N];     /* tile rect */
+static sgl_obj_t *g_tile_l[SGL_2048_GRID_N][SGL_2048_GRID_N];     /* tile label (child of rect) */
 static sgl_obj_t *g_ov_bg, *g_ov_txt;             /* game-over overlay */
 
 /* one slide move: sr/sc = source cell in the previous grid,
  * dr/dc = destination cell, merge = 1 if merging at the destination */
 typedef struct { int sr, sc, dr, dc, val, merge; } move_t;
-static move_t g_moves[MAX_MOVES];
+static move_t g_moves[SGL_2048_MAX_MOVES];
 static int    g_move_cnt;
 
 /* one merge pop: destination cell of a merge */
 typedef struct { int dr, dc, val; } pop_t;
-static pop_t     g_pops[MAX_POPS];
+static pop_t     g_pops[SGL_2048_MAX_POPS];
 static int       g_pop_cnt;
 
 /* temporary animation widgets, created and destroyed on every move */
-static sgl_obj_t *g_amov_r[MAX_MOVES], *g_amov_l[MAX_MOVES];  /* slide */
-static sgl_obj_t *g_pop_r[MAX_POPS],  *g_pop_l[MAX_POPS];   /* pop */
+static sgl_obj_t *g_amov_r[SGL_2048_MAX_MOVES], *g_amov_l[SGL_2048_MAX_MOVES];  /* slide */
+static sgl_obj_t *g_pop_r[SGL_2048_MAX_POPS],  *g_pop_l[SGL_2048_MAX_POPS];   /* pop */
 
 static void ui_update(void);
 static void new_game(void);
@@ -85,14 +85,14 @@ static void layout_calc(int16_t width, int16_t height)
     avail_w = width  - width / 16;                /* side padding */
     avail_h = height - g_header_h - height / 40;  /* bottom padding */
     g_grid_px = (avail_w < avail_h) ? avail_w : avail_h;
-    if (g_grid_px < GRID_N * 2) g_grid_px = GRID_N * 2;
+    if (g_grid_px < SGL_2048_GRID_N * 2) g_grid_px = SGL_2048_GRID_N * 2;
 
     g_cell_gap = g_grid_px / 50;
     if (g_cell_gap < 2) g_cell_gap = 2;
-    g_cell_sz  = (g_grid_px - (GRID_N - 1) * g_cell_gap) / GRID_N;
+    g_cell_sz  = (g_grid_px - (SGL_2048_GRID_N - 1) * g_cell_gap) / SGL_2048_GRID_N;
 
     /* exact square after integer rounding, centered in the whole area */
-    g_grid_px  = GRID_N * g_cell_sz + (GRID_N - 1) * g_cell_gap;
+    g_grid_px  = SGL_2048_GRID_N * g_cell_sz + (SGL_2048_GRID_N - 1) * g_cell_gap;
     g_margin_x = (width - g_grid_px) / 2;
     g_margin_y = (height - g_grid_px) / 2;
     if (g_margin_y < g_header_h) g_margin_y = g_header_h;
@@ -109,12 +109,12 @@ static void layout_calc(int16_t width, int16_t height)
 static sgl_color_t tile_bg(int v)
 {
     switch (v) {
-    case    2: return C_2;    case    4: return C_4;
-    case    8: return C_8;    case   16: return C_16;
-    case   32: return C_32;   case   64: return C_64;
-    case  128: return C_128;  case  256: return C_256;
-    case  512: return C_512;  case 1024: return C_1024;
-    default:   return C_2048;
+    case    2: return SGL_2048_C_2;    case    4: return SGL_2048_C_4;
+    case    8: return SGL_2048_C_8;    case   16: return SGL_2048_C_16;
+    case   32: return SGL_2048_C_32;   case   64: return SGL_2048_C_64;
+    case  128: return SGL_2048_C_128;  case  256: return SGL_2048_C_256;
+    case  512: return SGL_2048_C_512;  case 1024: return SGL_2048_C_1024;
+    default:   return SGL_2048_C_2048;
     }
 }
 
@@ -125,7 +125,7 @@ static sgl_color_t tile_bg(int v)
  */
 static sgl_color_t tile_fg(int v)
 {
-    return (v <= 4) ? C_TXT_D : C_TXT_L;
+    return (v <= 4) ? SGL_2048_C_TXT_D : SGL_2048_C_TXT_L;
 }
 
 /**
@@ -147,10 +147,10 @@ static const sgl_font_t *tile_fn(int v)
  */
 static void grid_add_random(void)
 {
-    int empty[GRID_N * GRID_N][2], n = 0, r, c, i;
+    int empty[SGL_2048_GRID_N * SGL_2048_GRID_N][2], n = 0, r, c, i;
 
-    for (r = 0; r < GRID_N; r++)
-        for (c = 0; c < GRID_N; c++)
+    for (r = 0; r < SGL_2048_GRID_N; r++)
+        for (c = 0; c < SGL_2048_GRID_N; c++)
             if (g_grid[r][c] == 0) { empty[n][0] = r; empty[n][1] = c; n++; }
 
     if (n > 0) {
@@ -168,11 +168,11 @@ static int grid_can_move(void)
 {
     int r, c;
 
-    for (r = 0; r < GRID_N; r++)
-        for (c = 0; c < GRID_N; c++) {
+    for (r = 0; r < SGL_2048_GRID_N; r++)
+        for (c = 0; c < SGL_2048_GRID_N; c++) {
             if (!g_grid[r][c]) return 1;
-            if (c < GRID_N - 1 && g_grid[r][c] == g_grid[r][c+1]) return 1;
-            if (r < GRID_N - 1 && g_grid[r][c] == g_grid[r+1][c]) return 1;
+            if (c < SGL_2048_GRID_N - 1 && g_grid[r][c] == g_grid[r][c+1]) return 1;
+            if (r < SGL_2048_GRID_N - 1 && g_grid[r][c] == g_grid[r+1][c]) return 1;
         }
     return 0;
 }
@@ -186,8 +186,8 @@ static int grid_has_2048(void)
 {
     int r, c;
 
-    for (r = 0; r < GRID_N; r++)
-        for (c = 0; c < GRID_N; c++)
+    for (r = 0; r < SGL_2048_GRID_N; r++)
+        for (c = 0; c < SGL_2048_GRID_N; c++)
             if (g_grid[r][c] >= 2048) return 1;
     return 0;
 }
@@ -199,11 +199,11 @@ static int grid_has_2048(void)
  */
 static void rot_cw(void)
 {
-    int t[GRID_N][GRID_N], r, c;
+    int t[SGL_2048_GRID_N][SGL_2048_GRID_N], r, c;
 
-    for (r = 0; r < GRID_N; r++)
-        for (c = 0; c < GRID_N; c++)
-            t[c][GRID_N-1-r] = g_grid[r][c];
+    for (r = 0; r < SGL_2048_GRID_N; r++)
+        for (c = 0; c < SGL_2048_GRID_N; c++)
+            t[c][SGL_2048_GRID_N-1-r] = g_grid[r][c];
     memcpy(g_grid, t, sizeof t);
 }
 
@@ -214,11 +214,11 @@ static void rot_cw(void)
  */
 static void rot_ccw(void)
 {
-    int t[GRID_N][GRID_N], r, c;
+    int t[SGL_2048_GRID_N][SGL_2048_GRID_N], r, c;
 
-    for (r = 0; r < GRID_N; r++)
-        for (c = 0; c < GRID_N; c++)
-            t[GRID_N-1-c][r] = g_grid[r][c];
+    for (r = 0; r < SGL_2048_GRID_N; r++)
+        for (c = 0; c < SGL_2048_GRID_N; c++)
+            t[SGL_2048_GRID_N-1-c][r] = g_grid[r][c];
     memcpy(g_grid, t, sizeof t);
 }
 
@@ -241,16 +241,16 @@ static void record_move(int row, int anim_dir, int src_col, int dst_col, int val
     case 0: /* left */
         sr = row; sc = src_col; dr = row; dc = dst_col; break;
     case 1: /* up (rotated 1xCCW before) */
-        sr = src_col; sc = GRID_N-1-row; dr = dst_col; dc = GRID_N-1-row; break;
+        sr = src_col; sc = SGL_2048_GRID_N-1-row; dr = dst_col; dc = SGL_2048_GRID_N-1-row; break;
     case 2: /* right (rotated 2xCCW before) */
-        sr = GRID_N-1-row; sc = GRID_N-1-src_col; dr = GRID_N-1-row; dc = GRID_N-1-dst_col; break;
+        sr = SGL_2048_GRID_N-1-row; sc = SGL_2048_GRID_N-1-src_col; dr = SGL_2048_GRID_N-1-row; dc = SGL_2048_GRID_N-1-dst_col; break;
     case 3: /* down (rotated 3xCCW before) */
-        sr = GRID_N-1-src_col; sc = row; dr = GRID_N-1-dst_col; dc = row; break;
+        sr = SGL_2048_GRID_N-1-src_col; sc = row; dr = SGL_2048_GRID_N-1-dst_col; dc = row; break;
     default:
         sr = row; sc = src_col; dr = row; dc = dst_col; break;
     }
 
-    if (g_move_cnt < MAX_MOVES) {
+    if (g_move_cnt < SGL_2048_MAX_MOVES) {
         g_moves[g_move_cnt].sr    = sr;
         g_moves[g_move_cnt].sc    = sc;
         g_moves[g_move_cnt].dr    = dr;
@@ -271,11 +271,11 @@ static void record_move(int row, int anim_dir, int src_col, int dst_col, int val
 static int slide_row(int row, int anim_dir)
 {
     int i, j, k, v, sc = 0;
-    int val[GRID_N], src[GRID_N], out[GRID_N];
+    int val[SGL_2048_GRID_N], src[SGL_2048_GRID_N], out[SGL_2048_GRID_N];
 
     /* compact, remember each tile's source column */
     k = 0;
-    for (i = 0; i < GRID_N; i++)
+    for (i = 0; i < SGL_2048_GRID_N; i++)
         if (g_grid[row][i]) {
             val[k] = g_grid[row][i];
             src[k] = i;
@@ -298,9 +298,9 @@ static int slide_row(int row, int anim_dir)
         }
         out[j++] = v;
     }
-    for (; j < GRID_N; j++) out[j] = 0;
+    for (; j < SGL_2048_GRID_N; j++) out[j] = 0;
 
-    for (i = 0; i < GRID_N; i++) g_grid[row][i] = out[i];
+    for (i = 0; i < SGL_2048_GRID_N; i++) g_grid[row][i] = out[i];
 
     return sc;
 }
@@ -323,7 +323,7 @@ static void do_move(int dir)
     g_move_cnt = 0;
 
     for (i = 0; i < dir; i++) rot_ccw();
-    for (r = 0; r < GRID_N; r++) sc += slide_row(r, dir);
+    for (r = 0; r < SGL_2048_GRID_N; r++) sc += slide_row(r, dir);
     for (i = 0; i < dir; i++) rot_cw();
 
     /* nothing actually changed, no animation needed */
@@ -336,26 +336,26 @@ static void do_move(int dir)
     g_busy = 1;
 
     /* hide all static tiles, they are replaced by temp animation widgets */
-    for (r = 0; r < GRID_N; r++)
-        for (i = 0; i < GRID_N; i++) {
+    for (r = 0; r < SGL_2048_GRID_N; r++)
+        for (i = 0; i < SGL_2048_GRID_N; i++) {
             sgl_obj_set_hidden(g_tile_r[r][i]);
             sgl_obj_set_hidden(g_tile_l[r][i]);
         }
 
-    for (i = 0; i < g_move_cnt && i < MAX_MOVES; i++) {
+    for (i = 0; i < g_move_cnt && i < SGL_2048_MAX_MOVES; i++) {
         m = &g_moves[i];
         v = m->val;
 
         g_amov_r[i] = sgl_rect_create(NULL);
-        sgl_obj_set_pos(g_amov_r[i], CELL_X(m->sc), CELL_Y(m->sr));
-        sgl_obj_set_size(g_amov_r[i], CELL_SZ, CELL_SZ);
+        sgl_obj_set_pos(g_amov_r[i], SGL_2048_CELL_X(m->sc), SGL_2048_CELL_Y(m->sr));
+        sgl_obj_set_size(g_amov_r[i], SGL_2048_CELL_SZ, SGL_2048_CELL_SZ);
         sgl_rect_set_color(g_amov_r[i], tile_bg(v));
-        sgl_obj_set_radius(g_amov_r[i], CELL_R);
+        sgl_obj_set_radius(g_amov_r[i], SGL_2048_CELL_R);
         sgl_obj_set_border_width(g_amov_r[i], 0);
 
         g_amov_l[i] = sgl_label_create(g_amov_r[i]);
         sgl_obj_set_pos(g_amov_l[i], 0, 0);
-        sgl_obj_set_size(g_amov_l[i], CELL_SZ, CELL_SZ);
+        sgl_obj_set_size(g_amov_l[i], SGL_2048_CELL_SZ, SGL_2048_CELL_SZ);
         sgl_label_set_font(g_amov_l[i], tile_fn(v));
         sgl_label_set_text_fmt_dynamic(g_amov_l[i], "%d", v);
         sgl_label_set_text_color(g_amov_l[i], tile_fg(v));
@@ -365,7 +365,7 @@ static void do_move(int dir)
     a = sgl_anim_create();
     sgl_anim_set_start_value(a, 0);
     sgl_anim_set_end_value(a, 100);
-    sgl_anim_set_act_duration(a, ANIM_MS);
+    sgl_anim_set_act_duration(a, SGL_2048_ANIM_MS);
     sgl_anim_set_path(a, anim_cb, SGL_ANIM_PATH_EASE_OUT);
     sgl_anim_set_finish_cb(a, anim_done_cb);
     sgl_anim_set_auto_free(a);
@@ -385,10 +385,10 @@ static void anim_cb(sgl_anim_t *a, int32_t pct)
     move_t *m;
 
     (void)a;
-    for (i = 0; i < g_move_cnt && i < MAX_MOVES; i++) {
+    for (i = 0; i < g_move_cnt && i < SGL_2048_MAX_MOVES; i++) {
         m = &g_moves[i];
-        sx = CELL_X(m->sc); sy = CELL_Y(m->sr);
-        dx = CELL_X(m->dc); dy = CELL_Y(m->dr);
+        sx = SGL_2048_CELL_X(m->sc); sy = SGL_2048_CELL_Y(m->sr);
+        dx = SGL_2048_CELL_X(m->dc); dy = SGL_2048_CELL_Y(m->dr);
 
         if (g_amov_r[i])
             sgl_obj_set_pos(g_amov_r[i], sx + (dx - sx) * pct / 100,
@@ -408,7 +408,7 @@ static void anim_done_cb(sgl_anim_t *a)
     move_t *m;
 
     (void)a;
-    for (i = 0; i < g_move_cnt && i < MAX_MOVES; i++) {
+    for (i = 0; i < g_move_cnt && i < SGL_2048_MAX_MOVES; i++) {
         if (g_amov_r[i]) {
             sgl_obj_delete(g_amov_r[i]);
             g_amov_r[i] = NULL;
@@ -418,12 +418,12 @@ static void anim_done_cb(sgl_anim_t *a)
 
     /* collect unique merge destinations for the pop effect */
     g_pop_cnt = 0;
-    for (i = 0; i < g_move_cnt && i < MAX_MOVES; i++) {
+    for (i = 0; i < g_move_cnt && i < SGL_2048_MAX_MOVES; i++) {
         m = &g_moves[i];
         if (!m->merge) continue;
         for (j = 0; j < g_pop_cnt; j++)
             if (g_pops[j].dr == m->dr && g_pops[j].dc == m->dc) break;
-        if (j == g_pop_cnt && g_pop_cnt < MAX_POPS) {
+        if (j == g_pop_cnt && g_pop_cnt < SGL_2048_MAX_POPS) {
             g_pops[g_pop_cnt].dr  = m->dr;
             g_pops[g_pop_cnt].dc  = m->dc;
             g_pops[g_pop_cnt].val = g_grid[m->dr][m->dc];
@@ -451,7 +451,7 @@ static void anim_done_cb(sgl_anim_t *a)
 static void pop_start(void)
 {
     int i;
-    int sz0 = CELL_SZ / 5;      /* initial size: 20% */
+    int sz0 = SGL_2048_CELL_SZ / 5;      /* initial size: 20% */
     pop_t *p;
 
     for (i = 0; i < g_pop_cnt; i++) {
@@ -462,11 +462,11 @@ static void pop_start(void)
         sgl_obj_set_hidden(g_tile_l[p->dr][p->dc]);
 
         g_pop_r[i] = sgl_rect_create(NULL);
-        sgl_obj_set_pos(g_pop_r[i], CELL_X(p->dc) + (CELL_SZ - sz0) / 2,
-                                    CELL_Y(p->dr) + (CELL_SZ - sz0) / 2);
+        sgl_obj_set_pos(g_pop_r[i], SGL_2048_CELL_X(p->dc) + (SGL_2048_CELL_SZ - sz0) / 2,
+                                    SGL_2048_CELL_Y(p->dr) + (SGL_2048_CELL_SZ - sz0) / 2);
         sgl_obj_set_size(g_pop_r[i], sz0, sz0);
         sgl_rect_set_color(g_pop_r[i], tile_bg(p->val));
-        sgl_obj_set_radius(g_pop_r[i], CELL_R);
+        sgl_obj_set_radius(g_pop_r[i], SGL_2048_CELL_R);
         sgl_obj_set_border_width(g_pop_r[i], 0);
 
         g_pop_l[i] = sgl_label_create(g_pop_r[i]);
@@ -478,7 +478,7 @@ static void pop_start(void)
         sgl_label_set_text_align(g_pop_l[i], SGL_ALIGN_CENTER);
     }
 
-    sgl_anim_move_to(0, 100, POP_MS, pop_cb, SGL_ANIM_PATH_EASE_OUT, pop_done_cb);
+    sgl_anim_move_to(0, 100, SGL_2048_POP_MS, pop_cb, SGL_ANIM_PATH_EASE_OUT, pop_done_cb);
 }
 
 /**
@@ -494,12 +494,12 @@ static void pop_cb(sgl_anim_t *a, int32_t pct)
     pop_t *p;
 
     (void)a;
-    sz = CELL_SZ * (20 + 80 * pct / 100) / 100;
-    for (i = 0; i < g_pop_cnt && i < MAX_POPS; i++) {
+    sz = SGL_2048_CELL_SZ * (20 + 80 * pct / 100) / 100;
+    for (i = 0; i < g_pop_cnt && i < SGL_2048_MAX_POPS; i++) {
         p = &g_pops[i];
         if (!g_pop_r[i]) continue;
-        sgl_obj_set_pos(g_pop_r[i], CELL_X(p->dc) + (CELL_SZ - sz) / 2,
-                                    CELL_Y(p->dr) + (CELL_SZ - sz) / 2);
+        sgl_obj_set_pos(g_pop_r[i], SGL_2048_CELL_X(p->dc) + (SGL_2048_CELL_SZ - sz) / 2,
+                                    SGL_2048_CELL_Y(p->dr) + (SGL_2048_CELL_SZ - sz) / 2);
         sgl_obj_set_size(g_pop_r[i], sz, sz);
         sgl_obj_set_size(g_pop_l[i], sz, sz);
     }
@@ -516,7 +516,7 @@ static void pop_done_cb(sgl_anim_t *a)
     int i;
 
     (void)a;
-    for (i = 0; i < g_pop_cnt && i < MAX_POPS; i++) {
+    for (i = 0; i < g_pop_cnt && i < SGL_2048_MAX_POPS; i++) {
         if (g_pop_r[i]) {
             sgl_obj_delete(g_pop_r[i]);
             g_pop_r[i] = NULL;
@@ -541,10 +541,10 @@ static void ui_update(void)
     if (g_scr_score) sgl_label_set_text_fmt_dynamic(g_scr_score, "%d", g_score);
     if (g_scr_best)  sgl_label_set_text_fmt_dynamic(g_scr_best, "%d", g_best);
 
-    for (r = 0; r < GRID_N; r++) {
-        for (c = 0; c < GRID_N; c++) {
+    for (r = 0; r < SGL_2048_GRID_N; r++) {
+        for (c = 0; c < SGL_2048_GRID_N; c++) {
             v = g_grid[r][c];
-            sgl_obj_set_pos(g_tile_r[r][c], CELL_X(c), CELL_Y(r));
+            sgl_obj_set_pos(g_tile_r[r][c], SGL_2048_CELL_X(c), SGL_2048_CELL_Y(r));
             if (v == 0) {
                 sgl_obj_set_hidden(g_tile_r[r][c]);
                 sgl_obj_set_hidden(g_tile_l[r][c]);
@@ -579,11 +579,11 @@ static void new_game(void)
     int i;
 
     /* clean up any leftover animation widgets */
-    for (i = 0; i < MAX_MOVES; i++) {
+    for (i = 0; i < SGL_2048_MAX_MOVES; i++) {
         if (g_amov_r[i]) { sgl_obj_delete(g_amov_r[i]); g_amov_r[i] = NULL; }
         g_amov_l[i] = NULL;
     }
-    for (i = 0; i < MAX_POPS; i++) {
+    for (i = 0; i < SGL_2048_MAX_POPS; i++) {
         if (g_pop_r[i]) { sgl_obj_delete(g_pop_r[i]); g_pop_r[i] = NULL; }
         g_pop_l[i] = NULL;
     }
@@ -646,7 +646,7 @@ void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
     best_x  = width - box_w - box_gap;
     score_x = best_x - box_w - box_gap;
 
-    for (i = 0; i < MAX_MOVES; i++) {
+    for (i = 0; i < SGL_2048_MAX_MOVES; i++) {
         g_amov_r[i] = NULL;
         g_amov_l[i] = NULL;
     }
@@ -656,7 +656,7 @@ void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
     sgl_obj_set_pos(bg, 0, 0);
     sgl_obj_set_size(bg, width, height);
     sgl_rect_set_border_width(bg, 0);
-    sgl_rect_set_color(bg, C_BG);
+    sgl_rect_set_color(bg, SGL_2048_C_BG);
 
     /* title */
     t = sgl_label_create(parent);
@@ -664,13 +664,13 @@ void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
     sgl_obj_set_size(t, width / 3, box_h);
     sgl_label_set_font(t, title_font);
     sgl_label_set_text(t, "2048");
-    sgl_label_set_text_color(t, C_TXT_D);
+    sgl_label_set_text_color(t, SGL_2048_C_TXT_D);
 
     /* score box */
     sb = sgl_rect_create(parent);
     sgl_obj_set_pos(sb, score_x, pad_y);
     sgl_obj_set_size(sb, box_w, box_h);
-    sgl_rect_set_color(sb, C_SBOX);
+    sgl_rect_set_color(sb, SGL_2048_C_SBOX);
     sgl_obj_set_radius(sb, 6);
     sgl_obj_set_border_width(sb, 0);
 
@@ -694,7 +694,7 @@ void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
     bb = sgl_rect_create(parent);
     sgl_obj_set_pos(bb, best_x, pad_y);
     sgl_obj_set_size(bb, box_w, box_h);
-    sgl_rect_set_color(bb, C_SBOX);
+    sgl_rect_set_color(bb, SGL_2048_C_SBOX);
     sgl_obj_set_radius(bb, 6);
     sgl_obj_set_border_width(bb, 0);
 
@@ -717,40 +717,40 @@ void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
     /* grid background */
     gb = sgl_rect_create(parent);
     sgl_obj_set_pos(gb, g_margin_x, g_margin_y);
-    sgl_obj_set_size(gb, GRID_PX, GRID_PX);
-    sgl_rect_set_color(gb, C_BG);
-    sgl_obj_set_radius(gb, GRID_BG_R);
+    sgl_obj_set_size(gb, SGL_2048_GRID_PX, SGL_2048_GRID_PX);
+    sgl_rect_set_color(gb, SGL_2048_C_BG);
+    sgl_obj_set_radius(gb, SGL_2048_GRID_BG_R);
     sgl_obj_set_border_width(gb, 0);
 
     /* empty cell backgrounds (always visible, under the tiles) */
-    for (r = 0; r < GRID_N; r++) {
-        for (c = 0; c < GRID_N; c++) {
+    for (r = 0; r < SGL_2048_GRID_N; r++) {
+        for (c = 0; c < SGL_2048_GRID_N; c++) {
             g_cell_bg[r][c] = sgl_rect_create(parent);
-            sgl_obj_set_pos(g_cell_bg[r][c], CELL_X(c), CELL_Y(r));
-            sgl_obj_set_size(g_cell_bg[r][c], CELL_SZ, CELL_SZ);
-            sgl_rect_set_color(g_cell_bg[r][c], C_EMPTY);
-            sgl_obj_set_radius(g_cell_bg[r][c], CELL_R);
+            sgl_obj_set_pos(g_cell_bg[r][c], SGL_2048_CELL_X(c), SGL_2048_CELL_Y(r));
+            sgl_obj_set_size(g_cell_bg[r][c], SGL_2048_CELL_SZ, SGL_2048_CELL_SZ);
+            sgl_rect_set_color(g_cell_bg[r][c], SGL_2048_C_EMPTY);
+            sgl_obj_set_radius(g_cell_bg[r][c], SGL_2048_CELL_R);
             sgl_obj_set_border_width(g_cell_bg[r][c], 0);
         }
     }
 
     /* tiles */
-    for (r = 0; r < GRID_N; r++) {
-        for (c = 0; c < GRID_N; c++) {
+    for (r = 0; r < SGL_2048_GRID_N; r++) {
+        for (c = 0; c < SGL_2048_GRID_N; c++) {
             g_tile_r[r][c] = sgl_rect_create(parent);
-            sgl_obj_set_pos(g_tile_r[r][c], CELL_X(c), CELL_Y(r));
-            sgl_obj_set_size(g_tile_r[r][c], CELL_SZ, CELL_SZ);
-            sgl_rect_set_color(g_tile_r[r][c], C_EMPTY);
-            sgl_obj_set_radius(g_tile_r[r][c], CELL_R);
+            sgl_obj_set_pos(g_tile_r[r][c], SGL_2048_CELL_X(c), SGL_2048_CELL_Y(r));
+            sgl_obj_set_size(g_tile_r[r][c], SGL_2048_CELL_SZ, SGL_2048_CELL_SZ);
+            sgl_rect_set_color(g_tile_r[r][c], SGL_2048_C_EMPTY);
+            sgl_obj_set_radius(g_tile_r[r][c], SGL_2048_CELL_R);
             sgl_obj_set_border_width(g_tile_r[r][c], 0);
             sgl_obj_set_hidden(g_tile_r[r][c]);
 
             g_tile_l[r][c] = sgl_label_create(g_tile_r[r][c]);
             sgl_obj_set_pos(g_tile_l[r][c], 0, 0);
-            sgl_obj_set_size(g_tile_l[r][c], CELL_SZ, CELL_SZ);
+            sgl_obj_set_size(g_tile_l[r][c], SGL_2048_CELL_SZ, SGL_2048_CELL_SZ);
             sgl_label_set_font(g_tile_l[r][c], tile_font);
             sgl_label_set_text(g_tile_l[r][c], "");
-            sgl_label_set_text_color(g_tile_l[r][c], C_TXT_D);
+            sgl_label_set_text_color(g_tile_l[r][c], SGL_2048_C_TXT_D);
             sgl_label_set_text_align(g_tile_l[r][c], SGL_ALIGN_CENTER);
             sgl_obj_set_hidden(g_tile_l[r][c]);
         }
@@ -759,16 +759,16 @@ void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
     /* game-over overlay (hidden) */
     g_ov_bg = sgl_rect_create(parent);
     sgl_obj_set_pos(g_ov_bg, g_margin_x, g_margin_y);
-    sgl_obj_set_size(g_ov_bg, GRID_PX, GRID_PX);
+    sgl_obj_set_size(g_ov_bg, SGL_2048_GRID_PX, SGL_2048_GRID_PX);
     sgl_rect_set_color(g_ov_bg, SGL_COLOR_BLACK);
     sgl_rect_set_main_alpha(g_ov_bg, 160);
-    sgl_obj_set_radius(g_ov_bg, GRID_BG_R);
+    sgl_obj_set_radius(g_ov_bg, SGL_2048_GRID_BG_R);
     sgl_obj_set_border_width(g_ov_bg, 0);
     sgl_obj_set_hidden(g_ov_bg);
 
     g_ov_txt = sgl_label_create(g_ov_bg);
     sgl_obj_set_pos(g_ov_txt, 0, 0);
-    sgl_obj_set_size(g_ov_txt, GRID_PX, GRID_PX);
+    sgl_obj_set_size(g_ov_txt, SGL_2048_GRID_PX, SGL_2048_GRID_PX);
     sgl_label_set_font(g_ov_txt, title_font);
     sgl_label_set_text(g_ov_txt, "Game Over!");
     sgl_label_set_text_color(g_ov_txt, SGL_COLOR_WHITE);
@@ -790,12 +790,12 @@ void sgl_game2048_destroy(void)
 {
     int i;
 
-    for (i = 0; i < MAX_MOVES; i++) {
+    for (i = 0; i < SGL_2048_MAX_MOVES; i++) {
         if (g_amov_r[i]) { sgl_obj_delete(g_amov_r[i]); g_amov_r[i] = NULL; }
         g_amov_l[i] = NULL;
     }
 
-    for (i = 0; i < MAX_POPS; i++) {
+    for (i = 0; i < SGL_2048_MAX_POPS; i++) {
         if (g_pop_r[i]) { sgl_obj_delete(g_pop_r[i]); g_pop_r[i] = NULL; }
         g_pop_l[i] = NULL;
     }
