@@ -129,7 +129,9 @@ static void launcher_msgbox_cb(sgl_event_t *evt)
  */
 void sgl_launcher_exit_msgbox_cb(sgl_event_t *evt)
 {
-    if (evt->type == SGL_EVENT_LONG_CLICKED) {
+    /* ctx.font is only set once a launcher exists; apps that register
+     * this handler but run without a launcher must not crash on it */
+    if (evt->type == SGL_EVENT_LONG_CLICKED && ctx.font != NULL) {
         sgl_obj_t *msgbox = sgl_msgbox_create(NULL);
         sgl_obj_set_size(msgbox, SGL_SCREEN_WIDTH * 2 / 3, SGL_SCREEN_HEIGHT / 4);
         sgl_obj_set_pos_align(msgbox, SGL_ALIGN_CENTER);
