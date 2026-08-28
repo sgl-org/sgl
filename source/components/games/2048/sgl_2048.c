@@ -625,12 +625,11 @@ static void event_cb(sgl_event_t *e)
  * @param height     game area height
  * @param title_font font for the "2048" title and the overlay text
  * @param score_font font for the SCORE box
- * @param best_font  font for the BEST box
  * @param tile_font  initial tile font (resized per value while playing)
  * @return none
  */
 void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
-                        sgl_font_t *title_font, sgl_font_t *score_font, sgl_font_t *best_font, sgl_font_t *tile_font)
+                        sgl_font_t *title_font, sgl_font_t *score_font, sgl_font_t *tile_font)
 {
     int r, c, i;
     int16_t pad_y, box_h, box_w, box_gap, best_x, score_x;
@@ -701,7 +700,7 @@ void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
     bt = sgl_label_create(bb);
     sgl_obj_set_pos(bt, 0, 0);
     sgl_obj_set_size(bt, box_w, box_h / 2);
-    sgl_label_set_font(bt, best_font);
+    sgl_label_set_font(bt, score_font);
     sgl_label_set_text(bt, "BEST");
     sgl_label_set_text_color(bt, SGL_COLOR_WHITE);
     sgl_label_set_text_align(bt, SGL_ALIGN_CENTER);
@@ -709,7 +708,7 @@ void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
     g_scr_best = sgl_label_create(bb);
     sgl_obj_set_pos(g_scr_best, 0, box_h / 2);
     sgl_obj_set_size(g_scr_best, box_w, box_h / 2);
-    sgl_label_set_font(g_scr_best, best_font);
+    sgl_label_set_font(g_scr_best, score_font);
     sgl_label_set_text(g_scr_best, "0");
     sgl_label_set_text_color(g_scr_best, SGL_COLOR_WHITE);
     sgl_label_set_text_align(g_scr_best, SGL_ALIGN_CENTER);

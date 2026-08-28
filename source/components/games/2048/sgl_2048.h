@@ -73,12 +73,11 @@ extern "C" {
  * @param height     game area height
  * @param title_font font for the "2048" title and the overlay text
  * @param score_font font for the SCORE box
- * @param best_font  font for the BEST box
  * @param tile_font  initial tile font (resized per value while playing)
  * @return none
  */
 void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
-                        sgl_font_t *title_font, sgl_font_t *score_font, sgl_font_t *best_font, sgl_font_t *tile_font);
+                        sgl_font_t *title_font, sgl_font_t *score_font, sgl_font_t *tile_font);
 
 /**
  * @brief Destroy the game: release any leftover temporary animation widgets.
