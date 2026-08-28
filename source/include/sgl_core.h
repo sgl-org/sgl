@@ -337,10 +337,19 @@ typedef struct sgl_font_unicode {
 } sgl_font_unicode_t;
 
 /**
+ * @brief External flash read callback for flash fonts (see CONFIG_SGL_FLASH_FONT)
+ * @param addr absolute address in the external flash
+ * @param buf destination buffer
+ * @param len number of bytes to read
+ * @return number of bytes actually read, or negative value on failure
+ */
+typedef int32_t (*sgl_flash_font_read_fn)(uint32_t addr, void *buf, uint32_t len);
+
+/**
 * @brief A structure used to describe information about a font, Defining a font set requires
 *        the use of this structure to describe relevant information
 *
-* @bitmap: point to bitmap of font
+* @bitmap: point to bitmap of font, set NULL when bitmap is stored in external flash
 * @table: point to struct sgl_font_table
 * @font_table_size: size of struct sgl_font_table
 * @font_height: height of font
@@ -349,6 +358,9 @@ typedef struct sgl_font_unicode {
 * @base_line: base line of font
 * @bpp: The anti aliasing level of the font, only support 2, 4
 * @compress: compress flag, 0: no compress, 1: compress
+* @flash_read: external flash read callback, only used when bitmap == NULL
+* @flash_addr: base address of the font bitmap blob in the external flash,
+*              table[].bitmap_index is the offset relative to it
 */
 typedef struct sgl_font {
     const uint8_t  *bitmap;
@@ -360,6 +372,10 @@ typedef struct sgl_font {
     const int16_t   base_line;
     const uint8_t   bpp;
     const uint8_t   compress;
+#if (CONFIG_SGL_FLASH_FONT)
+    sgl_flash_font_read_fn flash_read;
+    uint32_t flash_addr;
+#endif
 } sgl_font_t;
 
 /**

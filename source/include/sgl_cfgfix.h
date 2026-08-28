@@ -158,6 +158,14 @@ extern "C" {
 #define CONFIG_SGL_FONT_SMALL_TABLE                                (1)  /* Use small font table */
 #endif
 
+#ifndef CONFIG_SGL_FLASH_FONT
+#define CONFIG_SGL_FLASH_FONT                                      (0)  /* Support font bitmap stored in external flash */
+#endif
+
+#ifndef CONFIG_SGL_FLASH_FONT_GLYPH_BUF_SIZE
+#define CONFIG_SGL_FLASH_FONT_GLYPH_BUF_SIZE                       (640) /* Temp buffer (bytes) for one external flash glyph bitmap */
+#endif
+
 #ifndef CONFIG_SGL_FONT_SONG23
 #define CONFIG_SGL_FONT_SONG23                                     (0)  /* Enable Song23 font */
 #endif

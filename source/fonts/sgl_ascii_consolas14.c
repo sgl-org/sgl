@@ -25,6 +25,10 @@
 #include <sgl_core.h>
 #include <sgl_font.h>
 
+#if (CONFIG_SGL_FLASH_FONT)
+#include <string.h>
+#endif
+
 
 #if (CONFIG_SGL_FONT_CONSOLAS14)
 
@@ -657,5 +661,54 @@ const sgl_font_t consolas14 = {
     .unicode = consolas14_unicode,
     .unicode_num = 2,
 };
+
+#if (CONFIG_SGL_FLASH_FONT)
+/* number of simulated external flash reads, for test observation */
+static uint32_t g_consolas14_flash_reads = 0;
+
+/**
+ * @brief Simulated external flash read, test only
+ * @param addr absolute address in the "external flash"
+ * @param buf destination buffer
+ * @param len number of bytes to read
+ * @return number of bytes actually read, or negative value on failure
+ * @note the local sgl_ascii_consolas14_bitmap array stands in for
+ *       the external flash chip, replace memcpy with the real
+ *       flash driver read on the target board
+ */
+static int32_t consolas14_flash_read(uint32_t addr, void *buf, uint32_t len)
+{
+    if (addr + len > sizeof(sgl_ascii_consolas14_bitmap)) {
+        return -1;
+    }
+
+    memcpy(buf, &sgl_ascii_consolas14_bitmap[addr], len);
+    g_consolas14_flash_reads++;
+    return (int32_t)len;
+}
+
+/**
+ * @brief Get the simulated external flash read count
+ * @return number of flash reads performed so far
+ */
+uint32_t sgl_consolas14_flash_read_count(void)
+{
+    return g_consolas14_flash_reads;
+}
+
+/* same as consolas14, but glyph bitmap is read from (simulated) external flash */
+const sgl_font_t consolas14_flash = {
+    .bitmap = NULL,
+    .table = sgl_ascii_consolas14_tab,
+    .font_table_size = SGL_ARRAY_SIZE(sgl_ascii_consolas14_tab),
+    .font_height = 14,
+    .base_line = 3,
+    .bpp = 4,
+    .unicode = consolas14_unicode,
+    .unicode_num = 2,
+    .flash_read = consolas14_flash_read,
+    .flash_addr = 0, /* test: blob sits at offset 0 of the bitmap array */
+};
+#endif /* CONFIG_SGL_FLASH_FONT */
 
 #endif // !CONFIG_SGL_FONT_CONSOLAS14
