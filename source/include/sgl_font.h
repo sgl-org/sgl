@@ -39,6 +39,10 @@ extern const sgl_font_t song23;
 
 #if CONFIG_SGL_FONT_CONSOLAS14
 extern const sgl_font_t consolas14;
+#if (CONFIG_SGL_FLASH_FONT)
+extern const sgl_font_t consolas14_flash;
+uint32_t sgl_consolas14_flash_read_count(void);
+#endif
 #endif
 
 #if CONFIG_SGL_FONT_CONSOLAS23
@@ -60,5 +64,37 @@ extern const sgl_font_t kai33;
 #if CONFIG_SGL_FONT_CONSOLAS24_COMPRESS
 extern const sgl_font_t consolas24_compress;
 #endif
+
+/* External flash font support (CONFIG_SGL_FLASH_FONT)
+ *
+ * Reference LVGL binfont: keep font table/unicode in code (internal flash),
+ * only the bitmap blob is stored in external flash and read on demand.
+ *
+ * Usage:
+ *   1. set .bitmap = NULL in the font descriptor
+ *   2. set .flash_addr to the base address of the bitmap blob in external flash,
+ *      table[].bitmap_index is the offset relative to it
+ *   3. set .flash_read to the platform read callback
+ *
+ * Example:
+ *   static int32_t my_flash_read(uint32_t addr, void *buf, uint32_t len)
+ *   {
+ *       // read [addr, addr + len) from external flash into buf
+ *       return (int32_t)len;
+ *   }
+ *
+ *   const sgl_font_t my_flash_font = {
+ *       .bitmap = NULL,
+ *       .table = my_font_table,
+ *       .font_table_size = SGL_ARRAY_SIZE(my_font_table),
+ *       .font_height = 24,
+ *       .base_line = 5,
+ *       .bpp = 4,
+ *       .unicode = my_font_unicode,
+ *       .unicode_num = SGL_ARRAY_SIZE(my_font_unicode),
+ *       .flash_read = my_flash_read,
+ *       .flash_addr = 0x00100000,
+ *   };
+ */
 
 #endif // !__SGL_FONT_H__

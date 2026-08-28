@@ -164,6 +164,45 @@ static inline void font_rle_init(const uint8_t * in, uint8_t bpp)
 }
 #endif // (!CONFIG_SGL_FONT_COMPRESSED)
 
+#if (CONFIG_SGL_FLASH_FONT)
+/**
+ * @brief Get the bitmap data of a glyph, load from external flash when needed
+ * @param font pointer to the font structure
+ * @param ch_index index of the character in the font table
+ * @param buf temporary buffer used when the glyph bitmap lives in external flash
+ * @param buf_size size of the temporary buffer in bytes
+ * @return pointer to the glyph bitmap data, or NULL on failure
+ * @note reference LVGL binfont: table stays in internal flash, only the
+ *       bitmap blob is stored in external flash and read on demand
+ */
+static const uint8_t *sgl_font_get_glyph_bitmap(const sgl_font_t *font, uint32_t ch_index, uint8_t *buf, uint32_t buf_size)
+{
+    uint32_t bmp_size;
+    int32_t ret;
+
+    if (font->bitmap != NULL) {
+        return &font->bitmap[font->table[ch_index].bitmap_index];
+    }
+
+    if (font->flash_read == NULL) {
+        return NULL;
+    }
+
+    bmp_size = (((uint32_t)font->table[ch_index].box_w * font->table[ch_index].box_h * font->bpp) + 7) >> 3;
+    if (bmp_size > buf_size) {
+        SGL_LOG_WARN("sgl_font_get_glyph_bitmap: glyph [%u] needs %u bytes, enlarge CONFIG_SGL_FLASH_FONT_GLYPH_BUF_SIZE", ch_index, bmp_size);
+        return NULL;
+    }
+
+    ret = font->flash_read(font->flash_addr + font->table[ch_index].bitmap_index, buf, bmp_size);
+    if (ret != (int32_t)bmp_size) {
+        SGL_LOG_WARN("sgl_font_get_glyph_bitmap: external flash read fail, ret = %d", ret);
+        return NULL;
+    }
+    return buf;
+}
+#endif /* CONFIG_SGL_FLASH_FONT */
+
 /**
  * @brief Draw a character on the surface with alpha blending
  * @param surf Pointer to the surface where the character will be drawn
@@ -179,8 +218,15 @@ static inline void font_rle_init(const uint8_t * in, uint8_t bpp)
  */
 void sgl_draw_character(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, uint32_t ch_index, sgl_color_t color, uint8_t alpha, const sgl_font_t *font)
 {
+#if (CONFIG_SGL_FLASH_FONT)
+    uint8_t glyph_buf[CONFIG_SGL_FLASH_FONT_GLYPH_BUF_SIZE];
+#endif
     int offset_y2 = font->font_height - font->table[ch_index].ofs_y - font->base_line;
+#if (CONFIG_SGL_FLASH_FONT)
+    const uint8_t *dot = sgl_font_get_glyph_bitmap(font, ch_index, glyph_buf, sizeof(glyph_buf));
+#else
     const uint8_t *dot = &font->bitmap[font->table[ch_index].bitmap_index];
+#endif
     const uint8_t font_w = font->table[ch_index].box_w;
     const uint8_t font_h = font->table[ch_index].box_h;
 
@@ -348,8 +394,15 @@ void sgl_draw_string_mult_line(sgl_surf_t *surf, sgl_area_t *area, int16_t x, in
  */
 void sgl_draw_label_mask(uint8_t *mask, sgl_area_t *area,  int16_t x, int16_t y, uint32_t ch_index, const sgl_font_t *font)
 {
+#if (CONFIG_SGL_FLASH_FONT)
+    uint8_t glyph_buf[CONFIG_SGL_FLASH_FONT_GLYPH_BUF_SIZE];
+#endif
     int offset_y2 = font->font_height - font->table[ch_index].ofs_y - font->base_line;
+#if (CONFIG_SGL_FLASH_FONT)
+    const uint8_t *dot = sgl_font_get_glyph_bitmap(font, ch_index, glyph_buf, sizeof(glyph_buf));
+#else
     const uint8_t *dot = &font->bitmap[font->table[ch_index].bitmap_index];
+#endif
     const uint8_t font_w = font->table[ch_index].box_w;
     const uint8_t font_h = font->table[ch_index].box_h;
     const int16_t buf_w = area->x2 - area->x1 + 1;
