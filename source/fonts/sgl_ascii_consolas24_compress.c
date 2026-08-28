@@ -1175,7 +1175,7 @@ const sgl_font_t consolas24_compress = {
     .font_height = 25,
     .base_line = 5,
     .bpp = 4,
-    .compress = 1,
+    .format = SGL_FONT_FMT_COMPRESSED,
     .unicode = font_unicode,
     .unicode_num = 2,
 };

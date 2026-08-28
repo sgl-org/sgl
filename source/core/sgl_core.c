@@ -1325,7 +1325,11 @@ int32_t sgl_font_get_string_width(const char *str, const sgl_font_t *font)
     while (*str) {
         str += sgl_utf8_to_unicode(str, &unicode);
         ch_index = sgl_search_unicode_ch_index(font, unicode);
+#if (CONFIG_SGL_FLASH_FONT)
+        len += ((font->table[(font->format == SGL_FONT_FMT_EXT_FLASH_FIXED) ? 0 : ch_index].adv_w + 8) >> 4);
+#else
         len += ((font->table[ch_index].adv_w + 8)>> 4);
+#endif
     }
     return len;
 }
@@ -1357,7 +1361,11 @@ int32_t sgl_font_get_string_height(int16_t width, const char *str, const sgl_fon
         str += sgl_utf8_to_unicode(str, &unicode);
         ch_index = sgl_search_unicode_ch_index(font, unicode);
 
+#if (CONFIG_SGL_FLASH_FONT)
+        ch_width = ((font->table[(font->format == SGL_FONT_FMT_EXT_FLASH_FIXED) ? 0 : ch_index].adv_w + 8) >> 4);
+#else
         ch_width = ((font->table[ch_index].adv_w + 8)>> 4);
+#endif
 
         if ((offset_x + ch_width) >= width) {
             offset_x = 0;

@@ -41,6 +41,8 @@ extern const sgl_font_t song23;
 extern const sgl_font_t consolas14;
 #if (CONFIG_SGL_FLASH_FONT)
 extern const sgl_font_t consolas14_flash;
+extern const sgl_font_t consolas14_flash_fixed;
+void sgl_consolas14_flash_fixed_init(void);
 uint32_t sgl_consolas14_flash_read_count(void);
 #endif
 #endif

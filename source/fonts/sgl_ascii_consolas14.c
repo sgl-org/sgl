@@ -704,10 +704,86 @@ const sgl_font_t consolas14_flash = {
     .font_height = 14,
     .base_line = 3,
     .bpp = 4,
+    .format = SGL_FONT_FMT_EXT_FLASH,
     .unicode = consolas14_unicode,
     .unicode_num = 2,
     .flash_read = consolas14_flash_read,
     .flash_addr = 0, /* test: blob sits at offset 0 of the bitmap array */
+};
+
+/* ================================================================
+ * monospaced (SGL_FONT_FMT_EXT_FLASH_FIXED) test font
+ * digits 1/2/3/6/7/8/9 of consolas14 share identical metrics
+ * (box 6x8, ofs 0,0, adv_w 106), so the fixed path can be
+ * compared pixel by pixel against the internal font
+ * ================================================================ */
+#define C14_FIXED_NUM         7
+#define C14_FIXED_BOX_W       6
+#define C14_FIXED_BOX_H       8
+#define C14_FIXED_GLYPH_BYTES (((C14_FIXED_BOX_W * C14_FIXED_BOX_H) * 4 + 7) / 8)
+
+/* table indices of digits 1/2/3/6/7/8/9 (unicode offset 32, tab_offset 1) */
+static const uint16_t c14_fixed_src_tab[C14_FIXED_NUM] = { 18, 19, 20, 23, 24, 25, 26 };
+
+static uint8_t g_c14_fixed_blob[C14_FIXED_NUM * C14_FIXED_GLYPH_BYTES];
+
+static const uint16_t c14_fixed_unicode_list[C14_FIXED_NUM] = {
+    0x31 - 0x30, 0x32 - 0x30, 0x33 - 0x30, 0x36 - 0x30, 0x37 - 0x30, 0x38 - 0x30, 0x39 - 0x30
+};
+
+static const sgl_font_unicode_t c14_fixed_unicode[] = {
+    { .offset = 0x30, .len = C14_FIXED_NUM, .list = c14_fixed_unicode_list, .tab_offset = 0, }
+};
+
+/* single entry holding the shared metrics of all glyphs */
+static const sgl_font_table_t c14_fixed_tab[1] = {
+    {.bitmap_index = 0, .adv_w = 106, .box_w = C14_FIXED_BOX_W, .box_h = C14_FIXED_BOX_H, .ofs_x = 0, .ofs_y = 0},
+};
+
+/**
+ * @brief Simulated external flash read for the fixed font, test only
+ */
+static int32_t consolas14_flash_fixed_read(uint32_t addr, void *buf, uint32_t len)
+{
+    if (addr + len > sizeof(g_c14_fixed_blob)) {
+        return -1;
+    }
+
+    memcpy(buf, &g_c14_fixed_blob[addr], len);
+    g_consolas14_flash_reads++;
+    return (int32_t)len;
+}
+
+/**
+ * @brief Build the uniform glyph blob of the fixed test font
+ * @note must be called once before using consolas14_flash_fixed,
+ *       packs the 7 source digits tightly, one slot per glyph
+ */
+void sgl_consolas14_flash_fixed_init(void)
+{
+    uint32_t i;
+
+    for (i = 0; i < C14_FIXED_NUM; i++) {
+        memcpy(&g_c14_fixed_blob[i * C14_FIXED_GLYPH_BYTES],
+               &sgl_ascii_consolas14_bitmap[sgl_ascii_consolas14_tab[c14_fixed_src_tab[i]].bitmap_index],
+               C14_FIXED_GLYPH_BYTES);
+    }
+}
+
+/* external flash font with uniform glyphs: offset is computed as
+ * ch_index x glyph bytes, no per-glyph table needed */
+const sgl_font_t consolas14_flash_fixed = {
+    .bitmap = NULL,
+    .table = c14_fixed_tab,
+    .font_table_size = SGL_ARRAY_SIZE(c14_fixed_tab),
+    .font_height = 14,
+    .base_line = 3,
+    .bpp = 4,
+    .format = SGL_FONT_FMT_EXT_FLASH_FIXED,
+    .unicode = c14_fixed_unicode,
+    .unicode_num = 1,
+    .flash_read = consolas14_flash_fixed_read,
+    .flash_addr = 0,
 };
 #endif /* CONFIG_SGL_FLASH_FONT */
 

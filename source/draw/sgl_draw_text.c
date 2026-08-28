@@ -166,18 +166,36 @@ static inline void font_rle_init(const uint8_t * in, uint8_t bpp)
 
 #if (CONFIG_SGL_FLASH_FONT)
 /**
+ * @brief Get the glyph metrics entry of a font
+ * @param font pointer to the font structure
+ * @param ch_index index of the character in the font table
+ * @return pointer to the metrics entry of this glyph
+ * @note SGL_FONT_FMT_EXT_FLASH_FIXED fonts are monospaced and keep the
+ *       shared metrics in table[0], all other formats index table per glyph
+ */
+static const sgl_font_table_t *sgl_font_glyph_dsc(const sgl_font_t *font, uint32_t ch_index)
+{
+    if (font->format == SGL_FONT_FMT_EXT_FLASH_FIXED) {
+        return &font->table[0];
+    }
+    return &font->table[ch_index];
+}
+
+/**
  * @brief Get the bitmap data of a glyph, load from external flash when needed
  * @param font pointer to the font structure
  * @param ch_index index of the character in the font table
  * @param buf temporary buffer used when the glyph bitmap lives in external flash
  * @param buf_size size of the temporary buffer in bytes
  * @return pointer to the glyph bitmap data, or NULL on failure
- * @note reference LVGL binfont: table stays in internal flash, only the
- *       bitmap blob is stored in external flash and read on demand
+ * @note external fonts keep only the bitmap blob in external flash:
+ *       SGL_FONT_FMT_EXT_FLASH       per-glyph table, offset from table[].bitmap_index
+ *       SGL_FONT_FMT_EXT_FLASH_FIXED monospaced, offset = ch_index x glyph bytes
  */
 static const uint8_t *sgl_font_get_glyph_bitmap(const sgl_font_t *font, uint32_t ch_index, uint8_t *buf, uint32_t buf_size)
 {
-    uint32_t bmp_size;
+    const sgl_font_table_t *dsc = sgl_font_glyph_dsc(font, ch_index);
+    uint32_t bmp_size, offset;
     int32_t ret;
 
     if (font->bitmap != NULL) {
@@ -188,13 +206,19 @@ static const uint8_t *sgl_font_get_glyph_bitmap(const sgl_font_t *font, uint32_t
         return NULL;
     }
 
-    bmp_size = (((uint32_t)font->table[ch_index].box_w * font->table[ch_index].box_h * font->bpp) + 7) >> 3;
+    bmp_size = (((uint32_t)dsc->box_w * dsc->box_h * font->bpp) + 7) >> 3;
     if (bmp_size > buf_size) {
         SGL_LOG_WARN("sgl_font_get_glyph_bitmap: glyph [%u] needs %u bytes, enlarge CONFIG_SGL_FLASH_FONT_GLYPH_BUF_SIZE", ch_index, bmp_size);
         return NULL;
     }
 
-    ret = font->flash_read(font->flash_addr + font->table[ch_index].bitmap_index, buf, bmp_size);
+    if (font->format == SGL_FONT_FMT_EXT_FLASH_FIXED) {
+        offset = ch_index * bmp_size; /* uniform glyph size, computed */
+    } else {
+        offset = font->table[ch_index].bitmap_index;
+    }
+
+    ret = font->flash_read(font->flash_addr + offset, buf, bmp_size);
     if (ret != (int32_t)bmp_size) {
         SGL_LOG_WARN("sgl_font_get_glyph_bitmap: external flash read fail, ret = %d", ret);
         return NULL;
@@ -219,16 +243,17 @@ static const uint8_t *sgl_font_get_glyph_bitmap(const sgl_font_t *font, uint32_t
 void sgl_draw_character(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, uint32_t ch_index, sgl_color_t color, uint8_t alpha, const sgl_font_t *font)
 {
 #if (CONFIG_SGL_FLASH_FONT)
+#   define ft (*dsc)
     uint8_t glyph_buf[CONFIG_SGL_FLASH_FONT_GLYPH_BUF_SIZE];
-#endif
-    int offset_y2 = font->font_height - font->table[ch_index].ofs_y - font->base_line;
-#if (CONFIG_SGL_FLASH_FONT)
+    const sgl_font_table_t *dsc = sgl_font_glyph_dsc(font, ch_index);
     const uint8_t *dot = sgl_font_get_glyph_bitmap(font, ch_index, glyph_buf, sizeof(glyph_buf));
 #else
+#   define ft font->table[ch_index]
     const uint8_t *dot = &font->bitmap[font->table[ch_index].bitmap_index];
 #endif
-    const uint8_t font_w = font->table[ch_index].box_w;
-    const uint8_t font_h = font->table[ch_index].box_h;
+    int offset_y2 = font->font_height - ft.ofs_y - font->base_line;
+    const uint8_t font_w = ft.box_w;
+    const uint8_t font_h = ft.box_h;
 
     uint8_t shift = 0;
     uint32_t pixel_index, rel_x, rel_y;
@@ -237,8 +262,8 @@ void sgl_draw_character(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y
     sgl_area_t clip;
 
     sgl_area_t text_rect = {
-        .x1 = x + font->table[ch_index].ofs_x,
-        .x2 = x + font->table[ch_index].ofs_x + font_w - 1,
+        .x1 = x + ft.ofs_x,
+        .x2 = x + ft.ofs_x + font_w - 1,
         .y1 = y + offset_y2 - font_h,
         .y2 = y + offset_y2 - 1,
     };
@@ -253,7 +278,7 @@ void sgl_draw_character(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y
 
     buf = sgl_surf_get_buf(surf, clip.x1 - surf->x1, clip.y1 - surf->y1);
 #if (CONFIG_SGL_FONT_COMPRESSED)
-    if (font->compress == 0) {
+    if (font->format != SGL_FONT_FMT_COMPRESSED) {
 #endif // (!CONFIG_SGL_FONT_COMPRESSED == 0)
         for (int y = clip.y1; y <= clip.y2; y++) {
             blend = buf;
@@ -338,7 +363,11 @@ void sgl_draw_string(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, c
         str += sgl_utf8_to_unicode(str, &unicode);
         ch_index = sgl_search_unicode_ch_index(font, unicode);
         sgl_draw_character(surf, area, x, y, ch_index, color, alpha, font);
+#if (CONFIG_SGL_FLASH_FONT)
+        x += ((sgl_font_glyph_dsc(font, ch_index)->adv_w + 8) >> 4);
+#else
         x += ((font->table[ch_index].adv_w + 8)>> 4);
+#endif
     }
 }
 
@@ -372,7 +401,11 @@ void sgl_draw_string_mult_line(sgl_surf_t *surf, sgl_area_t *area, int16_t x, in
         str += sgl_utf8_to_unicode(str, &unicode);
         ch_index = sgl_search_unicode_ch_index(font, unicode);
 
+#if (CONFIG_SGL_FLASH_FONT)
+        ch_width = (sgl_font_glyph_dsc(font, ch_index)->adv_w + 8) >> 4;
+#else
         ch_width = (font->table[ch_index].adv_w + 8) >> 4;
+#endif
 
         if ((x_off + ch_width) > area->x2) {
             x_off = x;
@@ -384,86 +417,4 @@ void sgl_draw_string_mult_line(sgl_surf_t *surf, sgl_area_t *area, int16_t x, in
     }
 }
 
-/**
- * @brief generate mask for an character
- * @param mask Pointer to the mask buffer
- * @param area Pointer to the area where the character will be drawn
- * @param ch_index Index of the character
- * @param font Pointer to the font structure containing character data
- * @return none
- */
-void sgl_draw_label_mask(uint8_t *mask, sgl_area_t *area,  int16_t x, int16_t y, uint32_t ch_index, const sgl_font_t *font)
-{
-#if (CONFIG_SGL_FLASH_FONT)
-    uint8_t glyph_buf[CONFIG_SGL_FLASH_FONT_GLYPH_BUF_SIZE];
-#endif
-    int offset_y2 = font->font_height - font->table[ch_index].ofs_y - font->base_line;
-#if (CONFIG_SGL_FLASH_FONT)
-    const uint8_t *dot = sgl_font_get_glyph_bitmap(font, ch_index, glyph_buf, sizeof(glyph_buf));
-#else
-    const uint8_t *dot = &font->bitmap[font->table[ch_index].bitmap_index];
-#endif
-    const uint8_t font_w = font->table[ch_index].box_w;
-    const uint8_t font_h = font->table[ch_index].box_h;
-    const int16_t buf_w = area->x2 - area->x1 + 1;
-    uint8_t *alpha, *alpha_buf;
-
-    uint8_t shift = 0;
-    uint32_t pixel_index, rel_x, rel_y;
-    uint16_t byte_index, alpha_dot = 0;
-
-    sgl_area_t clip = {
-        .x1 = x + font->table[ch_index].ofs_x,
-        .x2 = x + font->table[ch_index].ofs_x + font_w - 1,
-        .y1 = y + offset_y2 - font_h,
-        .y2 = y + offset_y2 - 1,
-    };
-
-    if (!sgl_area_selfclip(&clip, area)) {
-        return;
-    }
-
-    alpha_buf = mask + buf_w * area->y1 + area->x1;
-    for (int y = clip.y1; y <= clip.y2; y++) {
-        rel_y = y - clip.y1;
-        alpha = alpha_buf;
-
-        for (int x = clip.x1; x <= clip.x2; x++) {
-            rel_x = x - clip.x1;
-            pixel_index = rel_y * font_w + rel_x;
-
-            if  (font->bpp == 4) {
-                byte_index = pixel_index >> 1;
-                alpha_dot = sgl_opa4_table[(pixel_index & 1) ? (dot[byte_index] & 0x0F) : (dot[byte_index] >> 4)];
-            }
-            else if (font->bpp == 2) {
-                byte_index = pixel_index >> 2;
-                shift = (3 - (pixel_index & 0x3)) * 2;
-                alpha_dot = sgl_opa2_table[(dot[byte_index] >> shift) & 0x03];
-            }
-            else if (font->bpp == 1) {
-                byte_index = pixel_index >> 3;
-                shift = 7 - (pixel_index & 0x7);
-                alpha_dot = ((dot[byte_index] >> shift) & 0x01) ? SGL_ALPHA_MAX : SGL_ALPHA_MIN;
-            }
-
-            *alpha = alpha_dot;
-            alpha ++;
-        }
-
-        alpha_buf += buf_w;
-    }
-}
-
-void sgl_draw_string_mask(uint8_t *mask, sgl_area_t *area, int16_t x, int16_t y, const char *str, const sgl_font_t *font)
-{
-    uint32_t ch_index;
-    uint32_t unicode = 0;
-
-    while (*str) {
-        str += sgl_utf8_to_unicode(str, &unicode);
-        ch_index = sgl_search_unicode_ch_index(font, unicode);
-        sgl_draw_label_mask(mask, area,x, y, ch_index, font);
-        x += ((font->table[ch_index].adv_w + 8)>> 4);
-    }
-}
+#undef ft

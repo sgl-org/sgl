@@ -161,7 +161,7 @@ const sgl_font_t keyboard_icon = {
     .font_height = 20,
     .base_line = 2,
     .bpp = 4,
-    .compress = 0,
+    .format = SGL_FONT_FMT_NORMAL,
     .unicode = font_unicode,
     .unicode_num = SGL_ARRAY_SIZE(font_unicode),
 };

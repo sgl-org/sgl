@@ -118,8 +118,9 @@ extern "C" {
 #define  SGL_FONT_FMT_NORMAL                    (0)
 #define  SGL_FONT_FMT_COMPRESSED                (1)
 #define  SGL_FONT_FMT_EXT_FLASH                 (2)
-#define  SGL_FONT_FMT_TRUETYPE                  (3)
-#define  SGL_FONT_FMT_MAX                       (4)
+#define  SGL_FONT_FMT_EXT_FLASH_FIXED           (3)
+#define  SGL_FONT_FMT_TRUETYPE                  (4)
+#define  SGL_FONT_FMT_MAX                       (5)
 
 #ifdef __GNUC__            /* gcc compiler   */
 #ifndef likely
