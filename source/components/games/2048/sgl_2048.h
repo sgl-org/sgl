@@ -83,10 +83,10 @@ void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
 
 /**
  * @brief Destroy the game: release any leftover temporary animation widgets.
- * @param none
+ * @param parent     parent object (usually the active screen)
  * @return none
  */
-void sgl_game2048_destroy(void);
+void sgl_game2048_destroy(sgl_obj_t *parent);
 
 #ifdef __cplusplus
 }

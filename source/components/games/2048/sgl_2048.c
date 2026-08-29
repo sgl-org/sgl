@@ -657,11 +657,12 @@ void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
     bg = sgl_rect_create(parent);
     sgl_obj_set_pos(bg, 0, 0);
     sgl_obj_set_size(bg, width, height);
+    sgl_obj_set_movable(bg);
     sgl_rect_set_border_width(bg, 0);
     sgl_rect_set_color(bg, SGL_2048_C_BG);
 
     /* title */
-    t = sgl_label_create(parent);
+    t = sgl_label_create(bg);
     sgl_obj_set_pos(t, g_margin_x, pad_y);
     sgl_obj_set_size(t, width / 3, box_h);
     sgl_label_set_font(t, title_font);
@@ -669,7 +670,7 @@ void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
     sgl_label_set_text_color(t, SGL_2048_C_TXT_D);
 
     /* score box */
-    sb = sgl_rect_create(parent);
+    sb = sgl_rect_create(bg);
     sgl_obj_set_pos(sb, score_x, pad_y);
     sgl_obj_set_size(sb, box_w, box_h);
     sgl_rect_set_color(sb, SGL_2048_C_SBOX);
@@ -693,7 +694,7 @@ void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
     sgl_label_set_text_align(g_scr_score, SGL_ALIGN_CENTER);
 
     /* best box */
-    bb = sgl_rect_create(parent);
+    bb = sgl_rect_create(bg);
     sgl_obj_set_pos(bb, best_x, pad_y);
     sgl_obj_set_size(bb, box_w, box_h);
     sgl_rect_set_color(bb, SGL_2048_C_SBOX);
@@ -717,7 +718,7 @@ void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
     sgl_label_set_text_align(g_scr_best, SGL_ALIGN_CENTER);
 
     /* grid background */
-    gb = sgl_rect_create(parent);
+    gb = sgl_rect_create(bg);
     sgl_obj_set_pos(gb, g_margin_x, g_margin_y);
     sgl_obj_set_size(gb, SGL_2048_GRID_PX, SGL_2048_GRID_PX);
     sgl_rect_set_color(gb, SGL_2048_C_BG);
@@ -727,7 +728,7 @@ void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
     /* empty cell backgrounds (always visible, under the tiles) */
     for (r = 0; r < SGL_2048_GRID_N; r++) {
         for (c = 0; c < SGL_2048_GRID_N; c++) {
-            g_cell_bg[r][c] = sgl_rect_create(parent);
+            g_cell_bg[r][c] = sgl_rect_create(bg);
             sgl_obj_set_pos(g_cell_bg[r][c], SGL_2048_CELL_X(c), SGL_2048_CELL_Y(r));
             sgl_obj_set_size(g_cell_bg[r][c], SGL_2048_CELL_SZ, SGL_2048_CELL_SZ);
             sgl_rect_set_color(g_cell_bg[r][c], SGL_2048_C_EMPTY);
@@ -739,7 +740,7 @@ void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
     /* tiles */
     for (r = 0; r < SGL_2048_GRID_N; r++) {
         for (c = 0; c < SGL_2048_GRID_N; c++) {
-            g_tile_r[r][c] = sgl_rect_create(parent);
+            g_tile_r[r][c] = sgl_rect_create(bg);
             sgl_obj_set_pos(g_tile_r[r][c], SGL_2048_CELL_X(c), SGL_2048_CELL_Y(r));
             sgl_obj_set_size(g_tile_r[r][c], SGL_2048_CELL_SZ, SGL_2048_CELL_SZ);
             sgl_rect_set_color(g_tile_r[r][c], SGL_2048_C_EMPTY);
@@ -759,7 +760,7 @@ void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
     }
 
     /* game-over overlay (hidden) */
-    g_ov_bg = sgl_rect_create(parent);
+    g_ov_bg = sgl_rect_create(bg);
     sgl_obj_set_pos(g_ov_bg, g_margin_x, g_margin_y);
     sgl_obj_set_size(g_ov_bg, SGL_2048_GRID_PX, SGL_2048_GRID_PX);
     sgl_rect_set_color(g_ov_bg, SGL_COLOR_BLACK);
@@ -778,30 +779,17 @@ void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
     sgl_obj_set_hidden(g_ov_txt);
 
     /* events */
-    sgl_obj_set_event_cb(parent, event_cb, NULL);
+    sgl_obj_set_event_cb(bg, event_cb, NULL);
     sgl_obj_set_event_cb(g_ov_bg, event_cb, NULL);
     new_game();
 }
 
 /**
  * @brief Destroy the game: release any leftover temporary animation widgets.
- * @param none
+ * @param parent     parent object (usually the active screen)
  * @return none
  */
-void sgl_game2048_destroy(void)
+void sgl_game2048_destroy(sgl_obj_t *parent)
 {
-    int i;
-
-    for (i = 0; i < SGL_2048_MAX_MOVES; i++) {
-        if (g_amov_r[i]) { sgl_obj_delete(g_amov_r[i]); g_amov_r[i] = NULL; }
-        g_amov_l[i] = NULL;
-    }
-
-    for (i = 0; i < SGL_2048_MAX_POPS; i++) {
-        if (g_pop_r[i]) { sgl_obj_delete(g_pop_r[i]); g_pop_r[i] = NULL; }
-        g_pop_l[i] = NULL;
-    }
-    g_pop_cnt = 0;
-
-    sgl_obj_delete_children(g_ov_bg);
+    sgl_obj_delete_children(parent);
 }
