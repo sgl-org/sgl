@@ -147,8 +147,6 @@ typedef struct sgl_menu {
     sgl_color_t      sel_text_color;     /* text on the selection bar   */
     uint8_t          alpha;
     sgl_scroll_t     sc;                 /* list scroll physics         */
-    /* transition animation state */
-    sgl_anim_t       anim;
     int16_t          slide_ofs;          /* horizontal offset of the top page */
     uint8_t          anim_dir;           /* SGL_MENU_ANIM_xxx           */
     void           (*close_cb)(sgl_obj_t *menu);

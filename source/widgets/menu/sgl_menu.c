@@ -368,24 +368,28 @@ static void sgl_menu_anim_finish_cb(sgl_anim_t *anim)
 }
 
 /**
- * @brief start the horizontal slide transition of the top page
+ * @brief create animation and set user data (internal helper)
  * @param menu menu widget
- * @param dir SGL_MENU_ANIM_ENTER / SGL_MENU_ANIM_EXIT / SGL_MENU_ANIM_CLOSE
+ * @param start_value animation start value
+ * @param end_value animation end value
+ * @param duration_ms animation duration in milliseconds
  * @return none
  */
 static void sgl_menu_slide(sgl_menu_t *menu, uint8_t dir)
 {
     const int16_t width = sgl_obj_get_width(&menu->obj);
+    const int16_t start_value = (dir == SGL_MENU_ANIM_ENTER) ? width : 0;
+    const int16_t end_value = (dir == SGL_MENU_ANIM_ENTER) ? 0 : width;
 
     menu->anim_dir = dir;
     /* apply the first frame right away: sgl_anim_task skips the path
      * callback while value == last_value, so without this the page would
      * flash one frame in its settled position before the slide starts */
-    menu->slide_ofs = (dir == SGL_MENU_ANIM_ENTER) ? width : 0;
-    sgl_anim_stop(&menu->anim);
-    sgl_anim_set_start_value(&menu->anim, (dir == SGL_MENU_ANIM_ENTER) ? width : 0);
-    sgl_anim_set_end_value(&menu->anim, (dir == SGL_MENU_ANIM_ENTER) ? 0 : width);
-    sgl_anim_start(&menu->anim, SGL_ANIM_REPEAT_ONCE);
+    menu->slide_ofs = start_value;
+
+    /* create animation with proper user data context */
+    sgl_anim_move_obj_to(menu, start_value, end_value, SGL_MENU_ANIM_MS, sgl_menu_anim_path_cb,
+                         SGL_ANIM_PATH_LINEAR, sgl_menu_anim_finish_cb);
 }
 
 /**
@@ -556,7 +560,6 @@ static void sgl_menu_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_t 
         break;
 
     case SGL_EVENT_DESTROYED:
-        sgl_anim_stop(&menu->anim);
         sgl_scroll_anim_stop(&menu->sc);
         break;
 
@@ -608,12 +611,6 @@ sgl_obj_t* sgl_menu_create(sgl_obj_t *parent, const sgl_menu_def_t *root)
     menu->stack[0].offset = 0;
     menu->depth = 1;
     sgl_scroll_reset(&menu->sc);
-
-    sgl_anim_init(&menu->anim);
-    menu->anim.data = menu;
-    sgl_anim_set_act_duration(&menu->anim, SGL_MENU_ANIM_MS);
-    sgl_anim_set_path(&menu->anim, sgl_menu_anim_path_cb, SGL_ANIM_PATH_EASE_IN_OUT_SINE);
-    sgl_anim_set_finish_cb(&menu->anim, sgl_menu_anim_finish_cb);
 
     /* the enter animation is kicked off by the first DRAW_MAIN, once the
      * caller had the chance to size the object */
