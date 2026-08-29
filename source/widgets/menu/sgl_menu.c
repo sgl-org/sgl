@@ -388,7 +388,7 @@ static void sgl_menu_slide(sgl_menu_t *menu, uint8_t dir)
     menu->slide_ofs = start_value;
 
     /* create animation with proper user data context */
-    sgl_anim_move_obj_to(menu, start_value, end_value, SGL_MENU_ANIM_MS, sgl_menu_anim_path_cb,
+    sgl_anim_move_obj_to((sgl_obj_t*)menu, start_value, end_value, SGL_MENU_ANIM_MS, sgl_menu_anim_path_cb,
                          SGL_ANIM_PATH_LINEAR, sgl_menu_anim_finish_cb);
 }
 
