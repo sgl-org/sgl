@@ -252,6 +252,27 @@ static inline void sgl_event_send_motion(sgl_event_pos_t pos, sgl_event_type_t t
 }
 
 /**
+ * @brief Send signal to key event
+ * @param evt The event to send signal
+ * @param signal The signal to send
+ * @return none
+ */
+static inline void sgl_key_send_signal(sgl_event_t *evt, sgl_event_type_t signal)
+{
+    evt->type = signal;
+}
+
+/**
+ * @brief Get signal from key event
+ * @param evt The event to get signal
+ * @return The signal of the event
+ */
+static inline sgl_event_type_t sgl_key_get_signal(sgl_event_t *evt)
+{
+    return evt->type;
+}
+
+/**
  * @brief All event task in SGL, this function will traverse all elements in the event queue, 
  *        respond to each element with an event, so that all events will trigger and point to the 
  *        corresponding callback function
@@ -397,25 +418,13 @@ void sgl_key_enter_released(void);
 void sgl_key_esc(void);
 
 /**
- * @brief Send signal to key event
- * @param evt The event to send signal
- * @param signal The signal to send
+ * @brief Physical encoder input
+ * @param diff: encoder delta value (positive=CW, negative=CCW)
+ * @param pressed: button pressed status (true=pressed, false=released)
  * @return none
+ * @note: Call this function in your encoder ISR/timer handler. Handles both navigation and long-press.
  */
-static inline void sgl_key_send_signal(sgl_event_t *evt, sgl_event_type_t signal)
-{
-    evt->type = signal;
-}
-
-/**
- * @brief Get signal from key event
- * @param evt The event to get signal
- * @return The signal of the event
- */
-static inline sgl_event_type_t sgl_key_get_signal(sgl_event_t *evt)
-{
-    return evt->type;
-}
+void sgl_encoder_input(int8_t diff, bool pressed);
 
 #ifdef __cplusplus
 } /*extern "C"*/

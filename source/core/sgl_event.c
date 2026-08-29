@@ -822,3 +822,60 @@ void sgl_key_esc(void)
         key_grp_active->focused = -1;
     }
 }
+
+/**
+ * @brief Physical encoder input
+ * @param diff: encoder delta value (positive=CW, negative=CCW)
+ * @param pressed: button pressed status (true=pressed, false=released)
+ * @return none
+ * @note: Call this function in your encoder ISR/timer handler. Handles both navigation and long-press.
+ */
+void sgl_encoder_input(int8_t diff, bool pressed)
+{
+    static bool encoder_status = false;
+    static uint32_t press_start_ms = 0;
+    const uint32_t tick = sgl_tick_get();
+
+    /* Handle rotation (navigation) */
+    if (diff > 0) {
+        /* CW rotation - move forward to next item */
+        for (int i = 0; i < diff; i++) {
+            sgl_key_navigate(SGL_EVENT_KEY_DOWN, true);
+        }
+    }
+    else if (diff < 0) {
+        /* CCW rotation - move backward to prev item */
+        int16_t steps = sgl_abs(diff);
+        for (int i = 0; i < steps; i++) {
+            sgl_key_navigate(SGL_EVENT_KEY_UP, false);
+        }
+    }
+
+    /* Handle button press/release with long-press detection */
+    if (encoder_status != pressed) {
+        if (pressed) {
+            /* Button just pressed - record start time */
+            encoder_status = true;
+            press_start_ms = tick;
+            sgl_key_enter_pressed();
+            SGL_LOG_INFO("Encoder button PRESSED at %lu", (unsigned long)tick);
+        }
+        else {
+            /* Button just released - check duration */
+            encoder_status = false;
+            uint32_t duration = tick - press_start_ms;
+
+            /* Check if it's a long press (>500ms) */
+            if (duration >= SGL_EVENT_CLICK_INTERVAL) {
+                SGL_LOG_INFO("Encoder LONG-PRESSED: %lu ms", (unsigned long)duration);
+                /* Trigger ESC action for long press */
+                sgl_key_esc();
+            }
+            else {
+                SGL_LOG_INFO("Encoder CLICKED: %lu ms", (unsigned long)duration);
+            }
+            /* Release the button event */
+            sgl_key_enter_released();
+        }
+    }
+}
