@@ -415,6 +415,7 @@ void sgl_event_task(void)
             }
             else {
                 obj = sgl_screen_act();
+                sgl_get_move_info(&evt);
                 if(obj->event_fn) {
                     obj->event_fn(&evt);
                 }

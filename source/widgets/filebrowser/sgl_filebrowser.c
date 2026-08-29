@@ -812,7 +812,7 @@ void sgl_filebrowser_set_dir(sgl_obj_t *obj, const char *path)
  * @param icons: icons to set
  * @return none
  */
-void sgl_filebrowser_set_icons(sgl_obj_t *obj, sgl_filebrowser_icon_t *icons)
+void sgl_filebrowser_set_icons(sgl_obj_t *obj, const sgl_filebrowser_icon_t *icons)
 {
     sgl_filebrowser_t *fb = sgl_container_of(obj, sgl_filebrowser_t, obj);
     fb->icons = icons;

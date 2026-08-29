@@ -629,13 +629,16 @@ static void event_cb(sgl_event_t *e)
  * @return none
  */
 void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
-                        sgl_font_t *title_font, sgl_font_t *score_font, sgl_font_t *tile_font)
+                        const sgl_font_t *title_font,
+                        const sgl_font_t *score_font,
+                        const sgl_font_t *tile_font)
 {
     int r, c, i;
     int16_t pad_y, box_h, box_w, box_gap, best_x, score_x;
     sgl_obj_t *bg, *t, *sb, *st, *bb, *bt, *gb;
 
-    srand(54321);
+    sgl_srand(54321);
+    sgl_obj_set_movable(parent);
 
     layout_calc(width, height);
     pad_y   = g_header_h / 5;

@@ -145,7 +145,7 @@ typedef struct sgl_filebrowser {
     sgl_color_t border_color;
     sgl_color_t icon_color;
     sgl_color_t path_color;
-    sgl_filebrowser_icon_t *icons;
+    const sgl_filebrowser_icon_t *icons;
     uint8_t alpha;
     uint8_t icon_width;
     sgl_scroll_t sc;                   /**< shared scroll physics state (sgl_misc) */
@@ -276,7 +276,7 @@ void sgl_filebrowser_set_pixmap(sgl_obj_t *obj, const sgl_pixmap_t *pixmap);
  * @param icons: icons to set
  * @return none
  */
-void sgl_filebrowser_set_icons(sgl_obj_t *obj, sgl_filebrowser_icon_t *icons);
+void sgl_filebrowser_set_icons(sgl_obj_t *obj, const sgl_filebrowser_icon_t *icons);
 
 /**
  * @brief Set the icon width of the file browser object.
