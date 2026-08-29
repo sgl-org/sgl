@@ -494,8 +494,8 @@ static void sgl_menu_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_t 
             break;
         }
 
-        /* key driven click (Enter) carries a zero position */
-        if (evt->pos.x == 0 && evt->pos.y == 0) {
+        /* key driven click (Enter) carries minimum coordinates */
+        if (evt->pos.x == SGL_POS_MIN && evt->pos.y == SGL_POS_MIN) {
             sgl_menu_activate(menu);
             break;
         }
@@ -534,25 +534,25 @@ static void sgl_menu_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_t 
     }
     break;
 
+    case SGL_EVENT_KEY_RIGHT:
     case SGL_EVENT_KEY_DOWN:
         if (menu->depth != 0 && menu->anim_dir == SGL_MENU_ANIM_NONE) {
             sgl_menu_change_item(menu, menu->stack[menu->depth - 1].selected + 1);
         }
         break;
 
+    case SGL_EVENT_KEY_LEFT:
     case SGL_EVENT_KEY_UP:
         if (menu->depth != 0 && menu->anim_dir == SGL_MENU_ANIM_NONE) {
             sgl_menu_change_item(menu, menu->stack[menu->depth - 1].selected - 1);
         }
         break;
 
-    case SGL_EVENT_KEY_RIGHT:
-        sgl_menu_activate(menu);
-        break;
-
-    case SGL_EVENT_KEY_LEFT:
     case SGL_EVENT_KEY_ESC:
-        sgl_menu_pop(obj);
+        if (menu->depth > 1) {
+            sgl_menu_pop(obj);
+            sgl_key_send_signal(evt, SGL_EVENT_KEY_CANCEL);
+        }
         break;
 
     case SGL_EVENT_DESTROYED:

@@ -812,8 +812,10 @@ void sgl_key_esc(void)
 
     if (grp_active_is_editing()) {
         sgl_event_t evt;
-        key_grp_active->editing = 0;
         event_type_callback(grp_active_get_focused(), &evt, SGL_EVENT_KEY_ESC);
+        if (sgl_key_get_signal(&evt) == SGL_EVENT_KEY_CANCEL) {
+            key_grp_active->editing = 0;
+        }
     }
     else {
         event_set_focus(grp_active_get_focused(), false);

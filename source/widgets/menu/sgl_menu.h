@@ -39,40 +39,6 @@
 extern "C" {
 #endif
 
-/**
- * A Symbian (S60) style stacked menu widget.
- *
- * The menu content is described declaratively with constant tables,
- * for example:
- *
- *     static void my_action(sgl_obj_t *menu, int16_t index);
- *
- *     static const sgl_menu_item_t network_items[] = {
- *         SGL_MENU_ITEM("Wi-Fi",     my_action),
- *         SGL_MENU_ITEM("Bluetooth", my_action),
- *     };
- *     SGL_MENU_DEF(network_menu, "Network", network_items);
- *
- *     static const sgl_menu_item_t main_items[] = {
- *         SGL_MENU_ITEM("Messages", my_action),
- *         SGL_MENU_SUBMENU("Settings", &network_menu),
- *     };
- *     SGL_MENU_DEF(main_menu, "Main Menu", main_items);
- *
- *     sgl_obj_t *menu = sgl_menu_create(NULL, &main_menu);
- *
- * Submenus are pushed onto / popped from an internal stack with a
- * horizontal slide animation, the root menu plays the same animation
- * when it is created and when it is closed.
- *
- * Input:
- *  - touch : drag to scroll, tap an item to select it and tap again
- *            to activate, bottom softkey bar provides [Select]/[Back]
- *  - keys  : add the menu to a key group, press Enter to edit,
- *            Up/Down move the selection, Enter or Right activates,
- *            Left or Esc goes back (pops the stack / closes the menu)
- */
-
 /* forward declaration of the menu descriptor */
 typedef struct sgl_menu_def sgl_menu_def_t;
 
