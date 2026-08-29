@@ -359,7 +359,6 @@ sgl_obj_t* sgl_dropdown_create(sgl_obj_t* parent)
     sgl_obj_set_clickable(obj);
     sgl_obj_set_editable(obj);
     sgl_obj_set_movable(obj);
-    sgl_obj_set_keypress_click(obj);
 
     dropdown->alpha = SGL_THEME_ALPHA;
     dropdown->bg_color = SGL_THEME_COLOR;

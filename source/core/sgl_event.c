@@ -758,6 +758,8 @@ void sgl_key_navigate(sgl_event_type_t type, bool forward)
  */
 void sgl_key_enter_pressed(void)
 {
+    const uint32_t tick = sgl_tick_get();
+
     if (!grp_active_is_focused()) return;
 
     sgl_obj_t *obj = grp_active_get_focused();
@@ -765,16 +767,18 @@ void sgl_key_enter_pressed(void)
         sgl_event_t evt;
         event_type_callback(obj, &evt, SGL_EVENT_PRESSED);
         key_grp_active->pressed = 1;
+        key_grp_active->enter_start_ms = tick;  /* Record press start time for duration tracking */
     }
     else {
         if (!grp_active_is_editing()) {
             key_grp_active->editing = 1;
+            key_grp_active->enter_start_ms = tick;  /* Also record for editable widgets */
         }
         else {
             sgl_event_t evt;
-            sgl_event_type_t type = sgl_obj_is_keypress_click(obj) ? SGL_EVENT_CLICKED : SGL_EVENT_PRESSED;
-            event_type_callback(obj, &evt, type);
+            event_type_callback(obj, &evt, SGL_EVENT_PRESSED);
             key_grp_active->pressed = 1;
+            key_grp_active->enter_start_ms = tick;  /* Record timestamp for duration tracking */
         }
     }
 }
@@ -787,10 +791,18 @@ void sgl_key_enter_pressed(void)
  */
 void sgl_key_enter_released(void)
 {
+    const uint32_t tick = sgl_tick_get();
+    uint32_t duration;
+
     if (!grp_active_is_focused()) return;
 
     if (grp_active_is_pressed()) {
+        duration = tick - key_grp_active->enter_start_ms;
+        sgl_event_type_t event_type = duration >= SGL_EVENT_CLICK_INTERVAL 
+                                      ? SGL_EVENT_LONG_CLICKED 
+                                      : SGL_EVENT_CLICKED;
         sgl_event_t evt;
+        event_type_callback(grp_active_get_focused(), &evt, event_type);
         event_type_callback(grp_active_get_focused(), &evt, SGL_EVENT_RELEASED);
         key_grp_active->pressed = 0;
 
@@ -836,7 +848,6 @@ void sgl_encoder_input(int8_t diff, bool pressed)
     static uint32_t press_start_ms = 0;
     const uint32_t tick = sgl_tick_get();
 
-    /* Handle rotation (navigation) */
     if (diff > 0) {
         /* CW rotation - move forward to next item */
         for (int i = 0; i < diff; i++) {
@@ -851,30 +862,24 @@ void sgl_encoder_input(int8_t diff, bool pressed)
         }
     }
 
-    /* Handle button press/release with long-press detection */
     if (encoder_status != pressed) {
         if (pressed) {
-            /* Button just pressed - record start time */
             encoder_status = true;
             press_start_ms = tick;
             sgl_key_enter_pressed();
             SGL_LOG_INFO("Encoder button PRESSED at %lu", (unsigned long)tick);
         }
         else {
-            /* Button just released - check duration */
             encoder_status = false;
             uint32_t duration = tick - press_start_ms;
 
-            /* Check if it's a long press (>500ms) */
             if (duration >= SGL_EVENT_CLICK_INTERVAL) {
                 SGL_LOG_INFO("Encoder LONG-PRESSED: %lu ms", (unsigned long)duration);
-                /* Trigger ESC action for long press */
                 sgl_key_esc();
             }
             else {
                 SGL_LOG_INFO("Encoder CLICKED: %lu ms", (unsigned long)duration);
             }
-            /* Release the button event */
             sgl_key_enter_released();
         }
     }

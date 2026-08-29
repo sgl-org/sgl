@@ -333,7 +333,6 @@ sgl_obj_t* sgl_roller_create(sgl_obj_t* parent)
     obj->construct_fn = sgl_roller_construct_cb;
     sgl_obj_set_clickable(obj);
     sgl_obj_set_editable(obj);
-    sgl_obj_set_keypress_click(obj);
     sgl_obj_set_movable(obj);
     sgl_obj_set_border_width(obj, 1);
 

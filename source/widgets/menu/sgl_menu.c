@@ -595,7 +595,6 @@ sgl_obj_t* sgl_menu_create(sgl_obj_t *parent, const sgl_menu_def_t *root)
     sgl_obj_set_clickable(&menu->obj);
     sgl_obj_set_movable(&menu->obj);
     sgl_obj_set_editable(&menu->obj);
-    sgl_obj_set_keypress_click(&menu->obj);
 
     menu->font = sgl_get_system_font();
     menu->alpha = SGL_THEME_ALPHA;

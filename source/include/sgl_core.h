@@ -1224,28 +1224,6 @@ static inline bool sgl_obj_is_clickable(sgl_obj_t *obj)
 }
 
 /**
- * @brief set object to mask key press event
- * @param obj point to object
- * @note
-*/
-static inline void sgl_obj_set_keypress_click(sgl_obj_t *obj)
-{
-    SGL_ASSERT(obj != NULL);
-    obj->press_click = 1;
-}
-
-/**
- * @brief check object key press mask status
- * @param obj point to object
- * @return true: press mask, false: unpress mask
- */
-static inline bool sgl_obj_is_keypress_click(sgl_obj_t *obj)
-{
-    SGL_ASSERT(obj != NULL);
-    return obj->press_click;
-}
-
-/**
  * @brief set object flexible
  * @param obj point to object
  * @return none

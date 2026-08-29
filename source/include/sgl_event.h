@@ -111,6 +111,7 @@ typedef struct sgl_event {
  * @pressed: Whether the key group is pressed
  * @editing: Whether the key group is editing
  * @focused: The focused of the key group
+ * @enter_start_ms: Timestamp when ENTER was pressed
  * @obj: The object of the key group
  */
 typedef struct sgl_key_group {
@@ -118,6 +119,7 @@ typedef struct sgl_key_group {
     uint16_t         pressed : 1;
     uint16_t         editing : 1;
     int16_t          focused;
+    uint32_t         enter_start_ms;  
     struct sgl_obj   *obj[];
 } sgl_key_group_t;
 
