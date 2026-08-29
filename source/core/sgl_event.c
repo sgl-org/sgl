@@ -840,14 +840,14 @@ void sgl_encoder_input(int8_t diff, bool pressed)
     if (diff > 0) {
         /* CW rotation - move forward to next item */
         for (int i = 0; i < diff; i++) {
-            sgl_key_navigate(SGL_EVENT_KEY_DOWN, true);
+            sgl_key_up();
         }
     }
     else if (diff < 0) {
         /* CCW rotation - move backward to prev item */
         int16_t steps = sgl_abs(diff);
         for (int i = 0; i < steps; i++) {
-            sgl_key_navigate(SGL_EVENT_KEY_UP, false);
+            sgl_key_down();
         }
     }
 
