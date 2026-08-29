@@ -29,6 +29,14 @@ if(${SGL_HEAP_ALGO} STREQUAL "tlsf")
     )
 endif()
 
+if(${SGL_HEAP_ALGO} STREQUAL "mtlsf")
+    set(SGL_SOURCE
+        ${SGL_SOURCE}
+        ${CMAKE_CURRENT_LIST_DIR}/mtlsf/mtlsf.c
+        ${CMAKE_CURRENT_LIST_DIR}/mtlsf/sgl_mm.c
+    )
+endif()
+
 if(${SGL_HEAP_ALGO} STREQUAL "lwmem")
     set(SGL_SOURCE
         ${SGL_SOURCE}
