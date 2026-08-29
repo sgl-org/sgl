@@ -243,17 +243,16 @@ static const uint8_t *sgl_font_get_glyph_bitmap(const sgl_font_t *font, uint32_t
 void sgl_draw_character(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, uint32_t ch_index, sgl_color_t color, uint8_t alpha, const sgl_font_t *font)
 {
 #if (CONFIG_SGL_FLASH_FONT)
-#   define ft (*dsc)
     uint8_t glyph_buf[CONFIG_SGL_FLASH_FONT_GLYPH_BUF_SIZE];
     const sgl_font_table_t *dsc = sgl_font_glyph_dsc(font, ch_index);
     const uint8_t *dot = sgl_font_get_glyph_bitmap(font, ch_index, glyph_buf, sizeof(glyph_buf));
 #else
-#   define ft font->table[ch_index]
+    const sgl_font_table_t *dsc = &font->table[ch_index];
     const uint8_t *dot = &font->bitmap[font->table[ch_index].bitmap_index];
 #endif
-    int offset_y2 = font->font_height - ft.ofs_y - font->base_line;
-    const uint8_t font_w = ft.box_w;
-    const uint8_t font_h = ft.box_h;
+    int offset_y2 = font->font_height - dsc->ofs_y - font->base_line;
+    const uint8_t font_w = dsc->box_w;
+    const uint8_t font_h = dsc->box_h;
 
     uint8_t shift = 0;
     uint32_t pixel_index, rel_x, rel_y;
@@ -262,8 +261,8 @@ void sgl_draw_character(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y
     sgl_area_t clip;
 
     sgl_area_t text_rect = {
-        .x1 = x + ft.ofs_x,
-        .x2 = x + ft.ofs_x + font_w - 1,
+        .x1 = x + dsc->ofs_x,
+        .x2 = x + dsc->ofs_x + font_w - 1,
         .y1 = y + offset_y2 - font_h,
         .y2 = y + offset_y2 - 1,
     };
@@ -416,5 +415,3 @@ void sgl_draw_string_mult_line(sgl_surf_t *surf, sgl_area_t *area, int16_t x, in
         x_off += ch_width;
     }
 }
-
-#undef ft

@@ -105,6 +105,8 @@ sgl_config.h是 SGL (Simple Graphics Library) 框架中的**功能配置**。
 | 宏定义 | 默认值 | 描述 |
 | :--- | :---: | :--- |
 | [CONFIG_SGL_FONT_COMPRESSED]| `0` | 启用压缩字体格式的支持。 |
+| [CONFIG_SGL_FLASH_FONT]| `0` | 支持字库位图存放在外部 Flash（参考 LVGL binfont：字体表保留在代码中，位图按需从外部 Flash 读取，需字体描述符提供 `flash_read` 回调）。 |
+| [CONFIG_SGL_FLASH_FONT_GLYPH_BUF_SIZE]| `640` | 外部 Flash 字体的单字形位图临时缓冲区大小（字节），需不小于最大字形位图字节数。 |
 | [CONFIG_SGL_FONT_SMALL_TABLE]| `0` | 使用优化/小型的字体查找表。可能会略微降低性能，但节省 RAM。 |
 | [CONFIG_SGL_FONT_SONG23]| `0` | 包含 "Song 23px" 字体（通常用于中文 CJK 支持）。 |
 | [CONFIG_SGL_FONT_CONSOLAS14]| `0` | 包含 Consolas 14px 字体。 |
