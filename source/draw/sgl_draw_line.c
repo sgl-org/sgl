@@ -342,7 +342,6 @@ void sgl_draw_line_noaa(sgl_surf_t *surf, sgl_area_t *area, int16_t x1, int16_t 
     }
 }
 
-
 /**
  * @brief draw a line
  * @param surf surface

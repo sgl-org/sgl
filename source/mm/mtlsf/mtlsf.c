@@ -608,7 +608,7 @@ static void control_construct(mem_control_t *c)
 
     for (int i = 0; i < FL_INDEX_COUNT; ++i) {
         c->sl_bitmap[i] = 0;
-        for (int j = 0; j < SL_INDEX_COUNT; ++j) {
+        for (uint32_t j = 0; j < SL_INDEX_COUNT; ++j) {
             c->blocks[i][j] = &c->block_null;
         }
     }

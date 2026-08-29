@@ -324,7 +324,6 @@ void sgl_draw_fill_circle_with_border(sgl_surf_t *surf, sgl_area_t *area, int16_
     }
 }
 
-
 /**
  * @brief draw task, the task contains the draw information and canvas
  * @param surf surface pointer
