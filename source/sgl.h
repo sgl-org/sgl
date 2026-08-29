@@ -79,6 +79,7 @@
 #include "widgets/filebrowser/sgl_filebrowser.h"
 #include "widgets/curve/sgl_curve.h"
 #include "widgets/stepper/sgl_stepper.h"
+#include "widgets/menu/sgl_menu.h"
 #include "fs/fatfs/sgl_fatfs.h"
 #include "fs/littlefs/sgl_littlefs.h"
 #include "fs/ramfs/sgl_ramfs.h"
