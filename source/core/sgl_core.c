@@ -983,7 +983,7 @@ int sgl_obj_init(sgl_obj_t *obj, sgl_obj_t *parent)
 static void sgl_obj_cleanup(sgl_obj_t *obj)
 {
     sgl_event_t evt = { .type = SGL_EVENT_DESTROYED,};
-
+    sgl_event_ctx_cleanup(obj);
     /* check construct function */
     SGL_ASSERT(obj->construct_fn != NULL);
     obj->construct_fn(NULL, obj, &evt);

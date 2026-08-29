@@ -290,6 +290,23 @@ static void sgl_get_move_info(sgl_event_t *evt)
 }
 
 /**
+ * @brief Clear event context references if object being deleted is referenced
+ * @param obj point to the object about to be freed
+ * @return none
+ * @note This prevents use-after-free when the object is still referenced in event context.
+ *       This is an internal API, called by sgl_core.c during object cleanup.
+ */
+void sgl_event_ctx_cleanup(struct sgl_obj *obj)
+{
+    if (evt_ctx.last_click == obj) {
+        evt_ctx.last_click = NULL;
+    }
+    if (evt_ctx.last_motion == obj) {
+        evt_ctx.last_motion = NULL;
+    }
+}
+
+/**
  * @brief Callback function for event
  * @param obj The object that triggered the event
  * @param evt The event that triggered the callback
@@ -853,8 +870,7 @@ void sgl_encoder_input(int8_t diff, bool pressed)
         for (int i = 0; i < diff; i++) {
             sgl_key_up();
         }
-    }
-    else if (diff < 0) {
+    } else if (diff < 0) {
         /* CCW rotation - move backward to prev item */
         int16_t steps = sgl_abs(diff);
         for (int i = 0; i < steps; i++) {
@@ -868,16 +884,13 @@ void sgl_encoder_input(int8_t diff, bool pressed)
             press_start_ms = tick;
             sgl_key_enter_pressed();
             SGL_LOG_INFO("Encoder button PRESSED at %lu", (unsigned long)tick);
-        }
-        else {
+        } else {
             encoder_status = false;
             uint32_t duration = tick - press_start_ms;
-
             if (duration >= SGL_EVENT_CLICK_INTERVAL) {
                 SGL_LOG_INFO("Encoder LONG-PRESSED: %lu ms", (unsigned long)duration);
                 sgl_key_esc();
-            }
-            else {
+            } else {
                 SGL_LOG_INFO("Encoder CLICKED: %lu ms", (unsigned long)duration);
             }
             sgl_key_enter_released();

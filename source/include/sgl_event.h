@@ -190,6 +190,15 @@ int sgl_event_queue_init(void);
 void sgl_event_queue_push(sgl_event_t event);
 
 /**
+ * @brief Clear event context references if object being deleted is referenced
+ * @param obj point to the object about to be freed
+ * @return none
+ * @note This prevents use-after-free when the object is still referenced in event context.
+ *       This is an internal API, called by sgl_core.c during object cleanup.
+ */
+void sgl_event_ctx_cleanup(struct sgl_obj *obj);
+
+/**
  * @brief Handle the position event
  * @param pos The position to be handled
  * @param type The type of the event
