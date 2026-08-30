@@ -820,13 +820,14 @@ void sgl_fbdev_set_angle(uint16_t angle)
 bool sgl_area_clip(sgl_area_t *area_a, sgl_area_t *area_b, sgl_area_t *clip)
 {
     SGL_ASSERT(area_a != NULL && area_b != NULL && clip != NULL);
-    if (area_b->y1 > area_a->y2 || area_b->y2 < area_a->y1 || area_b->x1 > area_a->x2 || area_b->x2 < area_a->x1) {
+
+    if (unlikely(area_b->y1 > area_a->y2 || area_b->x1 > area_a->x2)) {
         return false;
     }
 
     clip->x1 = sgl_max(area_a->x1, area_b->x1);
-    clip->x2 = sgl_min(area_a->x2, area_b->x2);
     clip->y1 = sgl_max(area_a->y1, area_b->y1);
+    clip->x2 = sgl_min(area_a->x2, area_b->x2);
     clip->y2 = sgl_min(area_a->y2, area_b->y2);
 
     return true;
@@ -842,13 +843,14 @@ bool sgl_area_clip(sgl_area_t *area_a, sgl_area_t *area_b, sgl_area_t *clip)
 bool sgl_area_selfclip(sgl_area_t *clip, sgl_area_t *area)
 {
     SGL_ASSERT(clip != NULL && area != NULL);
-    if (area->y1 > clip->y2 || area->y2 < clip->y1 || area->x1 > clip->x2 || area->x2 < clip->x1) {
+
+    if (unlikely(area->y1 > clip->y2 || area->x1 > clip->x2)) {
         return false;
     }
 
     clip->x1 = sgl_max(clip->x1, area->x1);
-    clip->x2 = sgl_min(clip->x2, area->x2);
     clip->y1 = sgl_max(clip->y1, area->y1);
+    clip->x2 = sgl_min(clip->x2, area->x2);
     clip->y2 = sgl_min(clip->y2, area->y2);
 
     return true;
@@ -1328,7 +1330,7 @@ int32_t sgl_font_get_string_width(const char *str, const sgl_font_t *font)
 #if (CONFIG_SGL_FLASH_FONT)
         len += ((font->table[(font->format == SGL_FONT_FMT_EXT_FLASH_FIXED) ? 0 : ch_index].adv_w + 8) >> 4);
 #else
-        len += ((font->table[ch_index].adv_w + 8)>> 4);
+        len += ((font->table[ch_index].adv_w + 8) >> 4);
 #endif
     }
     return len;

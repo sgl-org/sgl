@@ -73,7 +73,7 @@ extern "C" {
 #endif
 
 #ifndef CONFIG_SGL_FOCUSED_WIDTH
-#define CONFIG_SGL_FOCUSED_WIDTH                                   (1)  /* Focused width */
+#define CONFIG_SGL_FOCUSED_WIDTH                                   (0)  /* Focused width */
 #endif
 
 #ifndef CONFIG_SGL_DIRTY_AREA_NUM_MAX
