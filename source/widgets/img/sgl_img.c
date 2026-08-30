@@ -495,7 +495,7 @@ qoi_draw_done: ;
         if (img->pixmap_auto && sgl_obj_draw_complete(obj, surf, &clip)) {
             uint32_t pixmap_idx = img->pixmap_idx + 1;
             img->pixmap_idx = pixmap_idx >= img->pixmap_num ? 0 : pixmap_idx;
-            sgl_obj_set_dirty(obj);
+            sgl_update_area(&area);
         }
     }
     else if (evt->type == SGL_EVENT_DESTROYED) {

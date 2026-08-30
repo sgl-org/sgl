@@ -58,10 +58,9 @@ static void sgl_win_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *
         if (win->title_align == SGL_ALIGN_LEFT_MID) {
             align_pos.x += obj->radius;
         }
-        sgl_draw_string(surf, &obj->area, align_pos.x, align_pos.y + obj->border, win->title_text, 
+        sgl_draw_string(surf, &obj->area, align_pos.x + 2, align_pos.y + obj->border, win->title_text, 
                           win->title_text_color, win->bg.alpha, win->title_font
                         );
-        
         sgl_draw_fill_circle(surf, &title_area, close_cx, close_cy, close_r, win->close_color, win->bg.alpha);
     }
     else if (evt->type == SGL_EVENT_PRESSED || evt->type == SGL_EVENT_CLICKED) {
