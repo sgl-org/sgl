@@ -821,7 +821,8 @@ bool sgl_area_clip(sgl_area_t *area_a, sgl_area_t *area_b, sgl_area_t *clip)
 {
     SGL_ASSERT(area_a != NULL && area_b != NULL && clip != NULL);
 
-    if (unlikely(area_b->y1 > area_a->y2 || area_b->x1 > area_a->x2)) {
+    if (unlikely(area_b->x2 < area_a->x1 || area_b->x1 > area_a->x2 ||
+                 area_b->y2 < area_a->y1 || area_b->y1 > area_a->y2)) {
         return false;
     }
 
@@ -844,7 +845,8 @@ bool sgl_area_selfclip(sgl_area_t *clip, sgl_area_t *area)
 {
     SGL_ASSERT(clip != NULL && area != NULL);
 
-    if (unlikely(area->y1 > clip->y2 || area->x1 > clip->x2)) {
+    if (unlikely(area->x2 < clip->x1 || area->x1 > clip->x2 ||
+                 area->y2 < clip->y1 || area->y1 > clip->y2)) {
         return false;
     }
 
