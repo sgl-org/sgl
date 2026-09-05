@@ -57,7 +57,6 @@ typedef struct sgl_draw_rect {
     const sgl_pixmap_t      *pixmap;
 } sgl_draw_rect_t;
 
-
 /**
  * @brief line draw description
  * @x1: x1 coordinate
@@ -77,7 +76,6 @@ typedef struct sgl_draw_line {
     int16_t          x2;
     int16_t          y2;
 } sgl_draw_line_t;
-
 
 /**
  * @brief rectangle description
@@ -100,7 +98,6 @@ typedef struct sgl_draw_circle {
     int16_t            cy;
     const sgl_pixmap_t *pixmap;
 } sgl_draw_circle_t;
-
 
 /**
  * @brief arc description
@@ -128,7 +125,6 @@ typedef struct sgl_draw_arc {
     sgl_color_t      bg_color;
 } sgl_draw_arc_t;
 
-
 /**
  * @brief icon description
  * @icon: icon pixmap
@@ -142,7 +138,6 @@ typedef struct sgl_draw_icon {
     const sgl_icon_pixmap_t *icon;
 } sgl_draw_icon_t;
 
-
 /** 
  * @brief clip area width of surface
  * @note if you want to check the area is overlap with surface, you can use this macro
@@ -153,7 +148,6 @@ typedef struct sgl_draw_icon {
 #else
 #define sgl_surf_clip_area_return(surf, rect, clip)         if (!sgl_surf_clip(surf, rect, clip)) return
 #endif
-
 
 /**
  * @brief set pixel on surface
@@ -168,7 +162,6 @@ static inline void sgl_surf_set_pixel(sgl_surf_t *surf, int16_t x, int16_t y, sg
     surf->buffer[y * surf->w + x] = color;
 }
 
-
 /**
  * @brief get start buffer address that to set pixel on surface
  * @param surf: pointer of surface
@@ -182,7 +175,6 @@ static inline sgl_color_t* sgl_surf_get_buf(sgl_surf_t *surf, int16_t x, int16_t
     return &surf->buffer[y * surf->w + x];
 }
 
-
 /**
  * @brief get pixel on surface
  * @param surf: pointer of surface
@@ -195,7 +187,6 @@ static inline sgl_color_t sgl_surf_get_pixel(sgl_surf_t *surf, int16_t x, int16_
 {
     return surf->buffer[y * surf->w + x];
 }
-
 
 /**
  * @brief draw a horizontal line on surface
@@ -215,7 +206,6 @@ static inline void sgl_surf_hline(sgl_surf_t *surf, int16_t y, int16_t x1, int16
     }
 }
 
-
 /**
  * @brief draw a vertical line on surface
  * @param surf: pointer of surface
@@ -234,7 +224,6 @@ static inline void sgl_surf_vline(sgl_surf_t *surf, int16_t x, int16_t y1, int16
     }
 }
 
-
 /**
  * @brief draw a wireframe rectangle with alpha
  * @param surf point to surface
@@ -248,7 +237,6 @@ static inline void sgl_surf_vline(sgl_surf_t *surf, int16_t x, int16_t y1, int16
  */
 void sgl_draw_wireframe(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, int16_t radius, int16_t width, sgl_color_t color, uint8_t alpha);
 
-
 /**
  * @brief fill a round rectangle with alpha
  * @param surf point to surface
@@ -260,7 +248,6 @@ void sgl_draw_wireframe(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, in
  * @return none
  */
 void sgl_draw_fill_rect(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, int16_t radius, sgl_color_t color, uint8_t alpha);
-
 
 /**
  * @brief fill a round rectangle with rich independent corner radiuses with alpha
@@ -278,7 +265,6 @@ void sgl_draw_fill_rect(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, in
 void sgl_draw_fill_rich_rect(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, 
                              int16_t tl_radius, int16_t tr_radius, int16_t bl_radius, int16_t br_radius, 
                              sgl_color_t color, uint8_t alpha);
-
 
 /**
  * @brief draw only the border ring of a round rectangle, the interior is left untouched
@@ -323,7 +309,6 @@ void sgl_draw_fill_rect_border_rich(sgl_surf_t *surf, sgl_area_t *area, sgl_area
  */
 void sgl_draw_fill_rect_pixmap(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, int16_t radius, const sgl_pixmap_t *pixmap, uint8_t alpha);
 
-
 /**
  * @brief fill a round rectangle pixmap with individual corner radii and alpha
  * @param surf point to surface
@@ -351,7 +336,6 @@ void sgl_draw_fill_rect_pixmap_rich(sgl_surf_t *surf, sgl_area_t *area, sgl_area
  */
 void sgl_draw_rect(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, sgl_draw_rect_t *desc);
 
-
 /**
  * @brief Draw a circle
  * @param surf Surface
@@ -364,7 +348,6 @@ void sgl_draw_rect(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, sgl_dra
  * @return none
  */
 void sgl_draw_fill_circle(sgl_surf_t *surf, sgl_area_t *area, int16_t cx, int16_t cy, int16_t radius, sgl_color_t color, uint8_t alpha);
-
 
 /**
  * @brief Draw a circle with pixmap and alpha
@@ -402,7 +385,6 @@ void sgl_draw_fill_circle_border(sgl_surf_t *surf, sgl_area_t *area, int16_t cx,
  */
 void sgl_draw_circle(sgl_surf_t *surf, sgl_area_t *area, sgl_draw_circle_t *desc);
 
-
 /**
  * @brief draw icon with alpha
  * @param surf   surface
@@ -412,7 +394,6 @@ void sgl_draw_circle(sgl_surf_t *surf, sgl_area_t *area, sgl_draw_circle_t *desc
  * @param alpha  alpha of icon
  */
 void sgl_draw_icon( sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, sgl_color_t color, uint8_t alpha, const sgl_icon_pixmap_t *icon);
-
 
 /**
  * @brief Draw a character on the surface with alpha blending
@@ -429,7 +410,6 @@ void sgl_draw_icon( sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, sg
  */
 void sgl_draw_character( sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, uint32_t ch_index, sgl_color_t color, uint8_t alpha, const sgl_font_t *font);
 
-
 /**
  * @brief Draw a string on the surface with alpha blending
  * @param surf Pointer to the surface where the string will be drawn
@@ -443,7 +423,6 @@ void sgl_draw_character( sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t 
  * @return none
  */
 void sgl_draw_string(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, const char *str, sgl_color_t color, uint8_t alpha, const sgl_font_t *font);
-
 
 /**
  * @brief Draw a string on the surface with alpha blending and multiple lines
@@ -460,7 +439,6 @@ void sgl_draw_string(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, c
  */
 void sgl_draw_string_mult_line(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, const char *str, sgl_color_t color, uint8_t alpha, const sgl_font_t *font, uint8_t line_margin);
 
-
 /**
  * @brief draw a ring on surface with alpha
  * @param surf: pointer of surface
@@ -475,7 +453,6 @@ void sgl_draw_string_mult_line(sgl_surf_t *surf, sgl_area_t *area, int16_t x, in
  */
 void sgl_draw_fill_ring(sgl_surf_t *surf, sgl_area_t *area, int16_t cx, int16_t cy, int16_t radius_in, int16_t radius_out, sgl_color_t color, uint8_t alpha);
 
-
 /**
  * @brief draw a horizontal line with alpha
  * @param surf surface
@@ -489,7 +466,6 @@ void sgl_draw_fill_ring(sgl_surf_t *surf, sgl_area_t *area, int16_t cx, int16_t 
  */
 void sgl_draw_fill_hline(sgl_surf_t *surf, sgl_area_t *area, int16_t y, int16_t x1, int16_t x2, uint8_t width, sgl_color_t color, uint8_t alpha);
 
-
 /**
  * @brief draw a vertical line with alpha
  * @param surf surface
@@ -502,7 +478,6 @@ void sgl_draw_fill_hline(sgl_surf_t *surf, sgl_area_t *area, int16_t y, int16_t 
  * @return none
  */
 void sgl_draw_fill_vline(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y1, int16_t y2, uint8_t width, sgl_color_t color, uint8_t alpha);
-
 
 /**
  * @brief draw a slanted line with alpha
@@ -519,7 +494,6 @@ void sgl_draw_fill_vline(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t 
  * @note This algorithm is SDF algorithm
  */
 void sgl_draw_line_fill_slanted(sgl_surf_t *surf, sgl_area_t *area, int16_t x1, int16_t y1, int16_t x2, int16_t y2, int16_t thickness, sgl_color_t color, uint8_t alpha);
-
 
 /**
  * @brief Draw a dashed line using Bresenham's algorithm.
@@ -552,7 +526,6 @@ void sgl_draw_dashed_line_noaa(sgl_surf_t *surf, sgl_area_t *area, int16_t x1, i
  */
 void sgl_draw_line_noaa(sgl_surf_t *surf, sgl_area_t *area, int16_t x1, int16_t y1, int16_t x2, int16_t y2, sgl_color_t color, uint8_t width, uint8_t alpha);
 
-
 /**
  * @brief draw a line
  * @param surf surface
@@ -562,7 +535,6 @@ void sgl_draw_line_noaa(sgl_surf_t *surf, sgl_area_t *area, int16_t x1, int16_t 
  */
 void sgl_draw_line(sgl_surf_t *surf, sgl_area_t *area, sgl_draw_line_t *desc);
 
-
 /**
  * @brief draw an arc with alpha
  * @param surf pointer to surface
@@ -571,7 +543,6 @@ void sgl_draw_line(sgl_surf_t *surf, sgl_area_t *area, sgl_draw_line_t *desc);
  * @return none
  */
 void sgl_draw_fill_arc(sgl_surf_t *surf, sgl_area_t *area, sgl_draw_arc_t *desc);
-
 
 /**
  * @brief calculate a point color by bilinear interpolate (with mask support)
@@ -583,7 +554,6 @@ void sgl_draw_fill_arc(sgl_surf_t *surf, sgl_area_t *area, sgl_draw_arc_t *desc)
  * @return point color (RGB: interpolated if mask non-0, transparent/black if mask 0)
  */
 sgl_color_t sgl_draw_biln_color(const sgl_color_t *buffer, int16_t w, int16_t h, int32_t fx, int32_t fy);
-
 
 /**
  * @brief transform a surface
@@ -597,7 +567,6 @@ sgl_color_t sgl_draw_biln_color(const sgl_color_t *buffer, int16_t w, int16_t h,
  * @note This function has implemented angle normalization to the range of 0 to 360 degrees.
  */
 void sgl_draw_xform_surf(sgl_surf_t *dst, sgl_surf_t *src, sgl_area_t *area, int16_t x, int16_t y, int16_t rotation);
-
 
 /**
  * @brief Coverage mask used by the bezier stroke engine (1 byte per pixel).
@@ -649,7 +618,6 @@ void sgl_draw_bezier_cubic(sgl_surf_t *surf, sgl_area_t *area,
                            int16_t x2, int16_t y2, int16_t x3, int16_t y3,
                            int16_t thickness, sgl_color_t color, uint8_t alpha,
                            sgl_bezier_mask_t *mask);
-
 
 #ifdef __cplusplus
 } /*extern "C"*/

@@ -50,6 +50,7 @@ set(SGL_SOURCE
     ${CMAKE_CURRENT_LIST_DIR}/scope/sgl_scope.c
     ${CMAKE_CURRENT_LIST_DIR}/polygon/sgl_polygon.c
     ${CMAKE_CURRENT_LIST_DIR}/box/sgl_box.c
+    ${CMAKE_CURRENT_LIST_DIR}/scrollview/sgl_scrollview.c
     ${CMAKE_CURRENT_LIST_DIR}/canvas/sgl_canvas.c
     ${CMAKE_CURRENT_LIST_DIR}/bar/sgl_bar.c
     ${CMAKE_CURRENT_LIST_DIR}/chart/piechart/sgl_piechart.c
