@@ -109,6 +109,7 @@ static void sgl_textlist_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
         .pixmap = textlist->pixmap,
     };
     const int item_height = sgl_font_get_height(textlist->font) + 2 * SGL_TEXTLIST_ITEM_SPACE;
+    const sgl_area_t in_bg = sgl_obj_get_fill_rect(obj);
     sgl_textlist_item_t *item = textlist->head;
 
     switch (evt->type) {
@@ -128,10 +129,7 @@ static void sgl_textlist_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
         };
 
         sgl_draw_rect(surf, &obj->area, &obj->coords, &bg_desc);
-
         text_pos_y -= (int16_t)textlist->sc.offset;
-        sgl_draw_fill_hline(surf, &obj->area, text_pos_y - SGL_TEXTLIST_ITEM_SPACE, text_pos_x1, text_pos_x2, 1,
-                                            textlist->item_text_color, textlist->alpha);
         while (item != NULL) {
             if (text_pos_y >= obj->area.y2) {
                 break;
@@ -161,10 +159,7 @@ static void sgl_textlist_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
                 }
             }
 
-            sgl_draw_string(surf, &obj->area, text_pos_x1, text_pos_y, item->text, textlist->item_text_color, textlist->alpha, textlist->font);
-
-            sgl_draw_fill_hline(surf, &obj->area, text_pos_y + hline_h, text_pos_x1, text_pos_x2, 1,
-                                            textlist->item_text_color, textlist->alpha);
+            sgl_draw_string(surf, &in_bg, text_pos_x1, text_pos_y, item->text, textlist->item_text_color, textlist->alpha, textlist->font);
 
             text_pos_y += item_height;
             item = item->next;

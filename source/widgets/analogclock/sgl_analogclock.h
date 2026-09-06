@@ -47,21 +47,20 @@ typedef struct sgl_analogclock {
     sgl_color_t     min_ptr_color;
     sgl_color_t     sec_ptr_color;
     sgl_color_t     text_color;
-    sgl_color_t     hub_color;
     sgl_color_t     border_color;
-    const sgl_font_t *font;
-    
-    uint8_t         alpha;
-    uint8_t         hour;           /* 0-23 */
-    uint8_t         min;            /* 0-59 */
-    uint8_t         sec;            /* 0-59 */
-    
     uint8_t         scale_width;
     uint8_t         hour_ptr_width;
     uint8_t         min_ptr_width;
     uint8_t         sec_ptr_width;
     uint8_t         hub_r;
     uint8_t         scale_len;
+
+    const sgl_font_t *font;
+
+    uint8_t         alpha;
+    uint8_t         hour;           /* 0-23 */
+    uint8_t         min;            /* 0-59 */
+    uint8_t         sec;            /* 0-59 */
 } sgl_analogclock_t;
 
 /**

@@ -67,20 +67,20 @@ void sgl_scrollview_demo(sgl_obj_t *parent)
 
         child = sgl_label_create(sv);
         sgl_obj_set_pos(child, 8, y);
-        sgl_obj_set_size(child, SV_EX_W - 6, 24);
+        sgl_obj_set_size(child, SV_EX_W - 15, 24);
         sgl_label_set_font(child, &consolas14);
         sgl_label_set_text_color(child, SGL_COLOR_WHITE);
         sgl_label_set_bg_color(child, SGL_COLOR_NAVY);
-        sgl_label_set_radius(child, 4);
+        sgl_label_set_radius(child, 12);
         sgl_snprintf(sv_row_txt[i], sizeof(sv_row_txt[i]), "ScrollView row %02d", i);
         sgl_label_set_text(child, sv_row_txt[i]);
 
         child = sgl_button_create(sv);
         sgl_obj_set_pos(child, 8, (int16_t)(y + 28));
-        sgl_obj_set_size(child, SV_EX_W - 28, 26);
+        sgl_obj_set_size(child, SV_EX_W - 15, 24);
         sgl_button_set_font(child, &consolas14);
         sgl_button_set_text(child, "Tap me");
-        sgl_button_set_radius(child, 4);
+        sgl_button_set_radius(child, 12);
     }
 
     /* a child placed far below the fold to extend the scrollable content */

@@ -177,7 +177,7 @@ static void sgl_analogclock_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_e
                                    clock->sec_ptr_width, clock->sec_ptr_color, clock->alpha);
         }
 
-        sgl_draw_fill_circle(surf, &obj->area, cx - 1, cy - 1, hub_r, clock->hub_color, clock->alpha);
+        sgl_draw_fill_circle(surf, &obj->area, cx - 1, cy - 1, hub_r, clock->sec_ptr_color, clock->alpha);
         sgl_draw_fill_circle(surf, &obj->area, cx - 1, cy - 1, hub_r - 2, clock->bg_color, clock->alpha);
     }
 }
@@ -210,7 +210,6 @@ sgl_obj_t* sgl_analogclock_create(sgl_obj_t* parent)
     clock->bg_color = SGL_THEME_BG_COLOR;
     clock->scale_color = SGL_THEME_COLOR;
     clock->text_color = SGL_THEME_COLOR;
-    clock->hub_color = SGL_COLOR_RED;
     clock->border_color = SGL_THEME_COLOR;
     clock->hour_ptr_color = SGL_THEME_COLOR;
     clock->min_ptr_color = SGL_THEME_COLOR;
@@ -336,18 +335,6 @@ void sgl_analogclock_set_sec_ptr_color(sgl_obj_t *obj, sgl_color_t color)
 {
     sgl_analogclock_t *clock = sgl_container_of(obj, sgl_analogclock_t, obj);
     clock->sec_ptr_color = color;
-    sgl_obj_set_dirty(obj);
-}
-
-/**
- * @brief Set the center hub color of the clock.
- * @param obj Pointer to the analog clock object.
- * @param color The hub color to set.
- */
-void sgl_analogclock_set_hub_color(sgl_obj_t *obj, sgl_color_t color)
-{
-    sgl_analogclock_t *clock = sgl_container_of(obj, sgl_analogclock_t, obj);
-    clock->hub_color = color;
     sgl_obj_set_dirty(obj);
 }
 

@@ -152,7 +152,7 @@ static void sgl_dropdown_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_even
             const int icon_h = dropdown->option_h / 3;
             const int icon_w = 2 * (icon_h - 1); /* half-width == height: 45-degree sides, 90-degree apex */
             const int icon_y_off = dropdown->is_open ? 2 : 0;
-            const int16_t ix = obj->coords.x2 - icon_w - obj->radius - obj->border;
+            const int16_t ix = obj->coords.x2 - icon_w - obj->radius - obj->border - 2;
             const int16_t iy = obj->coords.y1 + (dropdown->option_h - icon_h + 1) / 2 + icon_y_off;
             const uint8_t lw = (uint8_t)sgl_max(2, icon_h / 8);
             sgl_draw_line_noaa(surf, &obj->area, ix, iy,
@@ -191,9 +191,6 @@ static void sgl_dropdown_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_even
             };
 
             int16_t draw_text_y = bg_coords.y1 + SGL_DROPDOWN_OPTION_SPACE - (int16_t)dropdown->sc.offset;
-            sgl_draw_fill_hline(surf, &bg_area, draw_text_y - SGL_DROPDOWN_OPTION_SPACE,
-                                text_pos_x1, text_pos_x2, 1, dropdown->text_color, dropdown->alpha);
-
             /* Iterate through all items from the beginning */
             sgl_area_t select = {
                 .x1 = obj->coords.x1 + obj->border,
@@ -215,7 +212,7 @@ static void sgl_dropdown_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_even
 
                 if (item_idx == dropdown->item_selected) {
                     select.y1 = draw_text_y - SGL_DROPDOWN_OPTION_SPACE + 1;
-                    select.y2 = select.y1 + item_height;
+                    select.y2 = select.y1 + item_height - 1;
 
                     if (select.y1 >= (bg_coords.y1 + obj->radius) && select.y2 <= (bg_coords.y2 - obj->radius)) {
                         sgl_draw_fill_rect(surf, &bg_area, &select, 0, dropdown->item_selected_color, dropdown->alpha);
@@ -234,8 +231,6 @@ static void sgl_dropdown_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_even
 
                 sgl_draw_string(surf, &bg_area, text_pos_x1, draw_text_y, text_buf,
                                 dropdown->text_color, dropdown->alpha, dropdown->font);
-                sgl_draw_fill_hline(surf, &bg_area, draw_text_y + hline_h,
-                                    text_pos_x1, text_pos_x2, 1, dropdown->text_color, dropdown->alpha);
 
                 draw_text_y += item_height;
                 item_idx++;

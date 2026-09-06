@@ -26,7 +26,6 @@
 #include <sgl_draw.h>
 #include <sgl_math.h>
 
-
 /**
  * @brief draw a wireframe rectangle with alpha
  * @param surf point to surface

@@ -86,7 +86,7 @@ static void sgl_qrcode_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_
                 coords.x1 += qrcode->scale;
                 coords.x2 = coords.x1 + qrcode->scale - 1;
                 if (qrcode_getModule(&qrcode->qrcode, x, y)) {
-                    sgl_draw_rect(surf, &obj->area, &coords, &desc);
+                    sgl_draw_fill_rect(surf, &obj->area, &coords, desc.radius, desc.color, desc.alpha);
                 }
             }
         }
