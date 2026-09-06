@@ -190,7 +190,7 @@ void sgl_analogclock_examples(sgl_obj_t *parent)
     sgl_analogclock_set_scale_width(clk, 2);
     sgl_analogclock_set_hour_ptr_width(clk, 6);
     sgl_analogclock_set_min_ptr_width(clk, 4);
-    sgl_analogclock_set_sec_ptr_width(clk, 1);
+    sgl_analogclock_set_sec_ptr_width(clk, 2);
     sgl_analogclock_set_hub_radius(clk, 5);
     sgl_analogclock_set_time(clk, start_min / 60, start_min % 60, g_sweep_sec);
     g_clocks[2] = clk;

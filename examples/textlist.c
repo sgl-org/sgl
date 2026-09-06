@@ -49,6 +49,8 @@ void sgl_textlist_examples(sgl_obj_t *parent)
     sgl_textlist_add_item(textlist, "Kotlin");
     sgl_textlist_add_item(textlist, "Dart");
     sgl_textlist_add_item(textlist, "Ruby");
+    sgl_textlist_add_item(textlist, "C#");
+    sgl_textlist_add_item(textlist, "Object-C");
     
     /* Optional: set pixmap (icon) for each item */
     /* sgl_textlist_set_pixmap(textlist, &some_icon_pixmap); */

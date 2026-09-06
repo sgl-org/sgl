@@ -85,11 +85,9 @@ sgl_obj_t* sgl_progress_create(sgl_obj_t* parent)
     sgl_obj_t *obj = &progress->obj;
     sgl_obj_init(&progress->obj, parent);
     obj->construct_fn = sgl_progress_construct_cb;
-    sgl_obj_set_border_width(obj, SGL_THEME_BORDER_WIDTH);
 
     progress->body.alpha = SGL_THEME_ALPHA;
     progress->body.color = SGL_THEME_BG_COLOR;
-    progress->body.border = SGL_THEME_BORDER_WIDTH;
     progress->body.border_alpha = SGL_THEME_ALPHA;
     progress->body.border_color = SGL_THEME_BORDER_COLOR;
 
