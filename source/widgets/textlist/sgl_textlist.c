@@ -109,7 +109,7 @@ static void sgl_textlist_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
         .pixmap = textlist->pixmap,
     };
     const int item_height = sgl_font_get_height(textlist->font) + 2 * SGL_TEXTLIST_ITEM_SPACE;
-    const sgl_area_t in_bg = sgl_obj_get_fill_rect(obj);
+    sgl_area_t in_bg = sgl_obj_get_fill_rect(obj);
     sgl_textlist_item_t *item = textlist->head;
 
     switch (evt->type) {
