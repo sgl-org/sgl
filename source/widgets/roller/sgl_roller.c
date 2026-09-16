@@ -23,7 +23,6 @@
  */
 
 #include <sgl_theme.h>
-#include <sgl_misc.h>
 #include <string.h>
 #include "sgl_roller.h"
 
@@ -51,7 +50,7 @@ static int roller_wrap_index(int idx, int item_num)
 static int roller_text_offset_for_index(const sgl_roller_t *roller, int idx)
 {
     if (!roller->opt_text || roller->item_num == 0) return 0;
-    return sgl_string_option_get_offset(roller->opt_text,
+    return sgl_separated_option_get_offset(roller->opt_text,
                                         (uint16_t)roller_wrap_index(idx, roller->item_num));
 }
 
@@ -68,9 +67,9 @@ static void roller_free_dynamic_text(sgl_roller_t *roller)
 /** Recalculate item_num and text_offset from opt_text */
 static void roller_update_item_count(sgl_roller_t *roller)
 {
-    roller->item_num = sgl_string_option_get_count(roller->opt_text);
+    roller->item_num = sgl_separated_option_get_count(roller->opt_text);
     if (roller->item_selected >= 0 && roller->opt_text) {
-        roller->text_offset = (uint16_t)sgl_string_option_get_offset(roller->opt_text, roller->item_selected);
+        roller->text_offset = (uint16_t)sgl_separated_option_get_offset(roller->opt_text, roller->item_selected);
     }
 }
 
@@ -190,7 +189,7 @@ static void sgl_roller_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
 
             while (item_draw_y <= draw_y2) {
                 int offset = roller_text_offset_for_index(roller, idx_base);
-                int len = sgl_string_option_get_text_len(roller->opt_text, offset);
+                int len = sgl_separated_option_get_text_len(roller->opt_text, offset);
                 int copy_len = len < (int)sizeof(text_buf) - 1 ? len : (int)sizeof(text_buf) - 1;
                 memcpy(text_buf, roller->opt_text + offset, copy_len);
                 text_buf[copy_len] = '\0';
@@ -209,14 +208,14 @@ static void sgl_roller_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
             int16_t item_draw_y = (int16_t)(band_y1 - roller->sc.offset);
 
             while (roller->opt_text[offset] != '\0' && item_draw_y + item_h < draw_y1) {
-                int len = sgl_string_option_get_text_len(roller->opt_text, offset);
+                int len = sgl_separated_option_get_text_len(roller->opt_text, offset);
                 offset += len;
                 if (roller->opt_text[offset] == '\n') offset++;
                 item_draw_y += item_h;
             }
 
             while (roller->opt_text[offset] != '\0' && item_draw_y <= draw_y2) {
-                int len = sgl_string_option_get_text_len(roller->opt_text, offset);
+                int len = sgl_separated_option_get_text_len(roller->opt_text, offset);
                 int copy_len = len < (int)sizeof(text_buf) - 1 ? len : (int)sizeof(text_buf) - 1;
                 memcpy(text_buf, roller->opt_text + offset, copy_len);
                 text_buf[copy_len] = '\0';
@@ -453,7 +452,7 @@ bool sgl_roller_get_selected_text(sgl_obj_t *obj, char *buf, int buf_size)
     if (!roller->opt_text || roller->item_selected < 0 || roller->item_selected >= roller->item_num) {
         return false;
     }
-    int len = sgl_string_option_get_text_len(roller->opt_text, roller->text_offset);
+    int len = sgl_separated_option_get_text_len(roller->opt_text, roller->text_offset);
     if (len >= buf_size) len = buf_size - 1;
     memcpy(buf, roller->opt_text + roller->text_offset, len);
     buf[len] = '\0';

@@ -83,7 +83,6 @@
 #define __SGL_FILEBROWSER_H__
 
 #include <sgl_core.h>
-#include <sgl_misc.h>
 
 #ifdef __cplusplus
 extern "C" {

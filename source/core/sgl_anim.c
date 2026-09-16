@@ -149,7 +149,7 @@ void sgl_anim_delete(sgl_anim_t *anim)
  * @param  obj object
  * @return none
 */
-void sgl_anim_delete_by_obj(sgl_obj_t *obj)
+void sgl_anim_delete_by_obj(struct sgl_obj *obj)
 {
     sgl_anim_t *anim = sgl_anim_get_by_obj(obj);
     if (anim) {
@@ -226,7 +226,7 @@ void sgl_anim_task(void)
  * @param  obj object
  * @return animation object
 */
-sgl_anim_t* sgl_anim_get_by_obj(sgl_obj_t *obj)
+sgl_anim_t* sgl_anim_get_by_obj(struct sgl_obj *obj)
 {
     SGL_ASSERT(obj != NULL);
     sgl_anim_t *pos = NULL;
@@ -246,7 +246,7 @@ sgl_anim_t* sgl_anim_get_by_obj(sgl_obj_t *obj)
 */
 void sgl_anim_finished_free_obj_cb(sgl_anim_t *anim)
 {
-    sgl_obj_t *obj = (sgl_obj_t*)anim->data;
+    struct sgl_obj *obj = (struct sgl_obj*)anim->data;
     if (obj) {
         sgl_obj_delete(obj);
     }
@@ -706,7 +706,7 @@ int32_t sgl_anim_path_step(uint16_t elaps, uint16_t duration, int32_t start, int
  */
 static void sgl_anim_obj_hori_cb(sgl_anim_t *anim, int32_t value)
 {
-    sgl_obj_t *obj = (sgl_obj_t *)anim->data;
+    struct sgl_obj *obj = (struct sgl_obj *)anim->data;
     sgl_obj_set_pos_x(obj, value);
 }
 
@@ -718,7 +718,7 @@ static void sgl_anim_obj_hori_cb(sgl_anim_t *anim, int32_t value)
  */
 static void sgl_anim_obj_vert_cb(sgl_anim_t *anim, int32_t value)
 {
-    sgl_obj_t *obj = (sgl_obj_t *)anim->data;
+    struct sgl_obj *obj = (struct sgl_obj *)anim->data;
     sgl_obj_set_pos_y(obj, value);
 }
 
@@ -732,7 +732,7 @@ static void sgl_anim_obj_vert_cb(sgl_anim_t *anim, int32_t value)
  * @param effect        Animation path effect
  * @return              Pointer to the allocated and initialized animation object, or NULL on failure
  */
-static sgl_anim_t *sgl_anim_alloc_and_init(sgl_obj_t *obj, int16_t start_value, int16_t end_value, uint16_t duration, sgl_anim_path_cb_t cb, sgl_anim_path_algo_t effect)
+static sgl_anim_t *sgl_anim_alloc_and_init(struct sgl_obj *obj, int16_t start_value, int16_t end_value, uint16_t duration, sgl_anim_path_cb_t cb, sgl_anim_path_algo_t effect)
 {
     sgl_anim_t *anim = sgl_anim_create();
     if (!anim) {
@@ -758,7 +758,7 @@ static sgl_anim_t *sgl_anim_alloc_and_init(sgl_obj_t *obj, int16_t start_value, 
  * @param effect    Animation path effect (e.g., SGL_ANIM_PATH_EASE_IN_OUT, SGL_ANIM_PATH_EASE_IN, SGL_ANIM_PATH_EASE_OUT)
  * @return none
  */
-void sgl_anim_move_obj_hori(sgl_obj_t *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect)
+void sgl_anim_move_obj_hori(struct sgl_obj *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect)
 {
     sgl_anim_t *anim = sgl_anim_alloc_and_init(obj, obj->coords.x1, obj->coords.x1 + distance, duration, sgl_anim_obj_hori_cb, effect);
     if (!anim) {
@@ -776,7 +776,7 @@ void sgl_anim_move_obj_hori(sgl_obj_t *obj, int16_t distance, uint16_t duration,
  * @param effect    Animation path effect (e.g., SGL_ANIM_PATH_EASE_IN_OUT, SGL_ANIM_PATH_EASE_IN, SGL_ANIM_PATH_EASE_OUT)
  * @return none
  */
-void sgl_anim_move_obj_hori_with_free(sgl_obj_t *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect)
+void sgl_anim_move_obj_hori_with_free(struct sgl_obj *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect)
 {
     sgl_anim_t *anim = sgl_anim_alloc_and_init(obj, obj->coords.x1, obj->coords.x1 + distance, duration, sgl_anim_obj_hori_cb, effect);
     if (!anim) {
@@ -795,7 +795,7 @@ void sgl_anim_move_obj_hori_with_free(sgl_obj_t *obj, int16_t distance, uint16_t
  * @param effect    Animation path effect (e.g., SGL_ANIM_PATH_EASE_IN_OUT, SGL_ANIM_PATH_EASE_IN, SGL_ANIM_PATH_EASE_OUT)
  * @return none
  */
-void sgl_anim_move_obj_vert(sgl_obj_t *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect)
+void sgl_anim_move_obj_vert(struct sgl_obj *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect)
 {
     sgl_anim_t *anim = sgl_anim_alloc_and_init(obj, obj->coords.y1, obj->coords.y1 + distance, duration, sgl_anim_obj_vert_cb, effect);
     if (!anim) {
@@ -813,7 +813,7 @@ void sgl_anim_move_obj_vert(sgl_obj_t *obj, int16_t distance, uint16_t duration,
  * @param effect    Animation path effect (e.g., SGL_ANIM_PATH_EASE_IN_OUT, SGL_ANIM_PATH_EASE_IN, SGL_ANIM_PATH_EASE_OUT)
  * @return none
  */
-void sgl_anim_move_obj_vert_with_free(sgl_obj_t *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect)
+void sgl_anim_move_obj_vert_with_free(struct sgl_obj *obj, int16_t distance, uint16_t duration, sgl_anim_path_algo_t effect)
 {
     sgl_anim_t *anim = sgl_anim_alloc_and_init(obj, obj->coords.y1, obj->coords.y1 + distance, duration, sgl_anim_obj_vert_cb, effect);
     if (!anim) {
@@ -856,7 +856,7 @@ void sgl_anim_move_to(int16_t start, int16_t end, uint16_t duration, sgl_anim_pa
  * @param finish_cb Callback function to be called when the animation finishes
  * @return none
  */
-void sgl_anim_move_obj_to(sgl_obj_t *obj, int16_t start, int16_t end, uint16_t duration, sgl_anim_path_cb_t cb, sgl_anim_path_algo_t effect, sgl_anim_finish_cb_t finish_cb)
+void sgl_anim_move_obj_to(struct sgl_obj *obj, int16_t start, int16_t end, uint16_t duration, sgl_anim_path_cb_t cb, sgl_anim_path_algo_t effect, sgl_anim_finish_cb_t finish_cb)
 {
     sgl_anim_t *anim = sgl_anim_alloc_and_init(obj, start, end, duration, cb, effect);
     if (!anim) {

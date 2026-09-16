@@ -31,7 +31,6 @@
 #include <sgl_log.h>
 #include <sgl_mm.h>
 #include <sgl_cfgfix.h>
-#include <sgl_misc.h>
 #include <sgl_anim.h>
 #include <string.h>
 

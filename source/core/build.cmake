@@ -29,6 +29,5 @@ set(SGL_SOURCE
     ${CMAKE_CURRENT_LIST_DIR}/sgl_event.c
     ${CMAKE_CURRENT_LIST_DIR}/sgl_anim.c
     ${CMAKE_CURRENT_LIST_DIR}/sgl_snprintf.c
-    ${CMAKE_CURRENT_LIST_DIR}/sgl_misc.c
     ${CMAKE_CURRENT_LIST_DIR}/sgl_block.c
 )
