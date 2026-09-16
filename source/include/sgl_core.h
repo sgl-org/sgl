@@ -109,7 +109,6 @@ typedef enum sgl_layout_type {
 /**
 * @brief This structure describes the layout of the control, including the layout type,
 *        number of columns, number of rows, column spacing, and row spacing
-*
 * @type: layout type
 * @col_num: number of columns
 * @row_num: number of rows
@@ -135,7 +134,6 @@ typedef struct sgl_layout_desc {
 /**
 * @brief This structure describes the scroll state of the control, including the scroll offset,
 *        scroll range, change commit callback, animation node, coasting speed and scrollbar state
-*
 * @offset: current scroll amount (px)
 * @range: scroll upper limit (content height - viewport height)
 * @commit: change commit callback (widget invalidate/layout)
@@ -174,7 +172,6 @@ typedef struct sgl_scroll {
 * @brief This structure is a structure that describes the position of the control,
 *        where x represents the position of the x coordinate, which is the row coordinate position,
 *        and y represents the position of the y coordinate, which is the column coordinate position
-*
 * @x: x coordinate
 * @y: y coordinate
 */
@@ -185,7 +182,6 @@ typedef struct sgl_pos {
 
 /**
 * @brief This structure describes the size of the object, including width and height, in pixels
-*
 * @w: width
 * @h: height
 */
@@ -198,7 +194,6 @@ typedef struct sgl_size {
 * @brief This structure describes a rectangular region, where x1 and y1 represent the coordinates
 *        of the upper left corner of the rectangle, and x2 and y2 represent the coordinates of the
 *        lower right corner of the rectangle
-*
 * @x1: x position left corner of the rectangle
 * @y1: y position left corner of the rectangle
 * @x2: x position right corner of the rectangle
@@ -213,7 +208,6 @@ typedef struct sgl_area {
 
 /**
 * @brief This structure defines a 32 bit color bit field
-*
 * @blue: Blue color component
 * @green: Green color component
 * @red: Red color component
@@ -231,7 +225,6 @@ typedef union {
 
 /**
 * @brief This structure defines a 24 bit color bit field
-*
 * @blue: Blue color component
 * @green: Green color component
 * @red: Red color component
@@ -247,7 +240,6 @@ typedef union {
 
 /**
 * @brief This structure defines a 16 bit color bit field
-*
 * @blue: Blue color component
 * @green: Green color component
 * @red: Red color component
@@ -264,7 +256,6 @@ typedef union {
 
 /**
 * @brief This structure defines a 8 bit color bit field
-*
 * @blue: Blue color component
 * @green: Green color component
 * @red: Red color component
@@ -316,7 +307,6 @@ typedef struct sgl_surf {
 /**
 * @brief This structure defines an image, with a bitmap pointing to the
 *        bitmap of the image, while specifying the width and height of the image
-*
 * @width: pixmap width
 * @height: pixmap height
 * @format: bitmap format 0: no compression, 1:
@@ -347,7 +337,6 @@ typedef struct sgl_icon_pixmap {
 /**
 * @brief Font index table structure, used to describe the bitmap index positions of
 *        all characters in a font, accelerating the search process
-*
 * @bitmap_index: point to bitmap index of font
 * @adv_w: advance width of character width
 * @box_h: height of font
@@ -399,7 +388,6 @@ typedef int32_t (*sgl_flash_font_read_fn)(uint32_t addr, void *buf, uint32_t len
 /**
 * @brief A structure used to describe information about a font, Defining a font set requires
 *        the use of this structure to describe relevant information
-*
 * @bitmap: point to bitmap of font, set NULL when bitmap is stored in external flash
 * @table: point to struct sgl_font_table
 * @font_table_size: size of struct sgl_font_table
@@ -437,7 +425,6 @@ typedef struct sgl_font {
 
 /**
  * @brief Represents a fundamental UI object in the SGL (Simple Graphics Library) framework.
- *
  * This structure defines a generic GUI element that can be part of a hierarchical display tree.
  * Members:
  * @parent: Pointer to the parent object; NULL if this is a root-level object.
@@ -498,7 +485,6 @@ typedef struct sgl_obj {
 
 /**
  * @brief Represents a page object in the SGL graphics system.
- *
  * An sgl_page_t encapsulates a complete, renderable UI page or screen.
  * It combines a base graphical object, a drawing surface, a background color,
  * and an optional background pixmap. Pages serve as top-level containers
