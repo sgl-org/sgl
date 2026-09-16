@@ -30,5 +30,5 @@ set(SGL_SOURCE
     ${CMAKE_CURRENT_LIST_DIR}/sgl_draw_text.c
     ${CMAKE_CURRENT_LIST_DIR}/sgl_draw_ring.c
     ${CMAKE_CURRENT_LIST_DIR}/sgl_draw_icon.c
-    ${CMAKE_CURRENT_LIST_DIR}/sgl_draw_xform.c
+    ${CMAKE_CURRENT_LIST_DIR}/sgl_draw.c
 )
