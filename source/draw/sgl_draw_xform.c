@@ -28,7 +28,6 @@
 #include <sgl_math.h>
 #include <string.h>
 
-
 /**
  * @brief calculate a point color by bilinear interpolate (with mask support)
  * @param buffer point to image pixmap start buffer (RGB)
