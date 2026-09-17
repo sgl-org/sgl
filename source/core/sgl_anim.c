@@ -27,7 +27,6 @@
 #include <sgl_log.h>
 #include <sgl_mm.h>
 
-#if (CONFIG_SGL_ANIMATION)
 /* animation context */
 static SGL_LIST_HEAD(anim_head);
 
@@ -866,5 +865,3 @@ void sgl_anim_move_obj_to(struct sgl_obj *obj, int16_t start, int16_t end, uint1
     sgl_anim_set_finish_cb(anim, finish_cb);
     sgl_anim_start(anim, SGL_ANIM_REPEAT_ONCE);
 }
-
-#endif // !CONFIG_SGL_ANIMATION

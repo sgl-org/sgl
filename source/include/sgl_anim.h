@@ -35,8 +35,6 @@ extern "C" {
 #include <sgl_types.h>
 #include <sgl_mm.h>
 
-#if (CONFIG_SGL_ANIMATION)
-
 /* Forward declaration of sgl_pos sgl_anim structures */
 struct sgl_pos;
 struct sgl_anim;
@@ -534,8 +532,6 @@ void sgl_anim_move_to(int16_t start, int16_t end, uint16_t duration, sgl_anim_pa
  * @return none
  */
 void sgl_anim_move_obj_to(struct sgl_obj *obj, int16_t start, int16_t end, uint16_t duration, sgl_anim_path_cb_t cb, sgl_anim_path_algo_t effect, sgl_anim_finish_cb_t finish_cb);
-
-#endif // ! CONFIG_SGL_ANIMATION
 
 #ifdef __cplusplus
 } /*extern "C"*/

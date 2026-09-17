@@ -133,9 +133,7 @@ sgl_obj_t* sgl_linechart_create(sgl_obj_t *parent)
     chart->option_bits.open_anim_playing = 0U;
     chart->option_bits.open_anim_dir = SGL_LINECHART_OPEN_ANIM_FROM_LEFT;
     chart->open_anim_start_tick = 0;
-#if (CONFIG_SGL_ANIMATION)
     chart->open_anim_path       = NULL;
-#endif
 
     return obj;
 }
@@ -997,13 +995,10 @@ static void sgl_linechart_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_eve
         }
         else {
             int32_t extent;
-#if (CONFIG_SGL_ANIMATION)
             if (chart->open_anim_path) {
                 extent = chart->open_anim_path(elaps, SGL_LINECHART_OPEN_ANIM_DURATION, 0, 1000);
             }
-            else
-#endif
-            {
+            else {
                 extent = (int32_t)((1000 * (int32_t)elaps) / (int32_t)SGL_LINECHART_OPEN_ANIM_DURATION);
             }
 

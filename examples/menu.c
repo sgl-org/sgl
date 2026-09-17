@@ -29,7 +29,6 @@
  *  - the menu tree is described with constant tables (declarative)
  *  - stack based multi level navigation with slide animations
  *  - touch (drag to scroll, tap to select / activate) and keys
- *  - requires CONFIG_SGL_ANIMATION enabled for the transition effect
  */
 
 static sgl_obj_t       *g_menu_demo_obj   = NULL;

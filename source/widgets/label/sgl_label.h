@@ -162,7 +162,6 @@ void sgl_label_set_alpha(sgl_obj_t *obj, uint8_t alpha);
  */
 void sgl_label_set_text_offset(sgl_obj_t *obj, int8_t offset_x);
 
-#if CONFIG_SGL_ANIMATION
 /**
  * @brief set label long mode
  * @param obj pointer to the label object
@@ -171,7 +170,6 @@ void sgl_label_set_text_offset(sgl_obj_t *obj, int8_t offset_x);
  * @return none
  */
 void sgl_label_set_long_mode(sgl_obj_t *obj, uint32_t speed_ms, bool flag);
-#endif
 
 #ifdef __cplusplus
 }

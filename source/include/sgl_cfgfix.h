@@ -120,10 +120,6 @@ extern "C" {
 #define CONFIG_SGL_IMG_BUFFER_LINES                                (1)  /* External image line buffer size in lines, 0=auto (use full height) */
 #endif
 
-#ifndef CONFIG_SGL_ANIMATION
-#define CONFIG_SGL_ANIMATION                                       (1)  /* Global animation enable */
-#endif
-
 #ifndef CONFIG_SGL_DEBUG
 #   define CONFIG_SGL_DEBUG                                        (0)  /* Global debug log enable */
 #elif (CONFIG_SGL_DEBUG == 1)

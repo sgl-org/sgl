@@ -1940,12 +1940,9 @@ static inline void sgl_draw_task(sgl_fbdev_t *fbdev, sgl_area_t *dirty_area, uin
  */
 void sgl_task_handler_sync(void)
 {
-    /* event task */
+    /* event and animation task */
     sgl_event_task();
-
-#if (CONFIG_SGL_ANIMATION)
     sgl_anim_task();
-#endif // !CONFIG_SGL_ANIMATION
 
     if (sgl_system.fbdev.update_flag) {
         /* foreach all object tree and calculate dirty area */

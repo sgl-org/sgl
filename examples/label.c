@@ -118,9 +118,7 @@ void sgl_label_examples(sgl_obj_t *parent)
     sgl_label_set_text_align(label, SGL_ALIGN_LEFT_MID);
     sgl_label_set_bg_color(label, sgl_rgb(32, 32, 32));
     sgl_label_set_radius(label, 4);
-#if CONFIG_SGL_ANIMATION
     sgl_label_set_long_mode(label, 40, true);   /* 40 pixel / s */
-#endif
 
     /* example 6: translucent label on top of other content */
     label = sgl_label_create(parent);

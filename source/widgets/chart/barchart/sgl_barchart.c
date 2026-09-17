@@ -606,12 +606,9 @@ static void sgl_barchart_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_even
             anim_active = false;
         } else {
             int32_t extent;
-#if (CONFIG_SGL_ANIMATION)
             if (chart->open_anim_path) {
                 extent = chart->open_anim_path(elaps, duration, 0, 1000);
-            } else
-#endif
-            {
+            } else {
                 extent = (int32_t)((1000 * (int32_t)elaps) / duration);
             }
             if (extent < 0) extent = 0;
