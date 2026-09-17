@@ -2212,14 +2212,6 @@ const sgl_font_t monitor_font = {
     .unicode_num = SGL_ARRAY_SIZE(font_unicode),
 };
 
-static void sgl_monitor_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *evt)
-{
-    if (evt->type == SGL_EVENT_DRAW_MAIN) {
-        sgl_draw_string(surf, &obj->area, obj->coords.x1, obj->coords.y1 + 3, (const char*)obj->event_data,
-                                                      SGL_MONITOR_COLOR, SGL_MONITOR_ALPHA, &monitor_font);
-    }
-}
-
 /**
  * @brief draw the fps and memory usage monitor overlay onto the surface
  * @param surf surface that draw to, only the area overlapping with the monitor will be redrawn
@@ -2232,74 +2224,51 @@ static void sgl_monitor_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event
 void sgl_monitor_trace(sgl_surf_t *surf)
 {
     uint32_t cur_tick = sgl_last_tick_get();
+    sgl_area_t monitor_area = {
+        .x1 = SGL_MONITOR_COORDS_X,
+        .x2 = SGL_MONITOR_COORDS_X + SGL_MONITOR_COORDS_WIDTH - 1,
+        .y1 = SGL_MONITOR_COORDS_Y,
+        .y2 = SGL_MONITOR_COORDS_Y + SGL_MONITOR_COORDS_HEIGHT - 1,
+    };
     sgl_event_t evt = {0};
     sgl_obj_t *child;
     static char fps_str[16] = {0};
     static char mem_str[16] = {0};
-    static sgl_obj_t *monitor = NULL;
     static sgl_obj_t *fps = NULL;
     static sgl_obj_t *mem = NULL;
     static sgl_monitor_fps_t fps_calc = {0};
 
-    if (monitor) {
-        uint32_t tick_used = cur_tick - fps_calc.last_tick;
-        if (tick_used >= SGL_SYSTEM_TICK_MS) {
-            uint32_t instant_fps = 1000 / tick_used;
-            fps_calc.history[fps_calc.index] = instant_fps;
-            fps_calc.index = (fps_calc.index + 1) % 8;
-            if (fps_calc.count < 8) fps_calc.count++;
+    uint32_t tick_used = cur_tick - fps_calc.last_tick;
+    if (tick_used >= SGL_SYSTEM_TICK_MS) {
+        uint32_t instant_fps = 1000 / tick_used;
+        fps_calc.history[fps_calc.index] = instant_fps;
+        fps_calc.index = (fps_calc.index + 1) % 8;
+        if (fps_calc.count < 8) fps_calc.count++;
 
-            uint32_t fps_sum = 0;
-            for (uint8_t i = 0; i < fps_calc.count; i++) {
-                fps_sum += fps_calc.history[i];
-            }
-            uint32_t fps_avg = fps_calc.count > 0 ? fps_sum / fps_calc.count : 0;
-            fps_calc.last_tick = cur_tick;
-
-            sgl_snprintf(fps_str, sizeof(fps_str), "FPS:%d", fps_avg);
-            sgl_snprintf(mem_str, sizeof(mem_str), "MEM:%d.%d%", sgl_mm_get_monitor().used_rate >> 8, sgl_mm_get_monitor().used_rate & 0xff);
+        uint32_t fps_sum = 0;
+        for (uint8_t i = 0; i < fps_calc.count; i++) {
+            fps_sum += fps_calc.history[i];
         }
+        uint32_t fps_avg = fps_calc.count > 0 ? fps_sum / fps_calc.count : 0;
+        fps_calc.last_tick = cur_tick;
+
+        sgl_snprintf(fps_str, sizeof(fps_str), "FPS:%d", fps_avg);
+        sgl_snprintf(mem_str, sizeof(mem_str), "MEM:%d.%d%", sgl_mm_get_monitor().used_rate >> 8, sgl_mm_get_monitor().used_rate & 0xff);
+    }
 
 #if (CONFIG_SGL_FBDEV_RUNTIME_ROTATION)
-        if ((monitor->coords.y2 + 1) == SGL_SCREEN_WIDTH || (monitor->coords.x2 + 1) == SGL_SCREEN_HEIGHT) {
-            sgl_obj_delete(monitor);
-            monitor = NULL;
-            return;
-        } 
+    if ((monitor->coords.y2 + 1) == SGL_SCREEN_WIDTH || (monitor->coords.x2 + 1) == SGL_SCREEN_HEIGHT) {
+        sgl_obj_delete(monitor);
+        monitor = NULL;
+        return;
+    }
 #endif
-        evt.type = SGL_EVENT_DRAW_MAIN;
-        if (sgl_surf_area_is_overlap(surf, &monitor->area)) {
-            monitor->construct_fn(surf, monitor, &evt);
-        }
+    sgl_draw_fill_rect(surf, &monitor_area, &monitor_area, 0, SGL_MONITOR_COLOR, SGL_MONITOR_ALPHA);
 
-        sgl_obj_for_each_child(child, monitor) {
-            if (sgl_surf_area_is_overlap(surf, &child->area)) {
-                child->construct_fn(surf, child, &evt);
-            }
-        }
-    }
-    else {
-        monitor = sgl_obj_create(NULL);
-        sgl_obj_set_pos(monitor, SGL_MONITOR_COORDS_X, SGL_MONITOR_COORDS_Y);
-        sgl_obj_set_size(monitor, SGL_MONITOR_COORDS_WIDTH, SGL_MONITOR_COORDS_HEIGHT);
-        monitor->area = monitor->coords;
-        sgl_page_set_color(monitor, SGL_MONITOR_COLOR);
-        sgl_page_set_alpha(monitor, SGL_MONITOR_ALPHA);
-
-        fps = sgl_obj_create(monitor);
-        sgl_obj_set_pos(fps, 0, 0);
-        sgl_obj_set_size(fps, SGL_MONITOR_COORDS_WIDTH, SGL_MONITOR_COORDS_HEIGHT / 2);
-        fps->area = monitor->coords;
-        fps->construct_fn = sgl_monitor_construct_cb;
-        fps->event_data = (void *)fps_str;
-
-        mem = sgl_obj_create(monitor);
-        sgl_obj_set_pos(mem, 0, SGL_MONITOR_COORDS_HEIGHT / 2);
-        sgl_obj_set_size(mem, SGL_MONITOR_COORDS_WIDTH, SGL_MONITOR_COORDS_HEIGHT / 2);
-        mem->area = monitor->coords;
-        mem->construct_fn = sgl_monitor_construct_cb;
-        mem->event_data = (void *)mem_str;
-    }
+    sgl_draw_string(surf, &monitor_area, monitor_area.x1, monitor_area.y1 + 3, (const char*)fps_str,
+                                                    SGL_MONITOR_COLOR, SGL_MONITOR_ALPHA, &monitor_font);
+    sgl_draw_string(surf, &monitor_area, monitor_area.x1, monitor_area.y1 + 3 + SGL_MONITOR_COORDS_HEIGHT / 2, (const char*)mem_str,
+                                                    SGL_MONITOR_COLOR, SGL_MONITOR_ALPHA, &monitor_font);
 }
 #endif
 
