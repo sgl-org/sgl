@@ -372,13 +372,7 @@ void sgl_label_set_long_mode(sgl_obj_t *obj, uint32_t speed, bool flag)
         label->long_mode = 1;
         anim = sgl_anim_get_by_obj(obj);
         if (!anim) {
-            anim = sgl_anim_create();
-            sgl_anim_set_data(anim, obj);
-            sgl_anim_set_start_value(anim, 0);
-            sgl_anim_set_end_value(anim, scroll_dist);
-            sgl_anim_set_act_duration(anim, speed_ms);
-            sgl_anim_set_path(anim, label_anim_cb, SGL_ANIM_PATH_LINEAR);
-            sgl_anim_start(anim, SGL_ANIM_REPEAT_LOOP);
+            sgl_anim_move_obj_to_loop(obj, 0, scroll_dist, speed_ms, label_anim_cb, SGL_ANIM_PATH_LINEAR, NULL);
         }
     } else {
         if (label->long_mode) {

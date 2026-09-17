@@ -865,3 +865,25 @@ void sgl_anim_move_obj_to(struct sgl_obj *obj, int16_t start, int16_t end, uint1
     sgl_anim_set_finish_cb(anim, finish_cb);
     sgl_anim_start(anim, SGL_ANIM_REPEAT_ONCE);
 }
+
+/**
+ * sgl_anim_move_obj_to_loop - Move an object to a specific position with loop
+ * @param obj       Pointer to the object to move
+ * @param start     Start position of the object
+ * @param end       End position of the object
+ * @param duration  Duration of the animation (in milliseconds)
+ * @param cb        Callback function for the animation
+ * @param effect    Animation path effect (e.g., SGL_ANIM_PATH_EASE_IN_OUT, SGL_ANIM_PATH_EASE_IN, SGL_ANIM_PATH_EASE_OUT)
+ * @param finish_cb Callback function to be called when the animation finishes
+ * @return none
+ */
+void sgl_anim_move_obj_to_loop(struct sgl_obj *obj, int16_t start, int16_t end, uint16_t duration, sgl_anim_path_cb_t cb, sgl_anim_path_algo_t effect, sgl_anim_finish_cb_t finish_cb)
+{
+    sgl_anim_t *anim = sgl_anim_alloc_and_init(obj, start, end, duration, cb, effect);
+    if (!anim) {
+        SGL_LOG_ERROR("Failed to create animation object for sgl_anim_move_to_loop");
+        return;
+    }
+    sgl_anim_set_finish_cb(anim, finish_cb);
+    sgl_anim_start(anim, SGL_ANIM_REPEAT_LOOP);
+}
