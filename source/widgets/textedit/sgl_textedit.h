@@ -60,18 +60,12 @@ extern "C" {
  * @text_color: text color
  * @cursor_color: cursor color
  * @cursor_pos: cursor position in text buffer (byte index)
- * @cursor_x: cursor x coordinate (cached)
- * @cursor_y: cursor y coordinate (cached)
- * @cursor_h: cursor height (cached)
  * @cursor_visible: cursor visible flag (controlled by blink animation)
  * @cursor_anim: cursor blink animation object (dynamically created/deleted)
  * @y_offset: vertical scroll offset
- * @text_height: total text height in pixels
  * @text_max_len: text buffer max length (including null terminator)
  * @mode: single line or multi line mode
  * @line_margin: line margin for multi-line mode
- * @editable: whether text can be edited
- * @scroll_enable: whether scroll bar is visible
  */
 typedef struct sgl_textedit {
     sgl_obj_t        obj;
@@ -81,18 +75,12 @@ typedef struct sgl_textedit {
     sgl_color_t      text_color;
     sgl_color_t      cursor_color;
     int32_t          cursor_pos;
-    int16_t          cursor_x;
-    int16_t          cursor_y;
-    int16_t          cursor_h;
-    uint8_t          cursor_visible;
     sgl_anim_t       *cursor_anim;
     int32_t          y_offset;
-    int32_t          text_height;
     int32_t          text_max_len;
     uint8_t          mode;
     uint8_t          line_margin;
-    uint8_t          editable;
-    uint8_t          scroll_enable;
+    uint8_t          cursor_visible;
 } sgl_textedit_t;
 
 /**

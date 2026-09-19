@@ -33,16 +33,15 @@
 #include <string.h>
 #include "sgl_textedit.h"
 
-
 /**
- * @brief calculate cursor position in pixels for single-line mode
+ * @brief calculate cursor area in pixels for single-line mode
  * @param textedit textedit object
  * @param obj object
+ * @param cursor_area output cursor area
  * @return none
  */
-static void textedit_calc_cursor_pos_single(sgl_textedit_t *textedit, sgl_obj_t *obj)
+static void textedit_calc_cursor_area_single(sgl_textedit_t *textedit, sgl_obj_t *obj, sgl_area_t *cursor_area)
 {
-    int16_t body_w = obj->coords.x2 - obj->coords.x1 - 2 * textedit->bg.radius;
     int16_t text_x = obj->coords.x1 + textedit->bg.radius + 2;
     int16_t text_y = obj->coords.y1 + (obj->coords.y2 - obj->coords.y1 - textedit->font->font_height) / 2;
 
@@ -52,26 +51,26 @@ static void textedit_calc_cursor_pos_single(sgl_textedit_t *textedit, sgl_obj_t 
     int32_t cursor_w = sgl_font_get_string_width(textedit->text, textedit->font);
     textedit->text[textedit->cursor_pos] = saved;
 
-    textedit->cursor_x = text_x + cursor_w;
-    textedit->cursor_y = text_y;
-    textedit->cursor_h = textedit->font->font_height;
+    cursor_area->x1 = text_x + cursor_w;
+    cursor_area->y1 = text_y;
+    cursor_area->x2 = cursor_area->x1 + SGL_TEXTEDIT_CURSOR_WIDTH - 1;
+    cursor_area->y2 = cursor_area->y1 + textedit->font->font_height - 1;
 
-    /* horizontal scroll: ensure cursor is visible */
-    if (textedit->cursor_x > obj->coords.x2 - textedit->bg.radius - 2) {
-        textedit->y_offset = 0; /* reuse y_offset as x_offset for single line */
-        textedit->cursor_x = obj->coords.x2 - textedit->bg.radius - 2;
+    /* clamp to right edge */
+    if (cursor_area->x1 > obj->coords.x2 - textedit->bg.radius - 2) {
+        cursor_area->x1 = obj->coords.x2 - textedit->bg.radius - 2;
+        cursor_area->x2 = cursor_area->x1 + SGL_TEXTEDIT_CURSOR_WIDTH - 1;
     }
-    SGL_UNUSED(body_w);
 }
 
-
 /**
- * @brief calculate cursor position in pixels for multi-line mode
+ * @brief calculate cursor area in pixels for multi-line mode
  * @param textedit textedit object
  * @param obj object
+ * @param cursor_area output cursor area
  * @return none
  */
-static void textedit_calc_cursor_pos_multi(sgl_textedit_t *textedit, sgl_obj_t *obj)
+static void textedit_calc_cursor_area_multi(sgl_textedit_t *textedit, sgl_obj_t *obj, sgl_area_t *cursor_area)
 {
     int16_t body_w = obj->coords.x2 - obj->coords.x1 - 2 * textedit->bg.radius - 4;
     int16_t text_x = obj->coords.x1 + textedit->bg.radius + 2;
@@ -96,19 +95,19 @@ static void textedit_calc_cursor_pos_multi(sgl_textedit_t *textedit, sgl_obj_t *
     int32_t cursor_w = sgl_font_get_string_width(textedit->text + line_start, textedit->font);
     textedit->text[textedit->cursor_pos] = saved;
 
-    textedit->cursor_x = text_x + cursor_w;
-    textedit->cursor_y = text_y + cur_line * line_h + textedit->y_offset;
-    textedit->cursor_h = textedit->font->font_height;
+    int16_t cursor_x = text_x + cursor_w;
+    int16_t cursor_y = text_y + cur_line * line_h + textedit->y_offset;
+    int16_t cursor_h = textedit->font->font_height;
 
     /* vertical scroll: ensure cursor is visible */
     int16_t view_h = obj->coords.y2 - obj->coords.y1 - 2 * textedit->bg.radius - 4;
-    if (textedit->cursor_y + textedit->cursor_h > obj->coords.y1 + textedit->bg.radius + 2 + view_h) {
-        textedit->y_offset -= (textedit->cursor_y + textedit->cursor_h) - (obj->coords.y1 + textedit->bg.radius + 2 + view_h);
-        textedit->cursor_y = obj->coords.y1 + textedit->bg.radius + 2 + view_h - textedit->cursor_h;
+    if (cursor_y + cursor_h > text_y + view_h) {
+        textedit->y_offset -= (cursor_y + cursor_h) - (text_y + view_h);
+        cursor_y = text_y + view_h - cursor_h;
     }
-    else if (textedit->cursor_y < obj->coords.y1 + textedit->bg.radius + 2) {
-        textedit->y_offset += (obj->coords.y1 + textedit->bg.radius + 2) - textedit->cursor_y;
-        textedit->cursor_y = obj->coords.y1 + textedit->bg.radius + 2;
+    else if (cursor_y < text_y) {
+        textedit->y_offset += text_y - cursor_y;
+        cursor_y = text_y;
     }
 
     /* clamp y_offset */
@@ -125,8 +124,29 @@ static void textedit_calc_cursor_pos_multi(sgl_textedit_t *textedit, sgl_obj_t *
     else {
         textedit->y_offset = 0;
     }
+
+    cursor_area->x1 = cursor_x;
+    cursor_area->y1 = cursor_y;
+    cursor_area->x2 = cursor_area->x1 + SGL_TEXTEDIT_CURSOR_WIDTH - 1;
+    cursor_area->y2 = cursor_area->y1 + cursor_h - 1;
 }
 
+/**
+ * @brief calculate cursor area based on current mode
+ * @param textedit textedit object
+ * @param obj object
+ * @param cursor_area output cursor area
+ * @return none
+ */
+static void textedit_calc_cursor_area(sgl_textedit_t *textedit, sgl_obj_t *obj, sgl_area_t *cursor_area)
+{
+    if (textedit->mode == SGL_TEXTEDIT_SINGLE_LINE) {
+        textedit_calc_cursor_area_single(textedit, obj, cursor_area);
+    }
+    else {
+        textedit_calc_cursor_area_multi(textedit, obj, cursor_area);
+    }
+}
 
 /**
  * @brief cursor blink animation path callback
@@ -140,21 +160,9 @@ static void textedit_cursor_blink_cb(sgl_anim_t *anim, int32_t value)
     sgl_textedit_t *textedit = sgl_container_of(obj, sgl_textedit_t, obj);
     textedit->cursor_visible = (value != 0) ? 1 : 0;
 
-    /* calculate cursor position */
-    if (textedit->mode == SGL_TEXTEDIT_SINGLE_LINE) {
-        textedit_calc_cursor_pos_single(textedit, obj);
-    }
-    else {
-        textedit_calc_cursor_pos_multi(textedit, obj);
-    }
-
     /* only update cursor area */
-    sgl_area_t cursor_area = {
-        .x1 = textedit->cursor_x,
-        .y1 = textedit->cursor_y,
-        .x2 = textedit->cursor_x + SGL_TEXTEDIT_CURSOR_WIDTH - 1,
-        .y2 = textedit->cursor_y + textedit->cursor_h - 1,
-    };
+    sgl_area_t cursor_area;
+    textedit_calc_cursor_area(textedit, obj, &cursor_area);
     sgl_update_area(&cursor_area);
 }
 
@@ -174,7 +182,6 @@ static int32_t textedit_cursor_blink_path(uint16_t elaps, uint16_t duration, int
     /* toggle between 0 and 1 based on elapsed time */
     return (elaps / (SGL_TEXTEDIT_CURSOR_BLINK_MS / 2)) % 2;
 }
-
 
 /**
  * @brief start cursor blink animation
@@ -206,7 +213,6 @@ void sgl_textedit_cursor_blink_start(sgl_obj_t *obj)
     sgl_obj_set_dirty(obj);
 }
 
-
 /**
  * @brief stop cursor blink animation
  * @param obj textedit object
@@ -224,7 +230,6 @@ void sgl_textedit_cursor_blink_stop(sgl_obj_t *obj)
     textedit->cursor_visible = 0;
     sgl_obj_set_dirty(obj);
 }
-
 
 /**
  * @brief textedit constructor function
@@ -261,7 +266,7 @@ static void sgl_textedit_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
         /* draw text */
         if (textedit->text != NULL && textedit->text[0] != '\0') {
             if (textedit->mode == SGL_TEXTEDIT_SINGLE_LINE) {
-                sgl_draw_string(surf, &area, area.x1, 
+                sgl_draw_string(surf, &area, area.x1,
                                obj->coords.y1 + (body_h - textedit->font->font_height) / 2 + textedit->bg.radius,
                                textedit->text, textedit->text_color, textedit->bg.alpha, textedit->font);
             }
@@ -274,29 +279,22 @@ static void sgl_textedit_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
         }
 
         /* draw cursor */
-        if (textedit->cursor_visible && textedit->editable) {
-            if (textedit->mode == SGL_TEXTEDIT_SINGLE_LINE) {
-                textedit_calc_cursor_pos_single(textedit, obj);
-            }
-            else {
-                textedit_calc_cursor_pos_multi(textedit, obj);
-            }
+        if (textedit->cursor_visible) {
+            sgl_area_t cursor_area;
+            textedit_calc_cursor_area(textedit, obj, &cursor_area);
 
             /* clip cursor to visible area */
-            clip.x1 = textedit->cursor_x;
-            clip.y1 = textedit->cursor_y;
-            clip.x2 = textedit->cursor_x + SGL_TEXTEDIT_CURSOR_WIDTH - 1;
-            clip.y2 = textedit->cursor_y + textedit->cursor_h - 1;
-
+            clip = cursor_area;
             if (sgl_area_selfclip(&clip, &area)) {
                 sgl_draw_fill_rect(surf, &area, &clip, 0, textedit->cursor_color, SGL_ALPHA_MAX);
             }
         }
 
-        /* draw scroll bar for multi-line mode */
-        if (textedit->mode == SGL_TEXTEDIT_MULTI_LINE && textedit->scroll_enable) {
+        /* draw scroll bar for multi-line mode when pressed */
+        if (textedit->mode == SGL_TEXTEDIT_MULTI_LINE) {
             int16_t view_h = body_h - 4;
-            int32_t total_h = textedit->text_height;
+            int32_t total_h = sgl_font_get_string_height(body_w - 4, textedit->text,
+                                                          textedit->font, textedit->line_margin);
             if (total_h > view_h) {
                 int16_t scroll_h = sgl_max(view_h * view_h / total_h, 8);
                 int16_t scroll_y = obj->coords.y1 + textedit->bg.radius + 2 +
@@ -313,24 +311,14 @@ static void sgl_textedit_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
         }
         break;
 
-    case SGL_EVENT_PRESSED:
-        textedit->scroll_enable = 1;
-        sgl_obj_set_dirty(obj);
-        break;
-
-    case SGL_EVENT_RELEASED:
-        textedit->scroll_enable = 0;
-        sgl_obj_set_dirty(obj);
-        break;
-
     case SGL_EVENT_MOVE_UP:
     case SGL_EVENT_MOVE_DOWN:
         if (textedit->mode == SGL_TEXTEDIT_MULTI_LINE) {
-            textedit->text_height = sgl_font_get_string_height(body_w - 4, textedit->text,
-                                                               textedit->font, textedit->line_margin);
+            int32_t text_height = sgl_font_get_string_height(body_w - 4, textedit->text,
+                                                              textedit->font, textedit->line_margin);
             int16_t view_h = body_h - 4;
             bool can_move = (evt->type == SGL_EVENT_MOVE_UP)
-                ? ((textedit->text_height + textedit->y_offset) > view_h)
+                ? ((text_height + textedit->y_offset) > view_h)
                 : (textedit->y_offset < 0);
             if (can_move) {
                 textedit->y_offset += evt->distance;
@@ -340,35 +328,8 @@ static void sgl_textedit_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
         break;
 
     case SGL_EVENT_CLICKED:
-        /* start cursor blink when clicked */
-        if (textedit->editable) {
-            sgl_textedit_cursor_blink_start(obj);
-        }
+        sgl_textedit_cursor_blink_start(obj);
         sgl_obj_set_dirty(obj);
-        break;
-
-    case SGL_EVENT_FOCUSED:
-        textedit->bg.border++;
-        if (textedit->editable) {
-            sgl_textedit_cursor_blink_start(obj);
-        }
-        break;
-
-    case SGL_EVENT_UNFOCUSED:
-        textedit->bg.border--;
-        sgl_textedit_cursor_blink_stop(obj);
-        break;
-
-    case SGL_EVENT_DRAW_INIT:
-        textedit->cursor_pos = 0;
-        textedit->cursor_visible = 0;
-        textedit->cursor_anim = NULL;
-        textedit->y_offset = 0;
-        textedit->text_height = 0;
-        textedit->scroll_enable = 0;
-        if (textedit->text == NULL) {
-            textedit->text = "";
-        }
         break;
 
     case SGL_EVENT_DESTROYED:
@@ -379,7 +340,6 @@ static void sgl_textedit_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
         break;
     }
 }
-
 
 /**
  * @brief create a textedit object
@@ -409,7 +369,7 @@ sgl_obj_t* sgl_textedit_create(sgl_obj_t* parent)
     textedit->bg.alpha = SGL_THEME_ALPHA;
     textedit->bg.color = SGL_THEME_COLOR;
     textedit->bg.border_alpha = SGL_THEME_ALPHA;
-    textedit->bg.radius = 4;
+    textedit->bg.radius = 0;
     textedit->bg.border = 1;
     textedit->bg.border_color = SGL_THEME_BORDER_COLOR;
     textedit->bg.pixmap = NULL;
@@ -421,11 +381,9 @@ sgl_obj_t* sgl_textedit_create(sgl_obj_t* parent)
     textedit->text_max_len = 0;
     textedit->mode = SGL_TEXTEDIT_SINGLE_LINE;
     textedit->line_margin = 2;
-    textedit->editable = 1;
 
     return obj;
 }
-
 
 /**
  * @brief set textedit text buffer
@@ -445,7 +403,6 @@ void sgl_textedit_set_text_buffer(sgl_obj_t *obj, char *buffer, int32_t max_len)
     textedit->cursor_pos = 0;
     sgl_obj_set_dirty(obj);
 }
-
 
 /**
  * @brief set textedit text
@@ -467,7 +424,6 @@ void sgl_textedit_set_text(sgl_obj_t *obj, const char *text)
     sgl_obj_set_dirty(obj);
 }
 
-
 /**
  * @brief get textedit text
  * @param obj textedit object
@@ -478,7 +434,6 @@ const char* sgl_textedit_get_text(sgl_obj_t *obj)
     sgl_textedit_t *textedit = sgl_container_of(obj, sgl_textedit_t, obj);
     return textedit->text;
 }
-
 
 /**
  * @brief set textedit mode
@@ -494,7 +449,6 @@ void sgl_textedit_set_mode(sgl_obj_t *obj, uint8_t mode)
     sgl_obj_set_dirty(obj);
 }
 
-
 /**
  * @brief set textedit text color
  * @param obj textedit object
@@ -507,7 +461,6 @@ void sgl_textedit_set_text_color(sgl_obj_t *obj, sgl_color_t color)
     textedit->text_color = color;
     sgl_obj_set_dirty(obj);
 }
-
 
 /**
  * @brief set textedit text font
@@ -522,7 +475,6 @@ void sgl_textedit_set_text_font(sgl_obj_t *obj, const sgl_font_t *font)
     sgl_obj_set_dirty(obj);
 }
 
-
 /**
  * @brief set textedit background color
  * @param obj textedit object
@@ -535,7 +487,6 @@ void sgl_textedit_set_bg_color(sgl_obj_t *obj, sgl_color_t color)
     textedit->bg.color = color;
     sgl_obj_set_dirty(obj);
 }
-
 
 /**
  * @brief set textedit cursor color
@@ -550,7 +501,6 @@ void sgl_textedit_set_cursor_color(sgl_obj_t *obj, sgl_color_t color)
     sgl_obj_set_dirty(obj);
 }
 
-
 /**
  * @brief set textedit border color
  * @param obj textedit object
@@ -564,7 +514,6 @@ void sgl_textedit_set_border_color(sgl_obj_t *obj, sgl_color_t color)
     sgl_obj_set_dirty(obj);
 }
 
-
 /**
  * @brief set textedit border width
  * @param obj textedit object
@@ -577,7 +526,6 @@ void sgl_textedit_set_border_width(sgl_obj_t *obj, uint8_t width)
     textedit->bg.border = width;
     sgl_obj_set_border_width(obj, width);
 }
-
 
 /**
  * @brief set textedit radius
@@ -593,7 +541,6 @@ void sgl_textedit_set_radius(sgl_obj_t *obj, uint8_t radius)
     sgl_obj_set_dirty(obj);
 }
 
-
 /**
  * @brief set textedit line margin (for multi-line mode)
  * @param obj textedit object
@@ -606,7 +553,6 @@ void sgl_textedit_set_line_margin(sgl_obj_t *obj, uint8_t margin)
     textedit->line_margin = margin;
     sgl_obj_set_dirty(obj);
 }
-
 
 /**
  * @brief insert a character at cursor position
@@ -648,7 +594,6 @@ void sgl_textedit_insert_char(sgl_obj_t *obj, char c)
     sgl_obj_set_dirty(obj);
 }
 
-
 /**
  * @brief delete character before cursor (backspace)
  * @param obj textedit object
@@ -675,7 +620,6 @@ void sgl_textedit_backspace(sgl_obj_t *obj)
     sgl_obj_set_dirty(obj);
 }
 
-
 /**
  * @brief move cursor left
  * @param obj textedit object
@@ -693,7 +637,6 @@ void sgl_textedit_cursor_left(sgl_obj_t *obj)
     }
 }
 
-
 /**
  * @brief move cursor right
  * @param obj textedit object
@@ -710,7 +653,6 @@ void sgl_textedit_cursor_right(sgl_obj_t *obj)
         sgl_obj_set_dirty(obj);
     }
 }
-
 
 /**
  * @brief move cursor up (multi-line mode)
@@ -752,7 +694,6 @@ void sgl_textedit_cursor_up(sgl_obj_t *obj)
     }
     sgl_obj_set_dirty(obj);
 }
-
 
 /**
  * @brief move cursor down (multi-line mode)
@@ -802,7 +743,6 @@ void sgl_textedit_cursor_down(sgl_obj_t *obj)
     sgl_obj_set_dirty(obj);
 }
 
-
 /**
  * @brief set cursor position
  * @param obj textedit object
@@ -823,7 +763,6 @@ void sgl_textedit_set_cursor_pos(sgl_obj_t *obj, int32_t pos)
     }
     sgl_obj_set_dirty(obj);
 }
-
 
 /**
  * @brief get cursor position
