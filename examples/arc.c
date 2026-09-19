@@ -113,11 +113,11 @@ void sgl_arc_examples(sgl_obj_t *parent)
     sgl_obj_set_pos(arc, 430, 170);
     sgl_obj_set_size(arc, 140, 140);
     sgl_arc_set_radius(arc, 45, 62);
-    sgl_arc_set_mode(arc, SGL_ARC_MODE_RING);
+    sgl_arc_set_mode(arc, SGL_ARC_MODE_RING_SMOOTH);
     sgl_arc_set_color(arc, SGL_COLOR_SPRING_GREEN);
     sgl_arc_set_bg_color(arc, SGL_COLOR_DARK_GRAY);
     sgl_arc_set_start_angle(arc, 0);
-    sgl_arc_set_end_angle(arc, 0);
+    sgl_arc_set_end_angle(arc, 360);
     g_loader = arc;
 
     /* example 4: 180 deg arc with round caps, sweeping over the top */

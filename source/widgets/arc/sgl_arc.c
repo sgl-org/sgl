@@ -207,15 +207,6 @@ static void sgl_arc_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *
             sgl_arc_set_end_angle(obj, tb_angle);
         }
     }
-    else if(evt->type == SGL_EVENT_DRAW_INIT) {
-        if(arc->desc.radius_out < 0) {
-            arc->desc.radius_out = (obj->coords.x2 - obj->coords.x1) / 2;
-        }
-
-        if(arc->desc.radius_in < 0) {
-            arc->desc.radius_in = arc->desc.radius_out - 2;
-        }
-    }
 }
 
 /**
@@ -246,11 +237,6 @@ sgl_obj_t* sgl_arc_create(sgl_obj_t* parent)
     arc->desc.bg_color = SGL_THEME_COLOR;
     arc->desc.start_angle = 0;
     arc->desc.end_angle = 360;
-    arc->desc.radius_out = -1;
-    arc->desc.radius_in = -1;
-    arc->desc.cx = -1;
-    arc->desc.cy = -1;
-
     obj->construct_fn = sgl_arc_construct_cb;
 
     return obj;
