@@ -40,9 +40,9 @@
  * @param angle_s start angle, in [0, 360)
  * @param angle_e end angle, in [0, 360)
  * @return true if angle is inside the arc range
- * @note angles here are user-facing (0 deg = top, clockwise); the renderer
- *       works in the opposite convention, so every angle handed down to
- *       sgl_draw_fill_arc must be rotated by 180 deg (see construct cb)
+ * @note angles here are user-facing (0 deg = top, clockwise), which matches
+ *       the convention used by sgl_draw_fill_arc, so angles can be passed
+ *       through directly without any offset.
  */
 static bool arc_angle_in_range(int16_t angle, int16_t angle_s, int16_t angle_e)
 {
@@ -124,8 +124,10 @@ static void arc_update_area(int16_t radius_in, int16_t radius_out, int16_t angle
     int16_t axis_angle;
     int i;
 
-    angle_s = sgl_mod360(angle_s) - 1;
-    angle_e = sgl_mod360(angle_e) + 1;
+    /* Expand by 1 degree on each side to ensure endpoints are included,
+     * then normalize to [0, 360). */
+    angle_s = sgl_mod360(angle_s - 1);
+    angle_e = sgl_mod360(angle_e + 1);
 
     /* endpoints on the outer radius */
     x_min = x_max = (int16_t)(((radius_out + 1) * sgl_sin(angle_s)) / SGL_SIN_FIXED_ONE);
@@ -188,10 +190,7 @@ static void sgl_arc_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *
 
         sgl_draw_arc_t rd = arc->desc;
         int16_t mod_diff = sgl_mod360((int16_t)diff);
-        if (mod_diff != 0) {
-            rd.start_angle = (int16_t)sgl_mod360((int16_t)(rd.start_angle + 180));
-            rd.end_angle   = (int16_t)sgl_mod360((int16_t)(rd.end_angle + 180));
-        } else {
+        if (mod_diff == 0) {
             rd.start_angle = 0;
             rd.end_angle   = 360;
         }
@@ -345,20 +344,18 @@ void sgl_arc_set_start_angle(sgl_obj_t *obj, int16_t angle)
         return;
     }
 
-    if (angle > arc->desc.start_angle ||
-        arc->desc.mode == SGL_ARC_MODE_RING || arc->desc.mode == SGL_ARC_MODE_RING_SMOOTH ||
-        arc->desc.start_angle - angle >= 360 || angle - arc->desc.start_angle >= 360 ||
-        arc->desc.cx < 0 || arc->desc.cy < 0) {
-        arc->desc.start_angle = angle;
+    if ((angle > arc->desc.start_angle) && 
+        (arc->desc.mode == SGL_ARC_MODE_RING || arc->desc.mode == SGL_ARC_MODE_RING_SMOOTH)) {
         sgl_obj_set_dirty(obj);
-        return;
     }
-    arc_update_area(arc->desc.radius_in, arc->desc.radius_out, arc->desc.start_angle, angle, arc->desc.mode, &area);
-    area.x1 += arc->desc.cx;
-    area.x2 += arc->desc.cx;
-    area.y1 += arc->desc.cy;
-    area.y2 += arc->desc.cy;
-    sgl_update_area(&area);
+    else {
+        arc_update_area(arc->desc.radius_in, arc->desc.radius_out, angle, arc->desc.start_angle, arc->desc.mode, &area);
+        area.x1 += arc->desc.cx;
+        area.x2 += arc->desc.cx;
+        area.y1 += arc->desc.cy;
+        area.y2 += arc->desc.cy;
+        sgl_update_area(&area);
+    }
     arc->desc.start_angle = angle;
 }
 
@@ -378,10 +375,8 @@ void sgl_arc_set_end_angle(sgl_obj_t *obj, int16_t angle)
         return;
     }
 
-    if (angle < arc->desc.end_angle ||
-        arc->desc.mode == SGL_ARC_MODE_RING || arc->desc.mode == SGL_ARC_MODE_RING_SMOOTH ||
-        angle - arc->desc.end_angle >= 360 ||
-        arc->desc.cx < 0 || arc->desc.cy < 0) {
+    if ((angle < arc->desc.end_angle) && 
+        (arc->desc.mode == SGL_ARC_MODE_RING || arc->desc.mode == SGL_ARC_MODE_RING_SMOOTH)) {
         sgl_obj_set_dirty(obj);
     }
     else {
