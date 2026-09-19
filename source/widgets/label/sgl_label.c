@@ -55,9 +55,9 @@ static void sgl_label_update_area(sgl_label_t *label, int16_t text_length, sgl_a
     if (label->font && up_len) {
         pos = sgl_get_align_pos(&obj_size, &text_size, (sgl_align_type_t)label->align);
         area->x1 = obj->area.x1 + pos.x + label->offset_x - 1;
-        area->x2 = area->x1 + up_len - 1;
+        area->x2 = area->x1 + up_len;
         area->y1 = obj->area.y1 + pos.y - 1;
-        area->y2 = area->y1 + text_size.h - 1;
+        area->y2 = area->y1 + text_size.h;
     }
 }
 
