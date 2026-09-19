@@ -128,7 +128,6 @@ sgl/
 │   ├── components/         # Extensions: timer, etc.
 │   ├── include/            # Public headers (sgl_core.h / sgl_event.h / ...)
 │   └── examples/           # Example code for every widget — the best way to learn SGL
-├── demos/                  # Composite demos (e.g. coverflow)
 ├── cmake/                  # CMake config templates
 └── configure.md            # Item-by-item sgl_config.h reference
 ```

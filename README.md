@@ -126,7 +126,6 @@ sgl/
 │   ├── components/         # 扩展组件：timer 等
 │   ├── include/            # 公共头文件（sgl_core.h / sgl_event.h / ...）
 │   └── examples/           # 每个控件的示例代码，学习 SGL 的最佳入口
-├── demos/                  # 复合型演示（如 coverflow）
 ├── cmake/                  # CMake 配置模板
 └── configure.md            # sgl_config.h 逐项配置说明
 ```
