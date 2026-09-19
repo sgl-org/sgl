@@ -204,10 +204,8 @@ static void sgl_arc_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *
          * the angle whose (sin, cos) direction is (x, y), so flip dy */
         tb_angle = sgl_atan2(evt->pos.x - arc->desc.cx, arc->desc.cy - evt->pos.y);
         if ((tb_angle != arc->desc.end_angle) && tb_angle >= 0 && tb_angle <= 360) {
-            arc->desc.end_angle = tb_angle;
+            sgl_arc_set_end_angle(obj, tb_angle);
         }
-
-        sgl_obj_set_dirty(obj);
     }
     else if(evt->type == SGL_EVENT_DRAW_INIT) {
         if(arc->desc.radius_out < 0) {
