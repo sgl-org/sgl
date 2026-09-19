@@ -39,6 +39,7 @@ set(SGL_SOURCE
     ${CMAKE_CURRENT_LIST_DIR}/msgbox/sgl_msgbox.c
     ${CMAKE_CURRENT_LIST_DIR}/textline/sgl_textline.c
     ${CMAKE_CURRENT_LIST_DIR}/textbox/sgl_textbox.c
+    ${CMAKE_CURRENT_LIST_DIR}/textedit/sgl_textedit.c
     ${CMAKE_CURRENT_LIST_DIR}/checkbox/sgl_checkbox.c
     ${CMAKE_CURRENT_LIST_DIR}/icon/sgl_icon.c
     ${CMAKE_CURRENT_LIST_DIR}/numberkbd/sgl_numberkbd.c

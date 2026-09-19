@@ -47,6 +47,7 @@
 #include "widgets/msgbox/sgl_msgbox.h"
 #include "widgets/textline/sgl_textline.h"
 #include "widgets/textbox/sgl_textbox.h"
+#include "widgets/textedit/sgl_textedit.h"
 #include "widgets/checkbox/sgl_checkbox.h"
 #include "widgets/icon/sgl_icon.h"
 #include "widgets/viewlist/sgl_viewlist.h"

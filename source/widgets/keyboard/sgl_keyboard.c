@@ -474,7 +474,11 @@ static void sgl_keyboard_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
         }
         else {
             keyboard->opcode = key_ascii;
-            if (keyboard->edit) {
+            if (keyboard->key_cb) {
+                /* use callback for external widget (e.g. textedit) */
+                keyboard->key_cb(obj, key_ascii, keyboard->key_cb_data);
+            }
+            else if (keyboard->edit) {
                 keyboard_btn_handler(keyboard);
             }
         }
@@ -843,4 +847,18 @@ void sgl_keyboard_set_textarea(sgl_obj_t *obj, char *buffer, int buf_max_len)
     sgl_keyboard_t *keyboard = sgl_container_of(obj, sgl_keyboard_t, obj);
     keyboard->edit = buffer;
     keyboard->edit_max_len = buf_max_len;
+}
+
+/**
+ * @brief set keyboard key callback for external widget (e.g. textedit)
+ * @param obj keyboard object
+ * @param cb callback function, called when a key is pressed
+ * @param user_data user data passed to callback
+ * @return none
+ */
+void sgl_keyboard_set_key_callback(sgl_obj_t *obj, void (*cb)(sgl_obj_t *keyboard_obj, uint8_t key, void *user_data), void *user_data)
+{
+    sgl_keyboard_t *keyboard = sgl_container_of(obj, sgl_keyboard_t, obj);
+    keyboard->key_cb = cb;
+    keyboard->key_cb_data = user_data;
 }
