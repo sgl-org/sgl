@@ -510,7 +510,6 @@ void sgl_label_ext_set_text(sgl_obj_t *obj, const char *text)
     /* recompute the bounding box, invalidate it and schedule redraw */
     sgl_label_ext_update_coords(label_ext);
     sgl_update_area(&obj->coords);
-    sgl_obj_set_dirty(obj);
 }
 
 /**
@@ -556,7 +555,6 @@ void sgl_label_ext_set_text_fmt(sgl_obj_t *obj, const char *fmt, ...)
     /* recompute the bounding box, invalidate it and schedule redraw */
     sgl_label_ext_update_coords(label_ext);
     sgl_update_area(&obj->coords);
-    sgl_obj_set_dirty(obj);
 }
 
 /**
@@ -599,7 +597,6 @@ void sgl_label_ext_set_text_fmt_dynamic(sgl_obj_t* obj, const char *fmt, ...)
     /* recompute the bounding box, invalidate it and schedule redraw */
     sgl_label_ext_update_coords(label_ext);
     sgl_update_area(&obj->coords);
-    sgl_obj_set_dirty(obj);
 }
 
 /**
@@ -613,7 +610,6 @@ void sgl_label_ext_update_text(sgl_obj_t *obj)
     sgl_label_ext_t *label_ext = sgl_container_of(obj, sgl_label_ext_t, obj);
     sgl_label_ext_update_coords(label_ext);
     sgl_update_area(&obj->coords);
-    sgl_obj_set_dirty(obj);
 }
 
 /**
@@ -639,7 +635,6 @@ void sgl_label_ext_set_font(sgl_obj_t *obj, const sgl_font_t *font)
     label_ext->font = font;
     sgl_label_ext_update_coords(label_ext);
     sgl_update_area(&obj->coords);
-    sgl_obj_set_dirty(obj);
 }
 
 /**
@@ -668,7 +663,6 @@ void sgl_label_ext_set_bg_color(sgl_obj_t *obj, sgl_color_t color)
     label_ext->bg_flag = 1;
     sgl_label_ext_update_coords(label_ext);
     sgl_update_area(&obj->coords);
-    sgl_obj_set_dirty(obj);
 }
 
 /**
@@ -695,7 +689,6 @@ void sgl_label_ext_set_text_align(sgl_obj_t *obj, sgl_align_type_t align)
     label_ext->align = align;
     sgl_label_ext_update_coords(label_ext);
     sgl_update_area(&obj->coords);
-    sgl_obj_set_dirty(obj);
 }
 
 /**
@@ -725,7 +718,6 @@ void sgl_label_ext_set_text_offset(sgl_obj_t *obj, int8_t offset_x, int8_t offse
     label_ext->offset_y = offset_y;
     sgl_label_ext_update_coords(label_ext);
     sgl_update_area(&obj->coords);
-    sgl_obj_set_dirty(obj);
 }
 
 /**
@@ -745,5 +737,4 @@ void sgl_label_ext_set_text_rotation(sgl_obj_t *obj, int16_t text_rotation)
     label_ext->rotated = (label_ext->rotation != 0);
     sgl_label_ext_update_coords(label_ext);
     sgl_update_area(&obj->coords);
-    sgl_obj_set_dirty(obj);
 }
