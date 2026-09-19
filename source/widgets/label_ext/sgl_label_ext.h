@@ -41,6 +41,11 @@ extern "C" {
  * @brief sgl label_ext object
  * @obj: sgl general object
  * @desc: draw task descriptor
+ * @note the widget keeps the user layout rect (layout) as the alignment and
+ *       background reference. When rotation is active, obj->coords holds the
+ *       axis-aligned bounding box of the rotated content. External changes of
+ *       coords (sgl_obj_set_pos/size) are detected via last_bbox and adopted
+ *       as the new layout rect automatically.
  */
 typedef struct sgl_label_ext {
     sgl_obj_t        obj;
@@ -49,13 +54,17 @@ typedef struct sgl_label_ext {
     uint16_t         text_capacity;
     sgl_color_t      color;
     sgl_color_t      bg_color;
+    sgl_area_t       layout;
+    sgl_area_t       last_bbox;
     int16_t          rotation;
+    int8_t           offset_x;
+    int8_t           offset_y;
     uint8_t          alpha;
     uint8_t          dynamic : 1;
-    uint8_t          align: 6;
+    uint8_t          align: 5;
     uint8_t          bg_flag : 1;
+    uint8_t          rotated : 1;
 } sgl_label_ext_t;
-
 
 /**
  * @brief create a label_ext object
@@ -175,6 +184,10 @@ void sgl_label_ext_set_text_offset(sgl_obj_t *obj, int8_t offset_x, int8_t offse
  * @param obj pointer to the label_ext object
  * @param text_rotation text rotation angle (0-360 degree)
  * @return none
+ * @note the text rotates around its own center and keeps its layout position;
+ *       the widget coords grow to the rotated bounding box so that dirty
+ *       area tracking stays exact. Set the angle back to 0 to restore the
+ *       original layout rect.
  */
 void sgl_label_ext_set_text_rotation(sgl_obj_t *obj, int16_t text_rotation);
 

@@ -32,6 +32,7 @@
 #include <sgl_log.h>
 #include <sgl_list.h>
 #include <sgl_event.h>
+#include <sgl_anim.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -57,6 +58,19 @@ extern "C" {
 /* the ASCII offset of fonts */
 #define  SGL_TEXT_ASCII_OFFSET             (32)
 
+#define SGL_SCROLL_DRAG_THRESHOLD          4    /* drag start threshold (px) */
+#define SGL_SCROLL_OVERSCROLL              40   /* rubber-band overscroll limit (px, 0 = disabled) */
+#define SGL_SCROLL_INERTIA_NUM             7    /* coast decay: speed *= NUM/DEN per 16ms */
+#define SGL_SCROLL_INERTIA_DEN             8
+#define SGL_SCROLL_REBOUND_PULL_DIV        4    /* rebound step = overscroll amount / this value */
+#define SGL_SCROLL_REBOUND_MAX_STEP        24   /* rebound step cap (px) */
+#define SGL_SCROLL_VEL_WINDOW_MS           100  /* speed measurement sliding window length (ms) */
+#define SGL_SCROLL_BAR_IDLE_MS             600  /* scrollbar full-opacity hold time (ms) */
+#define SGL_SCROLL_BAR_FADE_STEP           8    /* scrollbar alpha decrement per 16ms */
+#define SGL_SCROLL_BAR_RESIDENT_ALPHA      128  /* scrollbar resident minimum alpha (fade floor) */
+#define SGL_SCROLL_BAR_ACTIVE_ALPHA        128  /* scrollbar alpha while active (wake value) */
+#define SGL_SCROLL_BAR_WIDTH               4    /* scrollbar width (px) */
+
 /**
 * @brief This enumeration type defines the alignment of controls in sgl,
 *        i.e. coordinate positions
@@ -78,7 +92,6 @@ typedef enum sgl_align_type {
     SGL_ALIGN_HORIZ_BOT,
     SGL_ALIGN_HORIZ_MID,
     SGL_ALIGN_NUM,
-
 } sgl_align_type_t;
 
 /**
@@ -96,7 +109,6 @@ typedef enum sgl_layout_type {
 /**
 * @brief This structure describes the layout of the control, including the layout type,
 *        number of columns, number of rows, column spacing, and row spacing
-*
 * @type: layout type
 * @col_num: number of columns
 * @row_num: number of rows
@@ -120,10 +132,46 @@ typedef struct sgl_layout_desc {
 } sgl_layout_desc_t;
 
 /**
+* @brief This structure describes the scroll state of the control, including the scroll offset,
+*        scroll range, change commit callback, animation node, coasting speed and scrollbar state
+* @offset: current scroll amount (px)
+* @range: scroll upper limit (content height - viewport height)
+* @commit: change commit callback (widget invalidate/layout)
+* @anim: dynamic animation node (NULL when idle, auto-released on settle)
+* @step_tick: low 16 bits of the last animation step timestamp
+* @grab_coord: main-axis coordinate at press
+* @prev_coord: previous frame main-axis coordinate (incremental follow base)
+* @speed: coasting speed (px / 16ms, same direction as offset delta)
+* @win_dist: accumulated displacement within the speed window
+* @win_tick: low 16 bits of the speed window start timestamp
+* @bar_idle: scrollbar idle timer (ms)
+* @bar_alpha: scrollbar current alpha
+* @touching: inside a press sequence
+* @dragged: start threshold crossed
+* @coasting: inertia/rebound in progress
+*/
+typedef struct sgl_scroll {
+    int32_t offset;
+    int32_t range;
+    void (*commit)(struct sgl_scroll *sc);
+    sgl_anim_t *anim;
+    uint16_t step_tick;
+    int16_t grab_coord;
+    int16_t prev_coord;
+    int16_t speed;
+    int16_t win_dist;
+    uint16_t win_tick;
+    uint16_t bar_idle;
+    uint8_t bar_alpha;
+    uint8_t touching : 1;
+    uint8_t dragged  : 1;
+    uint8_t coasting : 1;
+} sgl_scroll_t;
+
+/**
 * @brief This structure is a structure that describes the position of the control,
 *        where x represents the position of the x coordinate, which is the row coordinate position,
 *        and y represents the position of the y coordinate, which is the column coordinate position
-*
 * @x: x coordinate
 * @y: y coordinate
 */
@@ -134,7 +182,6 @@ typedef struct sgl_pos {
 
 /**
 * @brief This structure describes the size of the object, including width and height, in pixels
-*
 * @w: width
 * @h: height
 */
@@ -147,7 +194,6 @@ typedef struct sgl_size {
 * @brief This structure describes a rectangular region, where x1 and y1 represent the coordinates
 *        of the upper left corner of the rectangle, and x2 and y2 represent the coordinates of the
 *        lower right corner of the rectangle
-*
 * @x1: x position left corner of the rectangle
 * @y1: y position left corner of the rectangle
 * @x2: x position right corner of the rectangle
@@ -162,7 +208,6 @@ typedef struct sgl_area {
 
 /**
 * @brief This structure defines a 32 bit color bit field
-*
 * @blue: Blue color component
 * @green: Green color component
 * @red: Red color component
@@ -180,7 +225,6 @@ typedef union {
 
 /**
 * @brief This structure defines a 24 bit color bit field
-*
 * @blue: Blue color component
 * @green: Green color component
 * @red: Red color component
@@ -196,7 +240,6 @@ typedef union {
 
 /**
 * @brief This structure defines a 16 bit color bit field
-*
 * @blue: Blue color component
 * @green: Green color component
 * @red: Red color component
@@ -213,7 +256,6 @@ typedef union {
 
 /**
 * @brief This structure defines a 8 bit color bit field
-*
 * @blue: Blue color component
 * @green: Green color component
 * @red: Red color component
@@ -265,7 +307,6 @@ typedef struct sgl_surf {
 /**
 * @brief This structure defines an image, with a bitmap pointing to the
 *        bitmap of the image, while specifying the width and height of the image
-*
 * @width: pixmap width
 * @height: pixmap height
 * @format: bitmap format 0: no compression, 1:
@@ -296,7 +337,6 @@ typedef struct sgl_icon_pixmap {
 /**
 * @brief Font index table structure, used to describe the bitmap index positions of
 *        all characters in a font, accelerating the search process
-*
 * @bitmap_index: point to bitmap index of font
 * @adv_w: advance width of character width
 * @box_h: height of font
@@ -348,7 +388,6 @@ typedef int32_t (*sgl_flash_font_read_fn)(uint32_t addr, void *buf, uint32_t len
 /**
 * @brief A structure used to describe information about a font, Defining a font set requires
 *        the use of this structure to describe relevant information
-*
 * @bitmap: point to bitmap of font, set NULL when bitmap is stored in external flash
 * @table: point to struct sgl_font_table
 * @font_table_size: size of struct sgl_font_table
@@ -386,7 +425,6 @@ typedef struct sgl_font {
 
 /**
  * @brief Represents a fundamental UI object in the SGL (Simple Graphics Library) framework.
- *
  * This structure defines a generic GUI element that can be part of a hierarchical display tree.
  * Members:
  * @parent: Pointer to the parent object; NULL if this is a root-level object.
@@ -447,7 +485,6 @@ typedef struct sgl_obj {
 
 /**
  * @brief Represents a page object in the SGL graphics system.
- *
  * An sgl_page_t encapsulates a complete, renderable UI page or screen.
  * It combines a base graphical object, a drawing surface, a background color,
  * and an optional background pixmap. Pages serve as top-level containers
@@ -2162,6 +2199,183 @@ static inline void sgl_obj_set_name(sgl_obj_t *obj, const char *name)
 void sgl_obj_print_name(sgl_obj_t *obj);
 
 #endif
+
+#if (CONFIG_SGL_BOOT_LOGO)
+typedef struct sgl_logo {
+    sgl_obj_t obj;
+    uint8_t  alpha;
+} sgl_logo_t;
+
+/**
+ * @brief to show the sgl logo after sgl init
+ * @param none
+ * @return none
+ * @note: you can call this function in your main function to show the sgl logo
+ */
+void sgl_boot_logo(void);
+#endif // ! CONFIG_SGL_BOOT_LOGO
+
+#if (CONFIG_SGL_MONITOR_TRACE)
+#define  SGL_MONITOR_COORDS_WIDTH       CONFIG_SGL_MONITOR_COORDS_WIDTH
+#define  SGL_MONITOR_COORDS_HEIGHT      CONFIG_SGL_MONITOR_COORDS_HEIGHT
+#define  SGL_MONITOR_COORDS_X           (SGL_SCREEN_WIDTH - SGL_MONITOR_COORDS_WIDTH)
+#define  SGL_MONITOR_COORDS_Y           (SGL_SCREEN_HEIGHT - SGL_MONITOR_COORDS_HEIGHT)
+#define  SGL_MONITOR_COLOR              CONFIG_SGL_MONITOR_COLOR
+#define  SGL_MONITOR_TEXT_COLOR         CONFIG_SGL_MONITOR_TEXT_COLOR
+#define  SGL_MONITOR_ALPHA              CONFIG_SGL_MONITOR_ALPHA
+
+#define  SGL_MONITOR_COORDS             (sgl_area_t){.x1 = SGL_MONITOR_COORDS_X,     \
+                                                     .x2 = SGL_MONITOR_COORDS_X + SGL_MONITOR_COORDS_WIDTH - 1,     \
+                                                     .y1 = SGL_MONITOR_COORDS_Y,     \
+                                                     .y2 = SGL_MONITOR_COORDS_Y + SGL_MONITOR_COORDS_HEIGHT - 1,    \
+                                                    }
+
+typedef struct sgl_monitor_fps {
+    uint32_t history[8];
+    uint8_t index;
+    uint8_t count;
+    uint32_t last_tick;
+} sgl_monitor_fps_t;
+
+/**
+ * @brief draw the fps and memory usage monitor overlay onto the surface
+ * @param surf surface that draw to, only the area overlapping with the monitor will be redrawn
+ * @return none
+ * @note on the first call it creates the monitor page with two children: an fps
+ *       label and a memory usage label, then it refreshes both strings once per
+ *       system tick and redraws the monitor onto every flushed slice. if runtime
+ *       rotation moves the monitor out of the screen, it will be deleted
+ */
+void sgl_monitor_trace(sgl_surf_t *surf);
+#endif // ! CONFIG_SGL_MONITOR_TRACE
+
+/**
+ * @brief Count number of options in \n-separated text
+ * @param text newline-separated option string
+ * @return number of options
+ */
+uint16_t sgl_separated_option_get_count(const char *text);
+
+/**
+ * @brief Get byte offset of the Nth option in \n-separated text
+ * @param text newline-separated option string
+ * @param index zero-based option index
+ * @return byte offset, or -1 if out of range
+ */
+int sgl_separated_option_get_offset(const char *text, int index);
+
+/**
+ * @brief Get text length of one option at given byte offset
+ * @param text option string
+ * @param offset byte offset of the option
+ * @return length (stops at \n or \0)
+ */
+int sgl_separated_option_get_text_len(const char *text, int offset);
+
+/**
+ * @brief Reset scroll state (used on init / re-binding data)
+ * @param sc scroll state
+ * @note zeroes the whole struct then restores the resident scrollbar alpha
+ */
+void sgl_scroll_reset(sgl_scroll_t *sc);
+
+/**
+ * @brief Feed a press event: freeze coasting and start tracking this press sequence
+ * @param sc scroll state
+ * @param coord main-axis touch coordinate
+ * @note stops any running inertia immediately (overscroll stays frozen until
+ *       release), resets the speed window and anchors grab/prev coordinates
+ */
+void sgl_scroll_press(sgl_scroll_t *sc, int16_t coord);
+
+/**
+ * @brief Feed a move event: drag-start check + incremental follow + window speed sampling
+ * @param sc scroll state
+ * @param coord main-axis touch coordinate
+ * @param range current scroll upper limit (content height - viewport height)
+ * @return 0 = not started yet; 1 = threshold just crossed this frame
+ *         (caller should cancel the pressed highlight); 2 = dragging in progress.
+ * @note follows by per-frame delta (offset -= coord - prev_coord) with
+ *       rubber-band soft clamp; speed is sampled as displacement/time over a
+ *       VEL_WINDOW_MS window, independent of the event rate
+ */
+uint8_t sgl_scroll_stay(sgl_scroll_t *sc, int16_t coord, int32_t range);
+
+/**
+ * @brief Feed a release event: settle the final speed and decide whether inertia/rebound is needed
+ * @param sc scroll state
+ * @param range current scroll upper limit (content height - viewport height)
+ * @return non-zero = animation needed (caller then invokes sgl_scroll_anim_start); 0 = at rest.
+ * @note the final speed comes from the still-open measurement window; if the
+ *       pointer has been still for more than one window the release is
+ *       treated as parked (speed = 0). Out-of-range releases always animate
+ *       so the content snaps back
+ */
+uint8_t sgl_scroll_release(sgl_scroll_t *sc, int32_t range);
+
+/**
+ * @brief Inertia/rebound step (driven by sgl_scroll_anim_step_cb)
+ * @param sc scroll state
+ * @param elapsed_ms elapsed time since the previous step
+ * @param range current scroll upper limit (content height - viewport height)
+ * @return non-zero = offset changed; coasting is cleared automatically on settle.
+ * @note phase 1 glides by speed * elapsed / 16 and decays speed by NUM/DEN
+ *       once per 16ms slice (halved again while overscrolled); phase 2 eases
+ *       the offset back into [0, range]. elapsed_ms is clamped to 64ms to
+ *       bound the per-frame jump
+ */
+uint8_t sgl_scroll_anim_step(sgl_scroll_t *sc, uint16_t elapsed_ms, int32_t range);
+
+/**
+ * @brief Wake the scrollbar (call on scroll value change / data binding)
+ * @param sc scroll state
+ * @note restores the active alpha and restarts the idle hold timer
+ */
+void sgl_scroll_bar_wake(sgl_scroll_t *sc);
+
+/**
+ * @brief Scrollbar fade-out step
+ * @param sc scroll state
+ * @param elapsed_ms elapsed time since the previous step
+ * @return non-zero = alpha changed; always returns 0 once the resident value is reached.
+ * @note holds full opacity for BAR_IDLE_MS first, then decreases FADE_STEP
+ *       per 16ms slice down to the resident alpha
+ */
+uint8_t sgl_scroll_bar_step(sgl_scroll_t *sc, uint16_t elapsed_ms);
+
+/**
+ * @brief Start the inertia/rebound + scrollbar fade-out animation (shared by all widgets)
+ * @param sc scroll state
+ * @note creates the animation node dynamically (attached to sc->anim) and
+ *       starts it with SGL_ANIM_REPEAT_LOOP; stopped and released
+ *       automatically on settle (coasting finished and scrollbar faded to
+ *       the resident value). Any previously running node is stopped first.
+ *       The caller must set sc->commit beforehand
+ */
+void sgl_scroll_anim_start(sgl_scroll_t *sc);
+
+/**
+ * @brief Stop and release the scroll animation node early (used on widget
+ *        destroy/collapse; a no-op when no animation is running)
+ * @param sc scroll state
+ */
+void sgl_scroll_anim_stop(sgl_scroll_t *sc);
+
+/**
+ * @brief Draw the right-hand vertical scrollbar (called in the widget DRAW_MAIN)
+ * @param surf drawing surface
+ * @param obj widget object (provides x coordinates, border and corner radius)
+ * @param sc scroll state (reads offset / bar_alpha)
+ * @param range current scroll upper limit; nothing is drawn when range<=0 (no scrollable content)
+ * @param viewport vertical track extent (y1/y2 of the scrollable list area,
+ *                 which may start below the widget top, e.g. under a dropdown header)
+ * @param color scrollbar color
+ * @return none
+ * @note thumb height is proportional to viewport / content height (min 8px);
+ *       thumb position maps offset into the track; drawn with the theme
+ *       scroll foreground color at bar_alpha opacity
+ */
+void sgl_scroll_draw_bar(sgl_surf_t *surf, sgl_obj_t *obj, const sgl_scroll_t *sc, int32_t range, const sgl_area_t *viewport, sgl_color_t color);
 
 #ifdef __cplusplus
 } /*extern "C"*/

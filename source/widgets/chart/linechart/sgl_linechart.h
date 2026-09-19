@@ -34,9 +34,7 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include <stdbool.h>
-#if (CONFIG_SGL_ANIMATION)
 #include <sgl_anim.h>
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -197,9 +195,7 @@ typedef struct sgl_linechart {
     sgl_area_t            plot_rel_rect;   /**< Custom plot area relative to widget (x1,y1,x2,y2) */
     sgl_linechart_series_t *series;
     const char           **x_labels;       /**< Optional X axis labels, array of persistent strings */
-#if (CONFIG_SGL_ANIMATION)
     sgl_anim_path_algo_t  open_anim_path;
-#endif
     sgl_color_t           bg_color;
     sgl_color_t           border_color;
     uint32_t              open_anim_start_tick;
@@ -730,8 +726,6 @@ static inline void sgl_linechart_set_open_anim_dir(sgl_obj_t *obj, sgl_linechart
     sgl_obj_set_dirty(obj);
 }
 
-
-#if (CONFIG_SGL_ANIMATION)
 /**
  * @brief Set open animation path algorithm (use SGL_ANIM_PATH_* macros)
  * @param obj       linechart object
@@ -743,12 +737,9 @@ static inline void sgl_linechart_set_open_anim_path(sgl_obj_t *obj, sgl_anim_pat
     sgl_linechart_t *chart = sgl_container_of(obj, sgl_linechart_t, obj);
     chart->open_anim_path = path_algo;
 }
-#endif /* CONFIG_SGL_ANIMATION */
-
 
 #ifdef __cplusplus
 }
 #endif
-
 
 #endif /* __SGL_LINECHART_H__ */

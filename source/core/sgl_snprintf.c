@@ -26,6 +26,11 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+/* float format support switch, disable it to save code size (set to 1 to enable) */
+#ifndef CONFIG_SGL_SNPRINTF_FLOAT
+#define CONFIG_SGL_SNPRINTF_FLOAT                                 (0)
+#endif
+
 /**
  * @brief append a character to the buffer
  * @param buf buffer
@@ -161,6 +166,7 @@ static inline void append_hex(char *buf, size_t size, size_t *pos, unsigned int 
  * @param val float to append
  * @param precision number of decimal places (-1 for default of 6)
  */
+#if (CONFIG_SGL_SNPRINTF_FLOAT)
 static void append_float(char *buf, size_t size, size_t *pos, double val, int precision)
 {
     int int_part = (int)val;
@@ -183,6 +189,7 @@ static void append_float(char *buf, size_t size, size_t *pos, double val, int pr
         frac -= d;
     }
 }
+#endif // !CONFIG_SGL_SNPRINTF_FLOAT
 
 /**
  * @brief format a string, a simple version of vsnprintf (with width alignment support)
@@ -256,11 +263,13 @@ int sgl_vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
             break;
         }
 
+#if (CONFIG_SGL_SNPRINTF_FLOAT)
         case 'f': {
             double f = va_arg(ap, double);
             append_float(buf, size, &pos, f, precision);
             break;
         }
+#endif // !CONFIG_SGL_SNPRINTF_FLOAT
 
         case 'c': {
             char ch = (char)va_arg(ap, int);

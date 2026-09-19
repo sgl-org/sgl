@@ -33,9 +33,7 @@
 #include <sgl_mm.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
-#if (CONFIG_SGL_ANIMATION)
 #include <sgl_anim.h>
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -98,15 +96,13 @@ typedef struct sgl_piechart_slice {
  */
 typedef struct sgl_piechart {
     sgl_obj_t              obj;
-    const sgl_font_t *legend_font;     /**< legend text font */
-    sgl_piechart_slice_t *slices;      /**< dynamic slice array */
-#if (CONFIG_SGL_ANIMATION)
-    sgl_anim_path_algo_t  open_anim_path;       /**< easing function for open animation, NULL=linear */
-#endif
+    const sgl_font_t *legend_font;         /**< legend text font */
+    sgl_piechart_slice_t *slices;          /**< dynamic slice array */
+    sgl_anim_path_algo_t  open_anim_path;  /**< easing function for open animation, NULL=linear */
     sgl_color_t       legend_text_color;   /**< legend text color */
     sgl_color_t       legend_bg_color;     /**< legend background color */
     sgl_color_t       legend_border_color; /**< legend border color */
-    uint32_t          open_anim_start_tick; /**< animation start tick, ms */
+    uint32_t          open_anim_start_tick;/**< animation start tick, ms */
     int32_t           total_value;         /**< cached sum of all slice values (>0) */
     uint16_t          radius_out;          /**< outer radius in pixels, 0: auto from object size */
     int16_t           start_angle;         /**< start angle of first slice, unit: degree */
@@ -357,8 +353,6 @@ static inline void sgl_piechart_enable_open_anim(sgl_obj_t *obj, bool enable)
     sgl_obj_set_dirty(obj);
 }
 
-
-#if (CONFIG_SGL_ANIMATION)
 /**
  * @brief Set open animation path algorithm (use SGL_ANIM_PATH_* macros)
  * @param obj       piechart object
@@ -369,8 +363,6 @@ static inline void sgl_piechart_set_open_anim_path(sgl_obj_t *obj, sgl_anim_path
     sgl_piechart_t *pie = sgl_container_of(obj, sgl_piechart_t, obj);
     pie->open_anim_path = path_algo;
 }
-#endif
-
 
 /**
  * @brief Set legend padding

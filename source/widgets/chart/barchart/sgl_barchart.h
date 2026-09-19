@@ -14,9 +14,7 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include <stdbool.h>
-#if (CONFIG_SGL_ANIMATION)
 #include <sgl_anim.h>
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -103,9 +101,7 @@ typedef struct sgl_barchart {
     sgl_area_t             plot_rel_rect;
     sgl_barchart_series_t *series;
     const char           **x_labels;
-#if (CONFIG_SGL_ANIMATION)
     sgl_anim_path_algo_t   open_anim_path;
-#endif
     sgl_color_t            bg_color;
     sgl_color_t            border_color;
     uint32_t               open_anim_start_tick;
@@ -504,7 +500,6 @@ static inline void sgl_barchart_set_open_anim_duration(sgl_obj_t *obj, uint16_t 
     sgl_obj_set_dirty(obj);
 }
 
-#if (CONFIG_SGL_ANIMATION)
 /**
  * @brief Set open animation easing path algorithm
  * @param path_algo easing function pointer, NULL means linear animation
@@ -514,7 +509,6 @@ static inline void sgl_barchart_set_open_anim_path(sgl_obj_t *obj, sgl_anim_path
     SGL_ASSERT(obj != NULL);
     sgl_container_of(obj, sgl_barchart_t, obj)->open_anim_path = path_algo;
 }
-#endif
 
 #ifdef __cplusplus
 }

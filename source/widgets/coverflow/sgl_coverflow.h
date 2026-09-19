@@ -27,7 +27,6 @@
 
 #include <sgl_core.h>
 #include <sgl_anim.h>
-#include <sgl_misc.h>
 #include <sgl_mm.h>
 #include <sgl_log.h>
 

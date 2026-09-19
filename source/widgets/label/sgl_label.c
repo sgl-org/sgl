@@ -89,11 +89,9 @@ static void sgl_label_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t
         if (label->dynamic) {
             sgl_free((void*)label->text);
         }
-#if CONFIG_SGL_ANIMATION
         if (label->long_mode) {
             sgl_anim_delete(sgl_anim_get_by_obj(obj));
         }
-#endif
     }
 }
 
@@ -337,7 +335,6 @@ void sgl_label_set_text_offset(sgl_obj_t *obj, int8_t offset_x)
     sgl_obj_set_dirty(obj);
 }
 
-#if CONFIG_SGL_ANIMATION
 /**
  * @brief label animation callback
  * @param anim pointer to the animation object
@@ -375,13 +372,7 @@ void sgl_label_set_long_mode(sgl_obj_t *obj, uint32_t speed, bool flag)
         label->long_mode = 1;
         anim = sgl_anim_get_by_obj(obj);
         if (!anim) {
-            anim = sgl_anim_create();
-            sgl_anim_set_data(anim, obj);
-            sgl_anim_set_start_value(anim, 0);
-            sgl_anim_set_end_value(anim, scroll_dist);
-            sgl_anim_set_act_duration(anim, speed_ms);
-            sgl_anim_set_path(anim, label_anim_cb, SGL_ANIM_PATH_LINEAR);
-            sgl_anim_start(anim, SGL_ANIM_REPEAT_LOOP);
+            sgl_anim_move_obj_to_loop(obj, 0, scroll_dist, speed_ms, label_anim_cb, SGL_ANIM_PATH_LINEAR, NULL);
         }
     } else {
         if (label->long_mode) {
@@ -390,4 +381,3 @@ void sgl_label_set_long_mode(sgl_obj_t *obj, uint32_t speed, bool flag)
 		label->long_mode = 0;
     }
 }
-#endif

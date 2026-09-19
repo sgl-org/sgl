@@ -120,10 +120,6 @@ extern "C" {
 #define CONFIG_SGL_IMG_BUFFER_LINES                                (1)  /* External image line buffer size in lines, 0=auto (use full height) */
 #endif
 
-#ifndef CONFIG_SGL_ANIMATION
-#define CONFIG_SGL_ANIMATION                                       (1)  /* Global animation enable */
-#endif
-
 #ifndef CONFIG_SGL_DEBUG
 #   define CONFIG_SGL_DEBUG                                        (0)  /* Global debug log enable */
 #elif (CONFIG_SGL_DEBUG == 1)
@@ -164,6 +160,10 @@ extern "C" {
 
 #ifndef CONFIG_SGL_FLASH_FONT_GLYPH_BUF_SIZE
 #define CONFIG_SGL_FLASH_FONT_GLYPH_BUF_SIZE                       (512) /* Temp buffer (bytes) for one external flash glyph bitmap */
+#endif
+
+#ifndef CONFIG_SGL_SNPRINTF_FLOAT
+#define CONFIG_SGL_SNPRINTF_FLOAT                                  (0)  /* Enable float format support of sgl_snprintf */
 #endif
 
 #ifndef CONFIG_SGL_FONT_SONG23

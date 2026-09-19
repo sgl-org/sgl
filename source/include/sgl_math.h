@@ -255,9 +255,9 @@ void sgl_split_len_avg(int length, int count, int16_t gap, int16_t *out);
  * @param yv: The y coordinate of the vector
  * @return 1: The x and y coordinates have a component. 0: The x and y coordinates do not have a component.
  */
-static inline int sgl_xy_has_component( int x, int y, int xv, int yv)
+static inline int sgl_xy_has_component(int x, int y, int xv, int yv)
 {
-    return ((x != 0 && ((xv ^ x) < 0)) || (y != 0 && ((yv ^ y) < 0)));
+    return ((x == 0 || ((xv ^ x) >= 0)) && (y == 0 || ((yv ^ y) >= 0)));
 }
 
 /**

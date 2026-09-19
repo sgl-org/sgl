@@ -36,7 +36,7 @@ typedef struct sgl_arc_dot {
     uint16_t outer;
 } sgl_arc_dot_t;
 
-static void arc_dot_sin_cos(int16_t cx, int16_t cy, int16_t radius_in, int16_t radius_out, sgl_arc_dot_t *dot,int sin, int cos)
+static void arc_dot_sin_cos(int16_t cx, int16_t cy, int16_t radius_in, int16_t radius_out, sgl_arc_dot_t *dot, int sin, int cos)
 {
     int len = (radius_out + radius_in) / 2;
     int r = (radius_out - radius_in) / 2;
@@ -50,21 +50,20 @@ static void arc_dot_sin_cos(int16_t cx, int16_t cy, int16_t radius_in, int16_t r
     else {
         dot->cx = (sin * len + 16348) / 32768;
     }
-    if (cos<0) {
+    if (cos < 0) {
         dot->cy = (cos * len - 16348) / 32768;
     }
     else {
         dot->cy = (cos * len + 16348) / 32768;
     }
 
-    dot->cx = cx - dot->cx;
-    dot->cy = cy - dot->cy;
+    dot->cx = cx + dot->cx;
+    dot->cy = cy + dot->cy;
     dot->r = r + 1;
     dot->r2 =  sgl_pow2(r);
     dot->rmax = sgl_pow2(r + 1);
     dot->outer = 0;
 }
-
 
 static inline uint8_t arc_get_dot(sgl_arc_dot_t *dot,int ax, int ay)
 {
@@ -145,6 +144,11 @@ void sgl_draw_fill_arc(sgl_surf_t *surf, sgl_area_t *area, sgl_draw_arc_t *desc)
         ex = sgl_sin(desc->end_angle) >> 7;
         ey = -sgl_cos(desc->end_angle) >> 7;
 
+        /* For clockwise sweep (0 deg = top, 90 deg = right), we need to
+         * flip the sign of the cross products to get the correct half-plane
+         * tests. The cross product (dx,dy)x(sx,sy) = dx*sy - dy*sx is positive
+         * when (dx,dy) is to the left of (sx,sy). For clockwise sweep, we want
+         * the right side, so we negate. */
         if (desc->mode == SGL_ARC_MODE_NORMAL_SMOOTH || desc->mode == SGL_ARC_MODE_RING_SMOOTH) {
             arc_dot_sin_cos(desc->cx, desc->cy, desc->radius_in, desc->radius_out, &arc_dot[0], sgl_sin(desc->start_angle), -sgl_cos(desc->start_angle));
             arc_dot_sin_cos(desc->cx, desc->cy, desc->radius_in, desc->radius_out, &arc_dot[1], sgl_sin(desc->end_angle), -sgl_cos(desc->end_angle));
@@ -160,8 +164,8 @@ void sgl_draw_fill_arc(sgl_surf_t *surf, sgl_area_t *area, sgl_draw_arc_t *desc)
         const int32_t dy = y - desc->cy;
         const int32_t y2 = dy * dy;
 
-        const int32_t ds_base = -dy * sx;
-        const int32_t de_base =  dy * ex;
+        const int32_t ds_base = dy * sx;
+        const int32_t de_base = -dy * ex;
 
         sgl_color_t *blend = line_buf;
 
@@ -169,8 +173,8 @@ void sgl_draw_fill_arc(sgl_surf_t *surf, sgl_area_t *area, sgl_draw_arc_t *desc)
         int32_t x2 = dx * dx;
         int32_t dx2_inc = (dx << 1) + 1;
 
-        int32_t ds = dx * sy + ds_base;
-        int32_t de = -dx * ey + de_base;
+        int32_t ds = -dx * sy + ds_base;
+        int32_t de = dx * ey + de_base;
 
         for (int32_t x = clip.x1; x <= clip.x2; x++, blend++) {
             int32_t real_r2 = x2 + y2;
@@ -198,8 +202,8 @@ void sgl_draw_fill_arc(sgl_surf_t *surf, sgl_area_t *area, sgl_draw_arc_t *desc)
                         dx = x - desc->cx;
                         x2 = dx * dx;
                         dx2_inc = (dx << 1) + 1;
-                        ds = dx * sy + ds_base;
-                        de = -dx * ey + de_base;
+                        ds = -dx * sy + ds_base;
+                        de = dx * ey + de_base;
 
                         goto NEXT_X;
                     }
@@ -219,23 +223,25 @@ void sgl_draw_fill_arc(sgl_surf_t *surf, sgl_area_t *area, sgl_draw_arc_t *desc)
             sgl_color_t tmp_color = color;
 
             if (flag != 0xff) {
-                bool in_range = flag > 0 ? (ds > 0 || de > 0) : (ds >= 0 && de >= 0);
+                bool in_range = flag > 0 ? (ds > 0 || de > 0) : (ds > 0 && de >= 0);
                 if (!in_range) {
                     if (desc->mode == SGL_ARC_MODE_NORMAL) {
-                        int32_t sd = sgl_xy_has_component(dx, dy, sx, sy) ? sgl_abs(ds) : 256;
-                        int32_t ed = sgl_xy_has_component(dx, dy, ex, ey) ? sgl_abs(de) : 256;
+                        int32_t sd = (ds <= 0 && sgl_xy_has_component(dx, dy, sx, sy)) ? sgl_abs(ds) : 256;
+                        int32_t ed = (de <= 0 && sgl_xy_has_component(dx, dy, ex, ey)) ? sgl_abs(de) : 256;
                         int32_t d_min = sgl_min(sd, ed);
                         if (d_min < SGL_ALPHA_MAX) {
                             tmp_color = sgl_color_mixer(color, *blend, sgl_min(255 - d_min, edge_alpha));
                         } else {
                             goto NEXT_X;
                         }
-                    } else if (desc->mode == SGL_ARC_MODE_RING) {
-                        int32_t sd = sgl_xy_has_component(dx, dy, sx, sy) ? sgl_abs(ds) : 256;
-                        int32_t ed = sgl_xy_has_component(dx, dy, ex, ey) ? sgl_abs(de) : 256;
+                    }
+                    else if (desc->mode == SGL_ARC_MODE_RING) {
+                        int32_t sd = (ds <= 0 && sgl_xy_has_component(dx, dy, sx, sy)) ? sgl_abs(ds) : 256;
+                        int32_t ed = (de <= 0 && sgl_xy_has_component(dx, dy, ex, ey)) ? sgl_abs(de) : 256;
                         int32_t d_min = sgl_min(sd, ed);
                         tmp_color = (d_min < SGL_ALPHA_MAX) ? sgl_color_mixer(color, desc->bg_color, sgl_min(255 - d_min, edge_alpha)) : desc->bg_color;
-                    } else if (desc->mode == SGL_ARC_MODE_NORMAL_SMOOTH || desc->mode == SGL_ARC_MODE_RING_SMOOTH) {
+                    }
+                    else if (desc->mode == SGL_ARC_MODE_NORMAL_SMOOTH || desc->mode == SGL_ARC_MODE_RING_SMOOTH) {
                         uint8_t dot_alpha = arc_get_dot(arc_dot, x, y);
                         sgl_color_t bg = (desc->mode == SGL_ARC_MODE_RING_SMOOTH) ? desc->bg_color : *blend;
                         tmp_color = (dot_alpha < SGL_ALPHA_MAX) ? sgl_color_mixer(color, bg, dot_alpha) : color;
@@ -257,8 +263,8 @@ NEXT_X:
             x2 += dx2_inc;
             dx2_inc += 2;
             dx++;
-            ds += sy;
-            de -= ey;
+            ds -= sy;
+            de += ey;
         }
 
         line_buf += stride;

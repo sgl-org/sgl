@@ -1,4 +1,4 @@
-/* source/draw/sgl_draw_xform.c
+/* source/draw/sgl_draw.c
  *
  * MIT License
  *
@@ -27,7 +27,6 @@
 #include <sgl_draw.h>
 #include <sgl_math.h>
 #include <string.h>
-
 
 /**
  * @brief calculate a point color by bilinear interpolate (with mask support)

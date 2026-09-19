@@ -483,14 +483,11 @@ static void sgl_piechart_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
                     }
                     else {
                         int32_t angle_step;
-#if (CONFIG_SGL_ANIMATION)
                         if (pie->open_anim_path) {
                             /* 使用外部指定的缓动算法（如 SGL_ANIM_PATH_EASE_IN 等） */
                             angle_step = pie->open_anim_path(elaps, SGL_PIECHART_OPEN_ANIM_DURATION, 0, 360);
                         }
-                        else
-#endif
-                        {
+                        else {
                             /* 默认线性展开 */
                             angle_step = (int32_t)((360 * (int32_t)elaps) / (int32_t)SGL_PIECHART_OPEN_ANIM_DURATION);
                         }

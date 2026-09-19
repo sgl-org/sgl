@@ -55,6 +55,9 @@ typedef struct sgl_keyboard {
     int8_t           key_index;
     uint8_t          key_mode;
     sgl_area_t       btn_area;
+    /* callback for external widget (e.g. textedit) to handle key input */
+    void             (*key_cb)(sgl_obj_t *keyboard_obj, uint8_t key, void *user_data);
+    void             *key_cb_data;
 } sgl_keyboard_t;
 
 
@@ -224,6 +227,19 @@ uint8_t sgl_keyboard_get_opcode(sgl_obj_t *obj);
  * @param buf_max_len edit buffer max length
  */
 void sgl_keyboard_set_textarea(sgl_obj_t *obj, char *buffer, int buf_max_len);
+
+/**
+ * @brief set keyboard key callback for external widget (e.g. textedit)
+ * @param obj keyboard object
+ * @param cb callback function, called when a key is pressed
+ * @param user_data user data passed to callback
+ * @return none
+ * @note when callback is set, keyboard will NOT modify the edit buffer directly,
+ *       instead it calls the callback with the pressed key code.
+ *       The callback should handle the key (e.g. insert into textedit).
+ *       Special key codes: '\b' = backspace, '\n' = newline, '\r' = enter/confirm
+ */
+void sgl_keyboard_set_key_callback(sgl_obj_t *obj, void (*cb)(sgl_obj_t *keyboard_obj, uint8_t key, void *user_data), void *user_data);
 
 #ifdef __cplusplus
 }

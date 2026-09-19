@@ -26,7 +26,6 @@
 #include <sgl_draw.h>
 #include <sgl_math.h>
 
-
 /**
  * @brief draw a ring on surface with alpha
  * @param surf: pointer of surface

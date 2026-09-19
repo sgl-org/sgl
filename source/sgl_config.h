@@ -12,11 +12,6 @@
 #define  CONFIG_SGL_USE_FBDEV_VRAM                         0
 #define  CONFIG_SGL_SYSTICK_MS                             10 
 #define  CONFIG_SGL_EVENT_QUEUE_SIZE                       16
-#define  CONFIG_SGL_DIRTY_AREA_NUM_MAX                     16
-#define  CONFIG_SGL_COLOR16_SWAP                           0   
-#define  CONFIG_SGL_ANIMATION                              1  
-#define  CONFIG_SGL_DEBUG                                  1  
-#define  CONFIG_SGL_LOG_COLOR                              1  
 #define  CONFIG_SGL_LOG_LEVEL                              0  
 #define  CONFIG_SGL_OBJ_USE_NAME                           0  
 #define  CONFIG_SGL_FONT_COMPRESSED                        0  
@@ -29,6 +24,6 @@
 #define  CONFIG_SGL_FONT_CONSOLAS23                        0      
 #define  CONFIG_SGL_FONT_CONSOLAS24                        0      
 #define  CONFIG_SGL_FONT_CONSOLAS32                        0      
-#define  CONFIG_SGL_FONT_CONSOLAS24_COMPRESS               0            
+#define  CONFIG_SGL_FONT_CONSOLAS24_COMPRESS               0    
 
 #endif  //!__SGL_CONFIG_H__
