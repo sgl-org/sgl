@@ -167,7 +167,7 @@ static inline float sgl_cosf_rad(float rad)
  * @param  x: x number
  * @retval x number square root
  */
-uint16_t sgl_sqrt(uint32_t x);
+int32_t sgl_sqrt(uint32_t x);
 
 /**
  * @brief  Calculate x float number square root

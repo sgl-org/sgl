@@ -192,7 +192,7 @@ float sgl_sinf(float angle)
  * @param  x: x number
  * @retval x number square root
  */
-uint16_t sgl_sqrt(uint32_t x)
+int32_t sgl_sqrt(uint32_t x)
 {
     uint32_t rem = 0;
     uint32_t root = 0;

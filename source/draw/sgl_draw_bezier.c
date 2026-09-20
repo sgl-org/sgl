@@ -44,7 +44,7 @@ static int32_t sgl_bezier_dist(int32_t ax, int32_t ay, int32_t bx, int32_t by)
 {
     const int32_t dx = bx - ax;
     const int32_t dy = by - ay;
-    return (int32_t)sgl_sqrt((uint32_t)(dx * dx + dy * dy));
+    return sgl_sqrt((uint32_t)(dx * dx + dy * dy));
 }
 
 /**
@@ -103,7 +103,7 @@ static void sgl_bezier_stroke_mask(sgl_bezier_mask_t *mask,
                 const int32_t dx = (x << 8) + 128 - x1;
                 const int32_t dy = (y << 8) + 128 - y1;
                 const uint32_t dsq = (uint32_t)((int64_t)dx * dx + (int64_t)dy * dy);
-                const int32_t dist_q8 = (int32_t)sgl_sqrt(dsq);
+                const int32_t dist_q8 = sgl_sqrt(dsq);
                 uint8_t cov = 0;
                 if (dist_q8 < inner_limit) cov = 255;
                 else if (dist_q8 < outer_limit && aa_range > 0)
@@ -114,7 +114,7 @@ static void sgl_bezier_stroke_mask(sgl_bezier_mask_t *mask,
         return;
     }
 
-    const int32_t len_q8 = (int32_t)sgl_sqrt((uint32_t)b_sqd);
+    const int32_t len_q8 = sgl_sqrt((uint32_t)b_sqd);
 
     for (int32_t y = cy1; y <= cy2; y++) {
         uint8_t *row = mask->data + (int64_t)(y - mask->y1) * stride + (cx1 - mask->x1);
@@ -136,7 +136,7 @@ static void sgl_bezier_stroke_mask(sgl_bezier_mask_t *mask,
                 const int32_t dx = (x << 8) + 128 - ex;
                 const int32_t dy = (y << 8) + 128 - ey;
                 const uint32_t dsq = (uint32_t)((int64_t)dx * dx + (int64_t)dy * dy);
-                dist_q8 = (int32_t)sgl_sqrt(dsq);
+                dist_q8 = sgl_sqrt(dsq);
             }
 
             uint8_t cov = 0;
