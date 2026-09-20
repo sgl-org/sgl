@@ -2260,12 +2260,12 @@ void sgl_monitor_trace(sgl_surf_t *surf)
         return;
     }
 #endif
-    sgl_draw_fill_rect(surf, &monitor_area, &monitor_area, 0, SGL_MONITOR_COLOR, SGL_MONITOR_ALPHA);
+    sgl_draw_fill_rect(surf, &monitor_area, &monitor_area, 0, SGL_MONITOR_BG_COLOR, SGL_MONITOR_ALPHA);
 
     sgl_draw_string(surf, &monitor_area, monitor_area.x1, monitor_area.y1 + 3, (const char*)fps_str,
-                                                    SGL_MONITOR_COLOR, SGL_MONITOR_ALPHA, &monitor_font);
+                                                    SGL_MONITOR_TEXT_COLOR, SGL_MONITOR_ALPHA, &monitor_font);
     sgl_draw_string(surf, &monitor_area, monitor_area.x1, monitor_area.y1 + 3 + SGL_MONITOR_COORDS_HEIGHT / 2, (const char*)mem_str,
-                                                    SGL_MONITOR_COLOR, SGL_MONITOR_ALPHA, &monitor_font);
+                                                    SGL_MONITOR_TEXT_COLOR, SGL_MONITOR_ALPHA, &monitor_font);
 }
 #endif
 

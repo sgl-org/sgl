@@ -100,8 +100,8 @@ extern "C" {
 #define CONFIG_SGL_MONITOR_COORDS_HEIGHT                           (30)  /* Monitor height */
 #endif
 
-#ifndef CONFIG_SGL_MONITOR_COLOR
-#define CONFIG_SGL_MONITOR_COLOR                                   (SGL_COLOR_BLACK)  /* Monitor background */
+#ifndef CONFIG_SGL_MONITOR_BG_COLOR
+#define CONFIG_SGL_MONITOR_BG_COLOR                                (SGL_COLOR_BLACK)  /* Monitor background */
 #endif
 
 #ifndef CONFIG_SGL_MONITOR_TEXT_COLOR
