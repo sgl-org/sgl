@@ -40,7 +40,6 @@ extern "C" {
 typedef struct sgl_arc {
     sgl_obj_t       obj;
     sgl_draw_arc_t  desc;
-    int16_t         width;
 } sgl_arc_t;
 
 /**
