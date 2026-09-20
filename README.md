@@ -330,7 +330,7 @@ void DMA_CH_IRQHandler(void)
 ```c
 void sgl_port_init(void)
 {
-    sgl_fbinfo_t fbinfo = {
+    static sgl_fbinfo_t fbinfo = {
         .xres        = PANEL_WIDTH,
         .yres        = PANEL_HEIGHT,
         .flush_area  = my_flush_area,
