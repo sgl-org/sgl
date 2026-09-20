@@ -349,7 +349,7 @@ static inline void event_inject_motion(sgl_obj_t *obj, sgl_event_t *evt)
 */
 void sgl_event_task(void)
 {
-    sgl_event_t evt;
+    sgl_event_t evt = {0};
     struct sgl_obj *obj = NULL;
 
     /* Get event from event queue */

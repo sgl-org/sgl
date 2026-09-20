@@ -654,12 +654,7 @@ void sgl_game2048_start(sgl_obj_t *parent, int16_t width, int16_t height,
     }
 
     /* background */
-    bg = sgl_rect_create(parent);
-    sgl_obj_set_pos(bg, 0, 0);
-    sgl_obj_set_size(bg, width, height);
-    sgl_obj_set_movable(bg);
-    sgl_rect_set_border_width(bg, 0);
-    sgl_rect_set_color(bg, SGL_2048_C_BG);
+    bg = sgl_screen_act();
 
     /* title */
     t = sgl_label_create(bg);
