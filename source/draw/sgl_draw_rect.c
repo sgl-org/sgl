@@ -31,17 +31,6 @@
 #define SGL_RECT_UNROLL 4
 #endif
 
-/* Paint `src` over `*dst` with opacity `a`.  Redefine it with a SIMD / Helium /
- * DMA friendly blender on targets that have one. */
-#ifndef SGL_RECT_MIX
-#define SGL_RECT_MIX(dst, src, a) sgl_color_mixer((src), (dst), (a))
-#endif
-
-/* Solid store of a span; may be replaced by __stosd() / wide word memset. */
-#ifndef SGL_RECT_SPAN_SET
-#define SGL_RECT_SPAN_SET(d, n, c) sgl_rect_span_set((d), (n), (c))
-#endif
-
 typedef enum { RECT_SOLID = 0, RECT_BLIT, RECT_STEP, RECT_BILN } rect_kind_t;
 
 typedef struct {
@@ -77,15 +66,12 @@ static inline void sgl_rect_span_set(sgl_color_t *d, int n, sgl_color_t c)
     for (; n > 0; n--, d++) *d = c;
 }
 
-/* Largest dx with dx*dx + dy2 < lim, i.e. the walk state of `lim` on row dy2. */
 static inline int rect_dx_max(int lim, int dy2)
 {
     int v = lim - dy2 - 1;
     return v < 0 ? -1 : (int)sgl_sqrt((uint32_t)v);
 }
 
-/* Source colour of one pixel: used by the anti-aliased rims, which are a
- * handful of pixels per scanline.  Bulk pixels go through rect_span(). */
 static inline sgl_color_t rect_src(int x, int y, const rect_paint_t *p)
 {
     switch (p->kind) {
@@ -100,23 +86,18 @@ static inline sgl_color_t rect_src(int x, int y, const rect_paint_t *p)
     }
 }
 
-/* dst = mix(src, dst, cov) then dst = mix(that, dst, alpha): identical result to
- * the two chained sgl_color_mixer() calls of the original code. */
 static inline void rect_put(sgl_color_t *dst, sgl_color_t src, uint8_t cov, const rect_paint_t *p)
 {
     if (p->solid) {
-        *dst = SGL_RECT_MIX(*dst, src, cov);
+        *dst = sgl_color_mixer(src, *dst, cov);
     }
     else {
-        sgl_color_t c = SGL_RECT_MIX(*dst, src, cov);
-        *dst = SGL_RECT_MIX(*dst, c, p->alpha);
+        sgl_color_t c = sgl_color_mixer(src, *dst, cov);
+        *dst = sgl_color_mixer(c, *dst, p->alpha);
     }
 }
 
-/* Paint `n` pixels of one anti-aliased band, x ascending from `x0`.
- * `band`: 0 = outer rim, 1 = hole rim (ring mode only). */
-static void rect_band(sgl_color_t *d, int x0, int y, int n, const rect_paint_t *p,
-                      const rect_arc_t *a, int band)
+static void rect_band(sgl_color_t *d, int x0, int y, int n, const rect_paint_t *p, const rect_arc_t *a, int band)
 {
     int dy2 = sgl_pow2(y - a->cy);
     int lim = band ? (a->hole_lim - 1) : a->edge_lim;
@@ -146,7 +127,7 @@ static void rect_span(sgl_color_t *d, int x0, int y, int n, const rect_paint_t *
             for (; n > 0; n--, d++, s++) *d = *s;
         }
         else {
-            for (; n > 0; n--, d++, s++) *d = SGL_RECT_MIX(*d, *s, p->alpha);
+            for (; n > 0; n--, d++, s++) *d = sgl_color_mixer(*s, *d, p->alpha);
         }
         return;
     }
@@ -157,7 +138,7 @@ static void rect_span(sgl_color_t *d, int x0, int y, int n, const rect_paint_t *
         int32_t acc = p->sx * (x0 - p->rx1);       /* no multiply per pixel any more */
         for (; n > 0; n--, d++, acc += p->sx) {
             sgl_color_t c = row[acc >> SGL_FIXED_SHIFT];
-            *d = p->solid ? c : SGL_RECT_MIX(*d, c, p->alpha);
+            *d = p->solid ? c : sgl_color_mixer(c, *d, p->alpha);
         }
         return;
     }
@@ -168,7 +149,7 @@ static void rect_span(sgl_color_t *d, int x0, int y, int n, const rect_paint_t *
         int32_t fx = p->sx * (x0 - p->rx1);
         for (; n > 0; n--, d++, fx += p->sx) {
             sgl_color_t c = sgl_draw_biln_color(base, w, h, fx, fy);
-            *d = p->solid ? c : SGL_RECT_MIX(*d, c, p->alpha);
+            *d = p->solid ? c : sgl_color_mixer(c, *d, p->alpha);
         }
         return;
     }
@@ -176,7 +157,7 @@ static void rect_span(sgl_color_t *d, int x0, int y, int n, const rect_paint_t *
     }
 
     if (p->solid) {                               /* opaque solid colour */
-        SGL_RECT_SPAN_SET(d, n, p->color);
+        sgl_rect_span_set(d, n, p->color);
         return;
     }
     {
@@ -184,9 +165,9 @@ static void rect_span(sgl_color_t *d, int x0, int y, int n, const rect_paint_t *
         uint8_t a = p->alpha;
         for (; n >= SGL_RECT_UNROLL; n -= SGL_RECT_UNROLL, d += SGL_RECT_UNROLL) {
             int k;
-            for (k = 0; k < SGL_RECT_UNROLL; k++) d[k] = SGL_RECT_MIX(d[k], c, a);
+            for (k = 0; k < SGL_RECT_UNROLL; k++) d[k] = sgl_color_mixer(c, d[k], a);
         }
-        for (; n > 0; n--, d++) *d = SGL_RECT_MIX(*d, c, a);
+        for (; n > 0; n--, d++) *d = sgl_color_mixer(c, *d, a);
     }
 }
 

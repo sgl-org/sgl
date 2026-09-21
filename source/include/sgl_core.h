@@ -1809,10 +1809,10 @@ static inline sgl_color_t sgl_color_mixer(sgl_color_t fg_color, sgl_color_t bg_c
 
 #elif (CONFIG_SGL_FBDEV_PIXEL_DEPTH == SGL_COLOR_RGB565)
 
-    factor = (uint32_t)((uint32_t)factor + 4) >> 3;
-    uint32_t bg = (uint32_t)((uint32_t)bg_color.full | ((uint32_t)bg_color.full << 16)) & 0x07E0F81F; 
-    uint32_t fg = (uint32_t)((uint32_t)fg_color.full | ((uint32_t)fg_color.full << 16)) & 0x07E0F81F;
-    uint32_t result = ((((fg - bg) * factor) >> 5) + bg) & 0x7E0F81F;
+    uint32_t f5 = ((uint32_t)factor + 4) >> 3;
+    uint32_t bg = ((uint32_t)bg_color.full | ((uint32_t)bg_color.full << 16)) & 0x07E0F81Fu;
+    uint32_t fg = ((uint32_t)fg_color.full | ((uint32_t)fg_color.full << 16)) & 0x07E0F81Fu;
+    uint32_t result = ((((fg - bg) * f5) >> 5) + bg) & 0x07E0F81Fu;
     ret.full = (uint16_t)((result >> 16) | result);
 
 #elif (CONFIG_SGL_FBDEV_PIXEL_DEPTH == SGL_COLOR_RGB888)
