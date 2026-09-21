@@ -182,16 +182,7 @@ static void sgl_arc_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *
     if(evt->type == SGL_EVENT_DRAW_MAIN) {
         arc->desc.cx = (obj->coords.x2 + obj->coords.x1) / 2;
         arc->desc.cy = (obj->coords.y2 + obj->coords.y1) / 2;
-
-        int32_t diff = (int32_t)arc->desc.end_angle - (int32_t)arc->desc.start_angle;
-        sgl_draw_arc_t rd = arc->desc;
-        int16_t mod_diff = sgl_mod360((int16_t)diff);
-        if (mod_diff == 0) {
-            rd.start_angle = 0;
-            rd.end_angle   = 360;
-        }
-
-        sgl_draw_fill_arc(surf, &obj->area, &rd);
+        sgl_draw_fill_arc(surf, &obj->area, &arc->desc);
     }
     else if(evt->type == SGL_EVENT_PRESSED ||
         evt->type == SGL_EVENT_MOVE_DOWN || evt->type == SGL_EVENT_MOVE_UP || evt->type == SGL_EVENT_MOVE_LEFT || evt->type == SGL_EVENT_MOVE_RIGHT
