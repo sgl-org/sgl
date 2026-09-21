@@ -35,14 +35,15 @@
 static void gauge_calc_needle_area(const sgl_gauge_t *gauge, int16_t cx, int16_t cy, int16_t r,
                                    int16_t pointer_s, int16_t pointer_e, sgl_area_t *area)
 {
-    int needle_angle_deg = sgl_mod360(90 + gauge->angle_start + gauge->value * gauge->scale_angle / gauge->scale_step);
+    /* angle convention: 0 deg = top, clockwise (same as sgl_arc) */
+    int needle_angle_deg = sgl_mod360(gauge->angle_start + gauge->value * gauge->scale_angle / gauge->scale_step);
     int32_t n_sin = sgl_sin(needle_angle_deg);
     int32_t n_cos = sgl_cos(needle_angle_deg);
 
-    int32_t px_needle = ((r - pointer_s) * n_cos) / SGL_SIN_FIXED_ONE + cx + 1;
-    int32_t py_needle = ((r - pointer_s) * n_sin) / SGL_SIN_FIXED_ONE + cy + 1;
-    int32_t nx_needle = ((r - pointer_e) * n_cos) / SGL_SIN_FIXED_ONE + cx + 1;
-    int32_t ny_needle = ((r - pointer_e) * n_sin) / SGL_SIN_FIXED_ONE + cy + 1;
+    int32_t px_needle = ((r - pointer_s) * n_sin) / SGL_SIN_FIXED_ONE + cx + 1;
+    int32_t py_needle = -((r - pointer_s) * n_cos) / SGL_SIN_FIXED_ONE + cy + 1;
+    int32_t nx_needle = ((r - pointer_e) * n_sin) / SGL_SIN_FIXED_ONE + cx + 1;
+    int32_t ny_needle = -((r - pointer_e) * n_cos) / SGL_SIN_FIXED_ONE + cy + 1;
 
     area->x1 = sgl_min(px_needle, nx_needle);
     area->x2 = sgl_max(px_needle, nx_needle);
@@ -115,22 +116,20 @@ static void sgl_gauge_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t
 
         for (int16_t angle = gauge->angle_start; angle <= gauge->angle_end; angle += gauge->scale_angle) {
             scale_color = scale_mask < gauge->scale_warning ? gauge->scale_color : SGL_COLOR_RED;
+            int32_t sin_val = sgl_sin(angle);
+            int32_t cos_val = sgl_cos(angle);
 
-            int16_t calc_angle = angle + 90;
-            int32_t sin_val = sgl_sin(calc_angle);
-            int32_t cos_val = sgl_cos(calc_angle);
-
-            int32_t x_out = ((r - scale_out) * cos_val) / SGL_SIN_FIXED_ONE + cx;
-            int32_t y_out = ((r - scale_out) * sin_val) / SGL_SIN_FIXED_ONE + cy;
-            int32_t x_in  = ((r - scale_in) * cos_val) / SGL_SIN_FIXED_ONE + cx;
-            int32_t y_in  = ((r - scale_in) * sin_val) / SGL_SIN_FIXED_ONE + cy;
+            int32_t x_out = ((r - scale_out) * sin_val) / SGL_SIN_FIXED_ONE + cx;
+            int32_t y_out = -((r - scale_out) * cos_val) / SGL_SIN_FIXED_ONE + cy;
+            int32_t x_in  = ((r - scale_in) * sin_val) / SGL_SIN_FIXED_ONE + cx;
+            int32_t y_in  = -((r - scale_in) * cos_val) / SGL_SIN_FIXED_ONE + cy;
 
             sgl_sprintf(text, "%d", scale_mask);
             text_len = sgl_font_get_string_width(text, gauge->font);
 
             if ((count % (gauge->text_interval + 1)) == 0) {
-                int32_t tx = (text_cr * cos_val) / SGL_SIN_FIXED_ONE + cx;
-                int32_t ty = (text_cr * sin_val) / SGL_SIN_FIXED_ONE + cy;
+                int32_t tx = (text_cr * sin_val) / SGL_SIN_FIXED_ONE + cx;
+                int32_t ty = -(text_cr * cos_val) / SGL_SIN_FIXED_ONE + cy;
                 txt_x = tx - (text_len) / 2 - 2;
                 txt_y = ty - (sgl_font_get_height(gauge->font) / 2);
 
@@ -146,14 +145,14 @@ static void sgl_gauge_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t
             scale_mask += gauge->scale_step;
         }
 
-        int needle_angle_deg = sgl_mod360(90 + gauge->angle_start + gauge->value * gauge->scale_angle / gauge->scale_step);
+        int needle_angle_deg = sgl_mod360(gauge->angle_start + gauge->value * gauge->scale_angle / gauge->scale_step);
         int32_t n_sin = sgl_sin(needle_angle_deg);
-        int32_t n_cos = sgl_sin(needle_angle_deg + 90);
+        int32_t n_cos = sgl_cos(needle_angle_deg);
 
-        int32_t px_needle = ((r - pointer_s) * n_cos) / SGL_SIN_FIXED_ONE + cx + 1;
-        int32_t py_needle = ((r - pointer_s) * n_sin) / SGL_SIN_FIXED_ONE + cy + 1;
-        int32_t nx_needle = ((r - pointer_e) * n_cos) / SGL_SIN_FIXED_ONE + cx + 1;
-        int32_t ny_needle = ((r - pointer_e) * n_sin) / SGL_SIN_FIXED_ONE + cy + 1;
+        int32_t px_needle = ((r - pointer_s) * n_sin) / SGL_SIN_FIXED_ONE + cx + 1;
+        int32_t py_needle = -((r - pointer_s) * n_cos) / SGL_SIN_FIXED_ONE + cy + 1;
+        int32_t nx_needle = ((r - pointer_e) * n_sin) / SGL_SIN_FIXED_ONE + cx + 1;
+        int32_t ny_needle = -((r - pointer_e) * n_cos) / SGL_SIN_FIXED_ONE + cy + 1;
 
         sgl_draw_line_fill_slanted(surf, &obj->area, px_needle, py_needle, nx_needle, ny_needle, gauge->pointer_width, gauge->pointer_color, gauge->alpha);
     }
@@ -188,8 +187,10 @@ sgl_obj_t* sgl_gauge_create(sgl_obj_t* parent)
     gauge->scale_width = 1;
     gauge->pointer_width = 2;
     gauge->hub_color = SGL_THEME_COLOR;
-    gauge->angle_start = 30;
-    gauge->angle_end = 330;
+    /* classic dial: 210 deg -> 510 deg sweeps clockwise over the top
+     * (0 deg = top, same convention as sgl_arc) */
+    gauge->angle_start = 210;
+    gauge->angle_end = 510;
     gauge->scale_angle = 15;
     gauge->scale_step = 10;
     gauge->scale_warning = INT16_MAX;
@@ -360,7 +361,8 @@ void sgl_gauge_set_scale_warning_value(sgl_obj_t *obj, int16_t value)
 /**
  * @brief set gauge angle range
  * @param obj gauge object
- * @param start gauge angle start
+ * @param start gauge angle start, 0 deg = top, clockwise (same as sgl_arc);
+ *        may wrap past 360, e.g. 210..510 sweeps clockwise over the top
  * @param end gauge angle end
  * @return none
  */
