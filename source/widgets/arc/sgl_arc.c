@@ -124,6 +124,10 @@ static void arc_update_area(int16_t radius_in, int16_t radius_out, int16_t angle
     int16_t axis_angle;
     int i;
 
+    if (angle_s > angle_e) {
+        sgl_swap(&angle_s, &angle_e);
+    }
+
     /* Expand by 1 degree on each side to ensure endpoints are included,
      * then normalize to [0, 360). */
     angle_s = sgl_mod360(angle_s - 1);
@@ -187,8 +191,6 @@ static void sgl_arc_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *
     else if(evt->type == SGL_EVENT_PRESSED ||
         evt->type == SGL_EVENT_MOVE_DOWN || evt->type == SGL_EVENT_MOVE_UP || evt->type == SGL_EVENT_MOVE_LEFT || evt->type == SGL_EVENT_MOVE_RIGHT
     ) {
-        /* angle convention: 0 deg = top, clockwise; sgl_atan2(x, y) yields
-         * the angle whose (sin, cos) direction is (x, y), so flip dy */
         tb_angle = sgl_atan2(evt->pos.x - arc->desc.cx, arc->desc.cy - evt->pos.y);
         if ((tb_angle != arc->desc.end_angle) && tb_angle >= 0 && tb_angle <= 360) {
             sgl_arc_set_end_angle(obj, tb_angle);
@@ -348,6 +350,7 @@ void sgl_arc_set_end_angle(sgl_obj_t *obj, int16_t angle)
 
     if (sgl_mod360((int16_t)(arc->desc.end_angle - arc->desc.start_angle)) == 0 ||
         sgl_mod360((int16_t)(angle - arc->desc.start_angle)) == 0) {
+        SGL_LOG_ERROR("sgl_arc_set_end_angle: angle = %d  start_angle = %d end_angle = %d", angle, arc->desc.start_angle, arc->desc.end_angle);
         sgl_obj_set_dirty(obj);
     }
     else {
