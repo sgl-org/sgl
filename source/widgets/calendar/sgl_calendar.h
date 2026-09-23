@@ -61,18 +61,14 @@ typedef void (*sgl_calendar_cb_t)(sgl_obj_t *obj, int16_t year, uint8_t month, u
 typedef struct sgl_calendar {
     sgl_obj_t        obj;
     const sgl_font_t *font;
-
     int16_t          year;          /* year of the displayed month        */
     uint8_t          month;         /* displayed month (1-12)             */
-
     int16_t          sel_year;      /* selected date                      */
-    uint8_t         sel_month;
-    uint8_t         sel_day;
-
+    uint8_t          sel_month;
+    uint8_t          sel_day;
     int16_t          today_year;    /* today highlighted with a ring      */
-    uint8_t         today_month;
-    uint8_t         today_day;
-
+    uint8_t          today_month;
+    uint8_t          today_day;
     sgl_color_t      bg_color;          /* panel background               */
     sgl_color_t      text_color;        /* day numbers of current month   */
     sgl_color_t      weekday_color;     /* week day header text           */
@@ -80,7 +76,6 @@ typedef struct sgl_calendar {
     sgl_color_t      highlight_color;   /* selection / today accent       */
     sgl_color_t      sel_text_color;    /* text on the selected day       */
     uint8_t          alpha;
-
     sgl_calendar_cb_t on_date_changed;  /* selection change notification  */
 } sgl_calendar_t;
 
