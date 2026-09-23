@@ -42,6 +42,7 @@
 #define  SGL_MENU_SOFT_PAD         (2)   /* softkey bar vertical padding */
 #define  SGL_MENU_ITEM_PAD         (4)   /* item row vertical padding    */
 #define  SGL_MENU_TEXT_PAD         (6)   /* horizontal text margin       */
+#define  SGL_MENU_ARROW_PAD        (6)   /* arrow margin */
 
 static void sgl_menu_slide(sgl_menu_t *menu, uint8_t dir);
 static void sgl_menu_activate(sgl_menu_t *menu);
@@ -254,12 +255,15 @@ static void sgl_menu_draw_page(sgl_menu_t *menu, sgl_surf_t *surf,
         /* cascade arrow of submenu items: right facing chevron */
         if (item->type == SGL_MENU_TYPE_SUBMENU) {
             const int16_t aw = (int16_t)(item_h / 3);
-            const int16_t ax = x2 - SGL_MENU_TEXT_PAD - aw;
-            const int16_t ay = item_y + (int16_t)(item_h - aw) / 2;
+            const int16_t ax = x2 - SGL_MENU_ARROW_PAD - aw - SGL_MENU_ITEM_PAD;
+            const int16_t cy = item_y + SGL_MENU_ITEM_PAD + (int16_t)(item_h - aw) / 2;
             const sgl_color_t color = selected ? menu->sel_text_color : menu->text_color;
 
-            sgl_draw_line_noaa(surf, &obj->area, ax, ay, ax + aw, ay + aw / 2, color, 1, menu->alpha);
-            sgl_draw_line_noaa(surf, &obj->area, ax + aw, ay + aw / 2, ax, ay + aw, color, 1, menu->alpha);
+            /* right arrow ">" */
+            sgl_draw_line_noaa(surf, &obj->area, ax, (int16_t)(cy - aw),
+                            (int16_t)(ax + aw), cy, color, 2, menu->alpha);
+            sgl_draw_line_noaa(surf, &obj->area, (int16_t)(ax + aw), cy,
+                            ax, (int16_t)(cy + aw), color, 2, menu->alpha);
         }
     }
 
