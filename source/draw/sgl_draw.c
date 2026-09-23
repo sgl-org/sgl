@@ -127,6 +127,54 @@ void sgl_draw_chevron_left(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_
 }
 
 /**
+ * @brief draw an up facing chevron (cascade arrow) made of two lines
+ * @param surf surface
+ * @param area area that contains the chevron
+ * @param x left edge of the chevron bounding box
+ * @param y top edge of the chevron bounding box
+ * @param size half size of the chevron, it spans 2 * size + 1 px horizontally
+ * @param color chevron color
+ * @param width line width
+ * @param alpha alpha of color
+ * @return none
+ */
+void sgl_draw_chevron_up(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, int16_t size, sgl_color_t color, uint8_t width, uint8_t alpha)
+{
+    if (unlikely(size <= 0)) {
+        return;
+    }
+
+    sgl_draw_line_noaa(surf, area, x, (int16_t)(y + size),
+                       (int16_t)(x + size), y, color, width, alpha);
+    sgl_draw_line_noaa(surf, area, (int16_t)(x + size), y,
+                       (int16_t)(x + 2 * size), (int16_t)(y + size), color, width, alpha);
+}
+
+/**
+ * @brief draw a down facing chevron (cascade arrow) made of two lines
+ * @param surf surface
+ * @param area area that contains the chevron
+ * @param x left edge of the chevron bounding box
+ * @param y top edge of the chevron bounding box
+ * @param size half size of the chevron, it spans 2 * size + 1 px horizontally
+ * @param color chevron color
+ * @param width line width
+ * @param alpha alpha of color
+ * @return none
+ */
+void sgl_draw_chevron_down(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, int16_t size, sgl_color_t color, uint8_t width, uint8_t alpha)
+{
+    if (unlikely(size <= 0)) {
+        return;
+    }
+
+    sgl_draw_line_noaa(surf, area, x, y,
+                       (int16_t)(x + size), (int16_t)(y + size), color, width, alpha);
+    sgl_draw_line_noaa(surf, area, (int16_t)(x + size), (int16_t)(y + size),
+                       (int16_t)(x + 2 * size), y, color, width, alpha);
+}
+
+/**
  * @brief transform a surface
  * @param dst destination surface
  * @param src source surface

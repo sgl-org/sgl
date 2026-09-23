@@ -555,6 +555,34 @@ void sgl_draw_chevron_right(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16
 void sgl_draw_chevron_left(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, int16_t size, sgl_color_t color, uint8_t width, uint8_t alpha);
 
 /**
+ * @brief draw an up facing chevron (cascade arrow) made of two lines
+ * @param surf surface
+ * @param area area that contains the chevron
+ * @param x left edge of the chevron bounding box
+ * @param y top edge of the chevron bounding box
+ * @param size half size of the chevron, it spans 2 * size + 1 px horizontally
+ * @param color chevron color
+ * @param width line width
+ * @param alpha alpha of color
+ * @return none
+ */
+void sgl_draw_chevron_up(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, int16_t size, sgl_color_t color, uint8_t width, uint8_t alpha);
+
+/**
+ * @brief draw a down facing chevron (cascade arrow) made of two lines
+ * @param surf surface
+ * @param area area that contains the chevron
+ * @param x left edge of the chevron bounding box
+ * @param y top edge of the chevron bounding box
+ * @param size half size of the chevron, it spans 2 * size + 1 px horizontally
+ * @param color chevron color
+ * @param width line width
+ * @param alpha alpha of color
+ * @return none
+ */
+void sgl_draw_chevron_down(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, int16_t size, sgl_color_t color, uint8_t width, uint8_t alpha);
+
+/**
  * @brief draw a line
  * @param surf surface
  * @param area area that contains the line

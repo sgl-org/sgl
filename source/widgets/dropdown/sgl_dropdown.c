@@ -154,12 +154,9 @@ static void sgl_dropdown_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_even
             const int16_t ix = obj->coords.x2 - icon_w - obj->radius - obj->border - 2;
             const int16_t iy = obj->coords.y1 + (dropdown->option_h - icon_h + 1) / 2 + icon_y_off;
             const uint8_t lw = (uint8_t)sgl_max(2, icon_h / 8);
-            sgl_draw_line_noaa(surf, &obj->area, ix, iy,
-                               ix + icon_w / 2, iy + icon_h - 1,
-                               dropdown->text_color, lw, dropdown->alpha);
-            sgl_draw_line_noaa(surf, &obj->area, ix + icon_w / 2, iy + icon_h - 1,
-                               ix + icon_w, iy,
-                               dropdown->text_color, lw, dropdown->alpha);
+            /* icon_w == 2 * (icon_h - 1) == 2 * size, matches the chevron geometry */
+            sgl_draw_chevron_down(surf, &obj->area, ix, iy, (int16_t)(icon_h - 1),
+                                  dropdown->text_color, lw, dropdown->alpha);
         }
 
         /* Draw the selected item text on the closed dropdown header */
