@@ -80,6 +80,7 @@
 #include "widgets/curve/sgl_curve.h"
 #include "widgets/stepper/sgl_stepper.h"
 #include "widgets/menu/sgl_menu.h"
+#include "widgets/calendar/sgl_calendar.h"
 #include "widgets/coverflow/sgl_coverflow.h"
 #include "widgets/scrollview/sgl_scrollview.h"
 #include "widgets/tabview/sgl_tabview.h"

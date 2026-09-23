@@ -1890,7 +1890,7 @@ static inline void sgl_draw_task(sgl_fbdev_t *fbdev, sgl_area_t *dirty_area, uin
             continue;
         }
 #endif
-        SGL_LOG_TRACE("[fb:%d]sgl_draw_task: dirty area x1:%d y1:%d x2:%d y2:%d", fbdev->fb_emit, dirty->x1, dirty->y1, dirty->x2, dirty->y2);
+        //SGL_LOG_TRACE("[fb:%d]sgl_draw_task: dirty area x1:%d y1:%d x2:%d y2:%d", fbdev->fb_emit, dirty->x1, dirty->y1, dirty->x2, dirty->y2);
         /* check dirty area, ensure it is valid */
         SGL_ASSERT(dirty->x1 >= 0 && dirty->y1 >= 0 && dirty->x2 < SGL_SCREEN_WIDTH && dirty->y2 < SGL_SCREEN_HEIGHT);
 
