@@ -260,10 +260,7 @@ static void sgl_menu_draw_page(sgl_menu_t *menu, sgl_surf_t *surf,
             const sgl_color_t color = selected ? menu->sel_text_color : menu->text_color;
 
             /* right arrow ">" */
-            sgl_draw_line_noaa(surf, &obj->area, ax, (int16_t)(cy - aw),
-                            (int16_t)(ax + aw), cy, color, 2, menu->alpha);
-            sgl_draw_line_noaa(surf, &obj->area, (int16_t)(ax + aw), cy,
-                            ax, (int16_t)(cy + aw), color, 2, menu->alpha);
+            sgl_draw_chevron_right(surf, &obj->area, ax, (int16_t)(cy - aw), aw, color, 2, menu->alpha);
         }
     }
 

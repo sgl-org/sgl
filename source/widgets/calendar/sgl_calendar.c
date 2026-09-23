@@ -282,7 +282,7 @@ static void sgl_cal_draw_header(sgl_calendar_t *cal, sgl_surf_t *surf)
     const int16_t y1 = obj->coords.y1 + obj->border;
     char buf[24];
     int16_t text_w;
-    int16_t aw, ay, cy;
+    int16_t aw, cy;
     sgl_area_t box;
 
     sgl_cal_metrics(cal, &head_h, &week_h, &cell_w, &cell_h);
@@ -306,18 +306,12 @@ static void sgl_cal_draw_header(sgl_calendar_t *cal, sgl_surf_t *surf)
     cy = (int16_t)(y1 + head_h / 2);
 
     /* left arrow "<" */
-    ay = (int16_t)(x1 + SGL_CAL_ARROW_PAD + aw);
-    sgl_draw_line_noaa(surf, &obj->area, ay, (int16_t)(cy - aw),
-                       (int16_t)(ay - aw), cy, cal->highlight_color, 2, cal->alpha);
-    sgl_draw_line_noaa(surf, &obj->area, (int16_t)(ay - aw), cy,
-                       ay, (int16_t)(cy + aw), cal->highlight_color, 2, cal->alpha);
+    sgl_draw_chevron_left(surf, &obj->area, (int16_t)(x1 + SGL_CAL_ARROW_PAD),
+                          (int16_t)(cy - aw), aw, cal->highlight_color, 2, cal->alpha);
 
     /* right arrow ">" */
-    ay = (int16_t)(x2 - SGL_CAL_ARROW_PAD - aw);
-    sgl_draw_line_noaa(surf, &obj->area, ay, (int16_t)(cy - aw),
-                       (int16_t)(ay + aw), cy, cal->highlight_color, 2, cal->alpha);
-    sgl_draw_line_noaa(surf, &obj->area, (int16_t)(ay + aw), cy,
-                       ay, (int16_t)(cy + aw), cal->highlight_color, 2, cal->alpha);
+    sgl_draw_chevron_right(surf, &obj->area, (int16_t)(x2 - SGL_CAL_ARROW_PAD - aw),
+                           (int16_t)(cy - aw), aw, cal->highlight_color, 2, cal->alpha);
 }
 
 /**
