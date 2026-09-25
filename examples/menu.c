@@ -38,10 +38,89 @@
 /* shared declarative menu tree                                        */
 /* ------------------------------------------------------------------ */
 
-static void menu_theme_action(sgl_obj_t *menu, int16_t index)
+/* answer of the last msgbox button press (left/right button text) */
+static const char *menu_theme_msgbox_answer = NULL;
+
+/**
+ * @brief get the text of the currently selected item on the top page
+ * @param menu menu object
+ * @return item text, NULL when the menu has no valid selection
+ * @note reads the public sgl_menu_t layout: stack frame -> page def -> items
+ */
+static const char* menu_theme_selected_text(sgl_obj_t *menu)
 {
+    sgl_menu_t *m = sgl_container_of(menu, sgl_menu_t, obj);
+    const sgl_menu_frame_t *frame;
+
+    if (m->depth == 0) {
+        return NULL;
+    }
+
+    frame = &m->stack[m->depth - 1];
+    if (frame->selected < 0 || frame->selected >= (int16_t)frame->def->item_num) {
+        return NULL;
+    }
+
+    return frame->def->items[frame->selected].text;
+}
+
+/**
+ * @brief show a msgbox dialog with the text of the activated item
+ * @param menu menu object
+ * @param index index of the activated item
+ * @return none
+ * @note the msgbox destroys itself when either button is pressed; the
+ *       pressed button text is stored in menu_theme_msgbox_answer
+ */
+static void menu_theme_show_msgbox(sgl_obj_t *menu, int16_t index)
+{
+    sgl_obj_t *msgbox = sgl_msgbox_create(NULL);
+    if (msgbox == NULL) {
+        return;
+    }
+
+    /* centered dialog, roughly one third of the screen */
+    sgl_obj_set_pos(msgbox, 200, 150);
+    sgl_obj_set_size(msgbox, 400, 180);
+
+    sgl_msgbox_set_color(msgbox, sgl_rgb(250, 250, 250));
+    sgl_msgbox_set_border_color(msgbox, sgl_rgb(70, 74, 84));
+    sgl_msgbox_set_border_width(msgbox, 2);
+    sgl_msgbox_set_radius(msgbox, 8);
+    sgl_msgbox_set_alpha(msgbox, 255);
+    sgl_msgbox_set_main_alpha(msgbox, 255);
+    sgl_msgbox_set_border_alpha(msgbox, 255);
+    sgl_msgbox_set_font(msgbox, &consolas14);
+
+    /* title bar + item text as message body */
+    sgl_msgbox_set_title_text(msgbox, "Menu Item");
+    sgl_msgbox_set_title_text_color(msgbox, sgl_rgb(40, 44, 52));
+    sgl_msgbox_set_title_height(msgbox, 32);
+    sgl_msgbox_set_msg_text(msgbox, menu_theme_selected_text(menu));
+    sgl_msgbox_set_msg_text_color(msgbox, sgl_rgb(40, 44, 52));
+    sgl_msgbox_set_msg_line_margin(msgbox, 4);
+    sgl_msgbox_set_msg_x_offset(msgbox, 16);
+    sgl_msgbox_set_msg_y_offset(msgbox, 12);
+
+    /* OK button on the right, cancel on the left */
+    sgl_msgbox_set_left_btn_text(msgbox, "Close");
+    sgl_msgbox_set_left_btn_text_color(msgbox, SGL_COLOR_WHITE);
+    sgl_msgbox_set_left_btn_color(msgbox, sgl_rgb(120, 120, 120));
+    sgl_msgbox_set_right_btn_text(msgbox, "OK");
+    sgl_msgbox_set_right_btn_text_color(msgbox, SGL_COLOR_WHITE);
+    sgl_msgbox_set_right_btn_color(msgbox, sgl_rgb(0, 122, 255));
+
+    /* record which button closed the dialog */
+    sgl_msgbox_set_exit_answer(msgbox, &menu_theme_msgbox_answer);
+
     SGL_LOG_INFO("menu theme demo: item %d activated on depth %d",
                  (int)index, (int)sgl_menu_get_depth(menu));
+}
+
+static void menu_theme_action(sgl_obj_t *menu, int16_t index)
+{
+    /* popup a msgbox showing the clicked item text */
+    menu_theme_show_msgbox(menu, index);
 }
 
 /* child pages are defined before the parent page referencing them */
@@ -139,7 +218,7 @@ static sgl_obj_t* menu_theme_create(sgl_obj_t *parent,
     sgl_obj_set_pos(menu, x, y);
     sgl_obj_set_size(menu, w, h);
 
-    sgl_menu_set_font(menu, &consolas14);
+    sgl_menu_set_font(menu, &consolas23);
     sgl_menu_set_bg_color(menu, pal->bg);
     sgl_menu_set_title_color(menu, pal->bar_bg, pal->bar_text);
     sgl_menu_set_text_color(menu, pal->text);
