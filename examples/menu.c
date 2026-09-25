@@ -144,7 +144,7 @@ static sgl_obj_t* menu_theme_create(sgl_obj_t *parent,
     sgl_menu_set_title_color(menu, pal->bar_bg, pal->bar_text);
     sgl_menu_set_text_color(menu, pal->text);
     sgl_menu_set_card_style(menu, pal->card_bg, pal->card_border, 4);
-    sgl_menu_set_sel_style(menu, pal->sel_bg, pal->sel_border, pal->sel_text, 2);
+    sgl_menu_set_sel_style(menu, pal->sel_bg, pal->sel_border, pal->sel_text, 1);
 
     return menu;
 }

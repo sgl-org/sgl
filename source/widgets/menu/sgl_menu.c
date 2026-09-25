@@ -43,7 +43,7 @@
 #define  SGL_MENU_ITEM_PAD         (6)   /* item row vertical padding    */
 #define  SGL_MENU_TEXT_PAD         (6)   /* horizontal text margin       */
 #define  SGL_MENU_ARROW_PAD        (6)   /* arrow margin */
-#define  SGL_MENU_CARD_VMARGIN     (3)   /* gap between item card and row edge */
+#define  SGL_MENU_CARD_VMARGIN     (2)   /* gap between item card and row edge */
 
 static void sgl_menu_slide(sgl_menu_t *menu, uint8_t dir);
 static void sgl_menu_activate(sgl_menu_t *menu);
@@ -200,8 +200,8 @@ static void sgl_menu_scroll_commit(sgl_scroll_t *sc)
  * @param x_ofs horizontal slide offset used by the transition animation
  * @param is_top non zero for the topmost page (draws scrollbar, real softkeys)
  * @return none
- * @note items are drawn before the two bars so that the bars always
- *       cover list pixels overflowing at the viewport edges
+ * @note the two bars are part of the page background, item drawing is
+ *       clipped to the list area so it never bleeds onto the bars
  */
 static void sgl_menu_draw_page(sgl_menu_t *menu, sgl_surf_t *surf,
                                const sgl_menu_frame_t *frame, int32_t offset,
@@ -218,6 +218,7 @@ static void sgl_menu_draw_page(sgl_menu_t *menu, sgl_surf_t *surf,
     uint16_t i;
     int16_t radius;
     sgl_area_t box;
+    sgl_area_t clip;
     char buf[16];
 
     sgl_menu_metrics(menu, &title_h, &soft_h, &item_h);
@@ -231,12 +232,28 @@ static void sgl_menu_draw_page(sgl_menu_t *menu, sgl_surf_t *surf,
         radius = 0;
     }
 
-    /* list background of the whole page */
+    /* the bar color fills the whole page: its rounded corners form the
+     * outer corners of both the title bar and the softkey bar in one
+     * pass, so the two bars need no separate drawing */
     box.x1 = x1;
     box.x2 = x2;
     box.y1 = y1;
     box.y2 = y2;
+    sgl_draw_fill_rect(surf, &obj->area, &box, radius, menu->title_bg_color, menu->alpha);
+
+    /* punch out the list area with the list color, the bars remain as
+     * one continuous backdrop */
+    box.y1 = y1 + title_h;
+    box.y2 = y2 - soft_h;
     sgl_draw_fill_rect(surf, &obj->area, &box, 0, menu->bg_color, menu->alpha);
+
+    /* item drawing is clipped to the list area so partially scrolled
+     * cards and text never bleed onto the bars */
+    clip.x1 = box.x1;
+    clip.x2 = box.x2;
+    clip.y1 = box.y1;
+    clip.y2 = box.y2;
+    sgl_area_selfclip(&clip, &obj->area);
 
     /* item list: every item is a rounded card, the selected one gets an
      * accent border (drawn before the bars so the bars cover overflow) */
@@ -259,18 +276,18 @@ static void sgl_menu_draw_page(sgl_menu_t *menu, sgl_surf_t *surf,
         box.y2 = item_y + item_h - 1 - SGL_MENU_CARD_VMARGIN;
 
         if (selected) {
-            sgl_draw_fill_rect(surf, &obj->area, &box, radius, menu->sel_color, menu->alpha);
-            sgl_draw_fill_rect_border(surf, &obj->area, &box, radius,
+            sgl_draw_fill_rect(surf, &clip, &box, radius, menu->sel_color, menu->alpha);
+            sgl_draw_fill_rect_border(surf, &clip, &box, radius,
                                       menu->sel_border_color, menu->card_border_w, menu->alpha);
         }
         else {
-            sgl_draw_fill_rect(surf, &obj->area, &box, radius, menu->card_color, menu->alpha);
-            sgl_draw_fill_rect_border(surf, &obj->area, &box, radius,
+            sgl_draw_fill_rect(surf, &clip, &box, radius, menu->card_color, menu->alpha);
+            sgl_draw_fill_rect_border(surf, &clip, &box, radius,
                                       menu->card_border_color, 1, menu->alpha);
         }
 
         /* text starts where the card corner arc ends */
-        sgl_draw_string(surf, &obj->area, x1 + menu->card_hpad + radius,
+        sgl_draw_string(surf, &clip, x1 + menu->card_hpad + radius,
                         item_y + SGL_MENU_ITEM_PAD,
                         item->text, selected ? menu->sel_text_color : menu->text_color,
                         menu->alpha, menu->font);
@@ -285,7 +302,7 @@ static void sgl_menu_draw_page(sgl_menu_t *menu, sgl_surf_t *surf,
             const sgl_color_t color = selected ? menu->sel_text_color : menu->text_color;
 
             /* right arrow ">" */
-            sgl_draw_chevron_right(surf, &obj->area, ax, (int16_t)(cy - aw), aw, color, 2, menu->alpha);
+            sgl_draw_chevron_right(surf, &clip, ax, (int16_t)(cy - aw), aw, color, 2, menu->alpha);
         }
     }
 
@@ -299,15 +316,7 @@ static void sgl_menu_draw_page(sgl_menu_t *menu, sgl_surf_t *surf,
         sgl_scroll_draw_bar(surf, obj, &menu->sc, max_scroll, &viewport, menu->title_bg_color);
     }
 
-    /* title bar with the page title and the Symbian "n/m" indicator,
-     * only its top corners follow the widget rounding */
-    box.x1 = x1;
-    box.x2 = x2;
-    box.y1 = y1;
-    box.y2 = y1 + title_h - 1;
-    sgl_draw_fill_rich_rect(surf, &obj->area, &box, radius, radius, 0, 0,
-                            menu->title_bg_color, menu->alpha);
-
+    /* title text (the bar itself is part of the background) */
     if (def->title) {
         sgl_draw_string(surf, &obj->area, x1 + SGL_MENU_TEXT_PAD, y1 + SGL_MENU_TITLE_PAD,
                         def->title, menu->title_text_color, menu->alpha, menu->font);
@@ -320,13 +329,7 @@ static void sgl_menu_draw_page(sgl_menu_t *menu, sgl_surf_t *surf,
                         y1 + SGL_MENU_TITLE_PAD, buf, menu->title_text_color, menu->alpha, menu->font);
     }
 
-    /* softkey bar: left [Select] / right [Back|Exit],
-     * only its bottom corners follow the widget rounding */
-    box.y1 = y2 - soft_h + 1;
-    box.y2 = y2;
-    sgl_draw_fill_rich_rect(surf, &obj->area, &box, 0, 0, radius, radius,
-                            menu->title_bg_color, menu->alpha);
-
+    /* softkey texts (the bar itself is part of the background) */
     sgl_draw_string(surf, &obj->area, x1 + SGL_MENU_TEXT_PAD, y2 - soft_h + SGL_MENU_SOFT_PAD,
                     "Select", menu->title_text_color, menu->alpha, menu->font);
 
