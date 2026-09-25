@@ -40,9 +40,10 @@
 /* layout paddings (px) */
 #define  SGL_MENU_TITLE_PAD        (3)   /* title bar vertical padding   */
 #define  SGL_MENU_SOFT_PAD         (2)   /* softkey bar vertical padding */
-#define  SGL_MENU_ITEM_PAD         (4)   /* item row vertical padding    */
+#define  SGL_MENU_ITEM_PAD         (6)   /* item row vertical padding    */
 #define  SGL_MENU_TEXT_PAD         (6)   /* horizontal text margin       */
 #define  SGL_MENU_ARROW_PAD        (6)   /* arrow margin */
+#define  SGL_MENU_CARD_VMARGIN     (3)   /* gap between item card and row edge */
 
 static void sgl_menu_slide(sgl_menu_t *menu, uint8_t dir);
 static void sgl_menu_activate(sgl_menu_t *menu);
@@ -215,10 +216,20 @@ static void sgl_menu_draw_page(sgl_menu_t *menu, sgl_surf_t *surf,
     const int16_t y2 = obj->coords.y2;
     int16_t item_y;
     uint16_t i;
+    int16_t radius;
     sgl_area_t box;
     char buf[16];
 
     sgl_menu_metrics(menu, &title_h, &soft_h, &item_h);
+
+    /* card radius clamped to the card body between the row gaps */
+    radius = menu->card_radius;
+    if (radius > (item_h - 2 * SGL_MENU_CARD_VMARGIN) / 2) {
+        radius = (item_h - 2 * SGL_MENU_CARD_VMARGIN) / 2;
+    }
+    if (radius < 0) {
+        radius = 0;
+    }
 
     /* list background of the whole page */
     box.x1 = x1;
@@ -227,7 +238,8 @@ static void sgl_menu_draw_page(sgl_menu_t *menu, sgl_surf_t *surf,
     box.y2 = y2;
     sgl_draw_fill_rect(surf, &obj->area, &box, 0, menu->bg_color, menu->alpha);
 
-    /* item list */
+    /* item list: every item is a rounded card, the selected one gets an
+     * accent border (drawn before the bars so the bars cover overflow) */
     item_y = y1 + title_h - (int16_t)offset;
     for (i = 0; i < def->item_num; i++, item_y += item_h) {
         const sgl_menu_item_t *item = &def->items[i];
@@ -240,23 +252,36 @@ static void sgl_menu_draw_page(sgl_menu_t *menu, sgl_surf_t *surf,
             continue;                           /* above the list viewport */
         }
 
+        /* card body inset from the row by the gap margin */
+        box.x1 = x1 + menu->card_hpad;
+        box.x2 = x2 - menu->card_hpad;
+        box.y1 = item_y + SGL_MENU_CARD_VMARGIN;
+        box.y2 = item_y + item_h - 1 - SGL_MENU_CARD_VMARGIN;
+
         if (selected) {
-            box.x1 = x1;
-            box.x2 = x2;
-            box.y1 = item_y;
-            box.y2 = item_y + item_h - 1;
-            sgl_draw_fill_rect(surf, &obj->area, &box, 0, menu->sel_color, menu->alpha);
+            sgl_draw_fill_rect(surf, &obj->area, &box, radius, menu->sel_color, menu->alpha);
+            sgl_draw_fill_rect_border(surf, &obj->area, &box, radius,
+                                      menu->sel_border_color, menu->card_border_w, menu->alpha);
+        }
+        else {
+            sgl_draw_fill_rect(surf, &obj->area, &box, radius, menu->card_color, menu->alpha);
+            sgl_draw_fill_rect_border(surf, &obj->area, &box, radius,
+                                      menu->card_border_color, 1, menu->alpha);
         }
 
-        sgl_draw_string(surf, &obj->area, x1 + SGL_MENU_TEXT_PAD, item_y + SGL_MENU_ITEM_PAD,
+        /* text starts where the card corner arc ends */
+        sgl_draw_string(surf, &obj->area, x1 + menu->card_hpad + radius,
+                        item_y + SGL_MENU_ITEM_PAD,
                         item->text, selected ? menu->sel_text_color : menu->text_color,
                         menu->alpha, menu->font);
 
-        /* cascade arrow of submenu items: right facing chevron */
+        /* cascade arrow of submenu items: right facing chevron sized to
+         * match the item text height */
         if (item->type == SGL_MENU_TYPE_SUBMENU) {
-            const int16_t aw = (int16_t)(item_h / 3);
-            const int16_t ax = x2 - SGL_MENU_ARROW_PAD - aw - SGL_MENU_ITEM_PAD;
-            const int16_t cy = item_y + SGL_MENU_ITEM_PAD + (int16_t)(item_h - aw) / 2;
+            const int16_t font_h = (int16_t)sgl_font_get_height(menu->font);
+            const int16_t aw = (int16_t)((font_h - 1) / 2);     /* spans font_h px */
+            const int16_t ax = x2 - menu->card_hpad - SGL_MENU_ARROW_PAD - aw;
+            const int16_t cy = item_y + SGL_MENU_ITEM_PAD + font_h / 2;
             const sgl_color_t color = selected ? menu->sel_text_color : menu->text_color;
 
             /* right arrow ">" */
@@ -274,12 +299,14 @@ static void sgl_menu_draw_page(sgl_menu_t *menu, sgl_surf_t *surf,
         sgl_scroll_draw_bar(surf, obj, &menu->sc, max_scroll, &viewport, menu->title_bg_color);
     }
 
-    /* title bar with the page title and the Symbian "n/m" indicator */
+    /* title bar with the page title and the Symbian "n/m" indicator,
+     * only its top corners follow the widget rounding */
     box.x1 = x1;
     box.x2 = x2;
     box.y1 = y1;
     box.y2 = y1 + title_h - 1;
-    sgl_draw_fill_rect(surf, &obj->area, &box, 0, menu->title_bg_color, menu->alpha);
+    sgl_draw_fill_rich_rect(surf, &obj->area, &box, radius, radius, 0, 0,
+                            menu->title_bg_color, menu->alpha);
 
     if (def->title) {
         sgl_draw_string(surf, &obj->area, x1 + SGL_MENU_TEXT_PAD, y1 + SGL_MENU_TITLE_PAD,
@@ -293,10 +320,12 @@ static void sgl_menu_draw_page(sgl_menu_t *menu, sgl_surf_t *surf,
                         y1 + SGL_MENU_TITLE_PAD, buf, menu->title_text_color, menu->alpha, menu->font);
     }
 
-    /* softkey bar: left [Select] / right [Back|Exit] */
+    /* softkey bar: left [Select] / right [Back|Exit],
+     * only its bottom corners follow the widget rounding */
     box.y1 = y2 - soft_h + 1;
     box.y2 = y2;
-    sgl_draw_fill_rect(surf, &obj->area, &box, 0, menu->title_bg_color, menu->alpha);
+    sgl_draw_fill_rich_rect(surf, &obj->area, &box, 0, 0, radius, radius,
+                            menu->title_bg_color, menu->alpha);
 
     sgl_draw_string(surf, &obj->area, x1 + SGL_MENU_TEXT_PAD, y2 - soft_h + SGL_MENU_SOFT_PAD,
                     "Select", menu->title_text_color, menu->alpha, menu->font);
@@ -606,6 +635,14 @@ sgl_obj_t* sgl_menu_create(sgl_obj_t *parent, const sgl_menu_def_t *root)
     menu->sel_color = SGL_MENU_SEL_COLOR;
     menu->sel_text_color = SGL_MENU_BAR_TEXT_COLOR;
 
+    /* rounded card item style defaults derived from the palette */
+    menu->card_color = sgl_color_mixer(menu->title_bg_color, menu->bg_color, 26);
+    menu->card_border_color = sgl_color_mixer(menu->title_bg_color, menu->bg_color, 80);
+    menu->sel_border_color = SGL_MENU_SEL_COLOR;
+    menu->card_radius = 4;
+    menu->card_border_w = 2;
+    menu->card_hpad = 6;
+
     menu->stack[0].def = root;
     menu->stack[0].selected = 0;
     menu->stack[0].offset = 0;
@@ -812,5 +849,44 @@ void sgl_menu_set_alpha(sgl_obj_t *obj, uint8_t alpha)
 {
     sgl_menu_t *menu = (sgl_menu_t *)obj;
     menu->alpha = alpha;
+    sgl_obj_set_dirty(obj);
+}
+
+/**
+ * @brief set the style of the rounded item cards
+ * @param obj menu object
+ * @param card_color card background color
+ * @param card_border_color idle card border color
+ * @param radius corner radius of the cards
+ * @return none
+ */
+void sgl_menu_set_card_style(sgl_obj_t *obj, sgl_color_t card_color,
+                             sgl_color_t card_border_color, int16_t radius)
+{
+    sgl_menu_t *menu = (sgl_menu_t *)obj;
+    menu->card_color = card_color;
+    menu->card_border_color = card_border_color;
+    menu->card_radius = radius;
+    sgl_obj_set_dirty(obj);
+}
+
+/**
+ * @brief set the selection highlight style of the rounded cards
+ * @param obj menu object
+ * @param sel_color selected card background color
+ * @param sel_border_color selected card border color
+ * @param sel_text_color text color on the selected card
+ * @param border_width selected card border width
+ * @return none
+ */
+void sgl_menu_set_sel_style(sgl_obj_t *obj, sgl_color_t sel_color,
+                            sgl_color_t sel_border_color, sgl_color_t sel_text_color,
+                            uint8_t border_width)
+{
+    sgl_menu_t *menu = (sgl_menu_t *)obj;
+    menu->sel_color = sel_color;
+    menu->sel_border_color = sel_border_color;
+    menu->sel_text_color = sel_text_color;
+    menu->card_border_w = border_width;
     sgl_obj_set_dirty(obj);
 }

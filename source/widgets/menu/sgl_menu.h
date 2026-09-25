@@ -144,6 +144,12 @@ typedef struct sgl_menu {
     sgl_color_t      title_text_color;   /* title / softkey bar text    */
     sgl_color_t      sel_color;          /* highlighted selection bar     */
     sgl_color_t      sel_text_color;     /* text on the selection bar   */
+    sgl_color_t      card_color;         /* rounded item card background  */
+    sgl_color_t      card_border_color;  /* idle rounded card border      */
+    sgl_color_t      sel_border_color;   /* selected card border color    */
+    int16_t          card_radius;        /* rounded item card radius      */
+    uint8_t          card_border_w;      /* selected card border width    */
+    uint8_t          card_hpad;          /* horizontal card inset         */
     uint8_t          alpha;
     sgl_scroll_t     sc;                 /* list scroll physics         */
     /* transition animation state */
@@ -258,6 +264,30 @@ void sgl_menu_set_selected_color(sgl_obj_t *obj, sgl_color_t color, sgl_color_t 
  * @return none
  */
 void sgl_menu_set_alpha(sgl_obj_t *obj, uint8_t alpha);
+
+/**
+ * @brief set the style of the rounded item cards
+ * @param obj menu object
+ * @param card_color card background color
+ * @param card_border_color idle card border color
+ * @param radius corner radius of the cards
+ * @return none
+ */
+void sgl_menu_set_card_style(sgl_obj_t *obj, sgl_color_t card_color,
+                             sgl_color_t card_border_color, int16_t radius);
+
+/**
+ * @brief set the selection highlight style of the rounded cards
+ * @param obj menu object
+ * @param sel_color selected card background color
+ * @param sel_border_color selected card border color
+ * @param sel_text_color text color on the selected card
+ * @param border_width selected card border width
+ * @return none
+ */
+void sgl_menu_set_sel_style(sgl_obj_t *obj, sgl_color_t sel_color,
+                            sgl_color_t sel_border_color, sgl_color_t sel_text_color,
+                            uint8_t border_width);
 
 #ifdef __cplusplus
 }

@@ -1,18 +1,20 @@
-/* examples/menu.c
+/* examples/menu_theme.c
  *
  * MIT License
  *
- * Copyright(c) 2023-present All contributors of SGL  
+ * Copyright(c) 2023-present All contributors of SGL
  * Document reference link: https://sgl-docs.readthedocs.io
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -25,124 +27,136 @@
 #include <sgl.h>
 
 /**
- * Menu widget example: Symbian (S60) style declarative menu
- *  - the menu tree is described with constant tables (declarative)
- *  - stack based multi level navigation with slide animations
- *  - touch (drag to scroll, tap to select / activate) and keys
+ * Menu widget examples: rounded card item style, one per theme
+ *  - every item is drawn as a rounded rectangle card
+ *  - the selected card changes its border color (accent highlight)
+ *  - one white (light) theme menu and one dark theme menu are shown
+ *    side by side, sharing the same declarative page tables
  */
 
-static sgl_obj_t       *g_menu_demo_obj   = NULL;
-static sgl_key_group_t *g_menu_demo_group = NULL;
+/* ------------------------------------------------------------------ */
+/* shared declarative menu tree                                        */
+/* ------------------------------------------------------------------ */
 
-static void sgl_menu_action(sgl_obj_t *menu, int16_t index)
+static void menu_theme_action(sgl_obj_t *menu, int16_t index)
 {
-    SGL_LOG_INFO("menu demo: item %d activated on depth %d",
+    SGL_LOG_INFO("menu theme demo: item %d activated on depth %d",
                  (int)index, (int)sgl_menu_get_depth(menu));
 }
 
 /* child pages are defined before the parent page referencing them */
-static const sgl_menu_item_t g_menu_demo_network_items[] = {
-    SGL_MENU_ITEM("Wi-Fi",          sgl_menu_action),
-    SGL_MENU_ITEM("Bluetooth",      sgl_menu_action),
-    SGL_MENU_ITEM("Mobile data",    sgl_menu_action),
+static const sgl_menu_item_t menu_theme_network_items[] = {
+    SGL_MENU_ITEM("Wi-Fi",         menu_theme_action),
+    SGL_MENU_ITEM("Bluetooth",     menu_theme_action),
+    SGL_MENU_ITEM("Mobile data",   menu_theme_action),
 };
-SGL_MENU_DEF(g_menu_demo_network, "Network", g_menu_demo_network_items);
+SGL_MENU_DEF(menu_theme_network, "Network", menu_theme_network_items);
 
-static const sgl_menu_item_t g_menu_demo_settings_items[] = {
-    SGL_MENU_ITEM("Display",        sgl_menu_action),
-    SGL_MENU_ITEM("Sound",          sgl_menu_action),
-    SGL_MENU_SUBMENU("Network",     &g_menu_demo_network),
-    SGL_MENU_ITEM("Factory reset",  sgl_menu_action),
-    SGL_MENU_ITEM("Theme",          sgl_menu_action),
-    SGL_MENU_ITEM("Language",       sgl_menu_action),
-    SGL_MENU_ITEM("Time and date",  sgl_menu_action),
+static const sgl_menu_item_t menu_theme_settings_items[] = {
+    SGL_MENU_ITEM("Display",       menu_theme_action),
+    SGL_MENU_ITEM("Sound",         menu_theme_action),
+    SGL_MENU_SUBMENU("Network",    &menu_theme_network),
+    SGL_MENU_ITEM("Theme",         menu_theme_action),
+    SGL_MENU_ITEM("Language",      menu_theme_action),
 };
-SGL_MENU_DEF(g_menu_demo_settings, "Settings", g_menu_demo_settings_items);
+SGL_MENU_DEF(menu_theme_settings, "Settings", menu_theme_settings_items);
 
-static const sgl_menu_item_t g_menu_demo_media_items[] = {
-    SGL_MENU_ITEM("Music",         sgl_menu_action),
-    SGL_MENU_ITEM("Photos",        sgl_menu_action),
-    SGL_MENU_ITEM("Videos",        sgl_menu_action),
-    SGL_MENU_ITEM("Radio",         sgl_menu_action),
-    SGL_MENU_ITEM("Recorder",      sgl_menu_action),
+static const sgl_menu_item_t menu_theme_media_items[] = {
+    SGL_MENU_ITEM("Music",         menu_theme_action),
+    SGL_MENU_ITEM("Photos",        menu_theme_action),
+    SGL_MENU_ITEM("Videos",        menu_theme_action),
+    SGL_MENU_ITEM("Radio",         menu_theme_action),
 };
-SGL_MENU_DEF(g_menu_demo_media, "Media", g_menu_demo_media_items);
+SGL_MENU_DEF(menu_theme_media, "Media", menu_theme_media_items);
 
-static const sgl_menu_item_t g_menu_demo_main_items[] = {
-    SGL_MENU_ITEM("Messages",      sgl_menu_action),
-    SGL_MENU_ITEM("Contacts",      sgl_menu_action),
-    SGL_MENU_SUBMENU("Settings",   &g_menu_demo_settings),
-    SGL_MENU_SUBMENU("Media",      &g_menu_demo_media),
-    SGL_MENU_ITEM("Calendar",      sgl_menu_action),
-    SGL_MENU_ITEM("Clock",         sgl_menu_action),
-    SGL_MENU_ITEM("Notes",         sgl_menu_action),
-    SGL_MENU_ITEM("About",         sgl_menu_action),
-    SGL_MENU_ITEM("About1",         sgl_menu_action),
-    SGL_MENU_ITEM("About2",         sgl_menu_action),
-    SGL_MENU_ITEM("About3",         sgl_menu_action),
-    SGL_MENU_ITEM("About4",         sgl_menu_action),
-    SGL_MENU_ITEM("About5",         sgl_menu_action),
-    SGL_MENU_ITEM("About6",         sgl_menu_action),
-    SGL_MENU_ITEM("About7",         sgl_menu_action),
-    SGL_MENU_ITEM("About8",         sgl_menu_action),
+static const sgl_menu_item_t menu_theme_main_items[] = {
+    SGL_MENU_ITEM("Messages",      menu_theme_action),
+    SGL_MENU_ITEM("Contacts",      menu_theme_action),
+    SGL_MENU_SUBMENU("Settings",   &menu_theme_settings),
+    SGL_MENU_SUBMENU("Media",      &menu_theme_media),
+    SGL_MENU_ITEM("Calendar",      menu_theme_action),
+    SGL_MENU_ITEM("Clock",         menu_theme_action),
+    SGL_MENU_ITEM("Notes",         menu_theme_action),
+    SGL_MENU_ITEM("About",         menu_theme_action),
 };
-SGL_MENU_DEF(g_menu_demo_main, "Main Menu", g_menu_demo_main_items);
+SGL_MENU_DEF(menu_theme_main, "Main Menu", menu_theme_main_items);
 
-/* close callback: leave the key group and destroy the menu object */
-static void sgl_menu_demo_close_cb(sgl_obj_t *menu)
+/* ------------------------------------------------------------------ */
+/* theme palettes                                                      */
+/* ------------------------------------------------------------------ */
+
+typedef struct menu_theme_palette {
+    sgl_color_t bg;               /* menu page background             */
+    sgl_color_t bar_bg;           /* title / softkey bar background   */
+    sgl_color_t bar_text;         /* title / softkey bar text         */
+    sgl_color_t card_bg;          /* idle item card background        */
+    sgl_color_t card_border;      /* idle item card border            */
+    sgl_color_t text;             /* item text                        */
+    sgl_color_t sel_bg;           /* selected card background         */
+    sgl_color_t sel_border;       /* selected card border (accent)    */
+    sgl_color_t sel_text;         /* text on the selected card        */
+} menu_theme_palette_t;
+
+static const menu_theme_palette_t menu_theme_light = {
+    /* white theme: soft gray cards, blue accent selection */
+    .bg          = sgl_rgb(245, 246, 248),
+    .bar_bg      = sgl_rgb(255, 255, 255),
+    .bar_text    = sgl_rgb(40, 44, 52),
+    .card_bg     = sgl_rgb(255, 255, 255),
+    .card_border = sgl_rgb(224, 227, 231),
+    .text        = sgl_rgb(40, 44, 52),
+    .sel_bg      = sgl_rgb(232, 242, 255),
+    .sel_border  = sgl_rgb(0, 122, 255),
+    .sel_text    = sgl_rgb(0, 86, 201),
+};
+
+static const menu_theme_palette_t menu_theme_dark = {
+    /* dark theme: deep gray cards, cyan accent selection */
+    .bg          = sgl_rgb(24, 26, 32),
+    .bar_bg      = sgl_rgb(16, 17, 22),
+    .bar_text    = sgl_rgb(220, 223, 228),
+    .card_bg     = sgl_rgb(44, 47, 56),
+    .card_border = sgl_rgb(60, 64, 74),
+    .text        = sgl_rgb(220, 223, 228),
+    .sel_bg      = sgl_rgb(38, 58, 84),
+    .sel_border  = sgl_rgb(0, 170, 255),
+    .sel_text    = sgl_rgb(130, 215, 255),
+};
+
+/* ------------------------------------------------------------------ */
+/* menu builders                                                       */
+/* ------------------------------------------------------------------ */
+
+static sgl_obj_t* menu_theme_create(sgl_obj_t *parent,
+                                    const menu_theme_palette_t *pal,
+                                    int16_t x, int16_t y, int16_t w, int16_t h)
 {
-    if (g_menu_demo_group != NULL) {
-        sgl_key_group_remove_obj(g_menu_demo_group, menu);
-    }
-    sgl_obj_delete(menu);
-    g_menu_demo_obj = NULL;
-}
-
-/* button callback: open the menu (only one instance at a time) */
-static void sgl_menu_demo_open_cb(sgl_event_t *e)
-{
-    sgl_obj_t *menu;
-
-    if (e->type != SGL_EVENT_PRESSED || g_menu_demo_obj != NULL)
-        return;
-
-    menu = sgl_menu_create(NULL, &g_menu_demo_main);
-    if (menu == NULL)
-        return;
-
-    sgl_obj_set_pos(menu, 240, 30);
-    sgl_obj_set_size(menu, 320, 420);
-    sgl_menu_set_font(menu, &consolas24);
-    sgl_menu_set_close_cb(menu, sgl_menu_demo_close_cb);
-
-    if (g_menu_demo_group != NULL) {
-        sgl_key_group_add_obj(g_menu_demo_group, menu);
+    sgl_obj_t *menu = sgl_menu_create(parent, &menu_theme_main);
+    if (menu == NULL) {
+        return NULL;
     }
 
-    g_menu_demo_obj = menu;
+    sgl_obj_set_pos(menu, x, y);
+    sgl_obj_set_size(menu, w, h);
+
+    sgl_menu_set_font(menu, &consolas14);
+    sgl_menu_set_bg_color(menu, pal->bg);
+    sgl_menu_set_title_color(menu, pal->bar_bg, pal->bar_text);
+    sgl_menu_set_text_color(menu, pal->text);
+    sgl_menu_set_card_style(menu, pal->card_bg, pal->card_border, 4);
+    sgl_menu_set_sel_style(menu, pal->sel_bg, pal->sel_border, pal->sel_text, 2);
+
+    return menu;
 }
 
 /**
- * @brief create the menu example
- * @param parent parent object, NULL creates the button on the active screen
- * @param group optional key group to add the button to
+ * @brief create the menu theme examples: a white (light) theme menu on
+ *        the left and a dark theme menu on the right
+ * @param parent parent object, NULL creates the menus on the active screen
  * @return none
  */
-void sgl_menu_demo(sgl_obj_t *parent, sgl_key_group_t *group)
+void sgl_menu_examples(sgl_obj_t *parent)
 {
-    sgl_obj_t *btn;
-
-    g_menu_demo_group = group;
-
-    btn = sgl_button_create(parent);
-    sgl_obj_set_pos(btn, 10, 250);
-    sgl_obj_set_size(btn, 100, 30);
-    sgl_button_set_font(btn, &consolas14);
-    sgl_button_set_text(btn, "Open Menu");
-    sgl_button_set_radius(btn, 10);
-    sgl_obj_set_event_cb(btn, sgl_menu_demo_open_cb, NULL);
-
-    if (group != NULL) {
-        sgl_key_group_add_obj(group, btn);
-    }
+    menu_theme_create(parent, &menu_theme_light, 40, 60, 340, 360);
+    menu_theme_create(parent, &menu_theme_dark, 420, 60, 340, 360);
 }
