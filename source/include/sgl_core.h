@@ -438,7 +438,6 @@ typedef struct sgl_font {
  * @destroyed: (1 bit) Set to 1 when the object is marked for destruction.
  * @dirty: (1 bit) Set to 1 when the object needs to be redrawn.
  * @hide: (1 bit) Set to 1 to exclude the object from rendering (hidden).
- * @needinit: (1 bit) Set to 1 if the object requires deferred initialization.
  * @layout: (2 bits) Layout mode for children:
  *          - 0: No auto-layout
  *          - 1: Horizontal layout (left to right)
@@ -467,7 +466,7 @@ typedef struct sgl_obj {
     uint8_t         destroyed : 1;
     uint8_t         dirty : 1;
     uint8_t         hide : 1;
-    uint8_t         needinit : 1;
+    uint8_t         page : 1;
     uint8_t         focus : 1;
     uint8_t         editable : 1;
     uint8_t         clickable : 1;
@@ -475,9 +474,7 @@ typedef struct sgl_obj {
     uint8_t         border;
     uint16_t        flexible : 1;
     uint16_t        pressed : 1;
-    uint16_t        press_click : 1;
-    uint16_t        page : 1;
-    uint16_t        radius : 12;
+    uint16_t        radius : 14;
 #if CONFIG_SGL_OBJ_USE_NAME
     const char      *name;
 #endif
@@ -1090,28 +1087,6 @@ static inline bool sgl_obj_is_dirty(sgl_obj_t *obj)
 }
 
 /**
- * @brief set object need init coords
- * @param obj point to object
- * @return none
- */
-static inline void sgl_obj_needinit(sgl_obj_t *obj)
-{
-    SGL_ASSERT(obj != NULL);
-    obj->needinit = 1;
-}
-
-/**
- * @brief check object if need init coords
- * @param obj point to object
- * @return flag, true - need init coords
- */
-static inline bool sgl_obj_is_needinit(sgl_obj_t *obj)
-{
-    SGL_ASSERT(obj != NULL);
-    return (bool)obj->needinit;
-}
-
-/**
  * @brief set object focus flag
  * @param obj point to object
  * @return none
@@ -1175,17 +1150,6 @@ static inline bool sgl_obj_is_editable(sgl_obj_t *obj)
 {
     SGL_ASSERT(obj != NULL);
     return (bool)obj->editable;
-}
-
-/**
- * @brief clear object need init coords flag
- * @param obj point to object
- * @return none
- */
-static inline void sgl_obj_clear_needinit(sgl_obj_t *obj)
-{
-    SGL_ASSERT(obj != NULL);
-    obj->needinit = 0;
 }
 
 /**

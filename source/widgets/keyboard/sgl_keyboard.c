@@ -376,6 +376,7 @@ static int8_t keyboard_pos_to_index(int16_t x, int16_t y, sgl_keyboard_t *keyboa
 static void sgl_keyboard_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *evt)
 {
     sgl_keyboard_t *keyboard = sgl_container_of(obj, sgl_keyboard_t, obj);
+    SGL_ASSERT(keyboard->font != NULL);
     int16_t body_w = obj->coords.x2 - obj->coords.x1 + 1;
     int16_t body_h = obj->coords.y2 - obj->coords.y1 + 1;
 
@@ -512,21 +513,6 @@ static void sgl_keyboard_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
         sgl_obj_set_dirty(obj);
         break;
 
-    case SGL_EVENT_DRAW_INIT:
-        keyboard->opcode = 0;
-        keyboard->key_index = KEYBOARD_KEY_INVALID;
-
-        if (keyboard->key_margin == 0) {
-            keyboard->key_margin = sgl_max(body_w / 128, 1);
-        }
-
-        if (keyboard->btn_desc.radius == 0) {
-            keyboard->btn_desc.radius = sgl_max(keyboard->key_margin, 2);
-        }
-
-        SGL_ASSERT(keyboard->font != NULL);
-        break;
-
     case SGL_EVENT_KEY_ESC:
         keyboard->key_index = KEYBOARD_KEY_INVALID;
         sgl_obj_update_area(&keyboard->btn_area);
@@ -563,7 +549,11 @@ sgl_obj_t* sgl_keyboard_create(sgl_obj_t* parent)
     sgl_obj_set_editable(obj);
 
     obj->clickable = 1;
-    obj->needinit  = 1;
+
+    keyboard->opcode = 0;
+    keyboard->key_index = KEYBOARD_KEY_INVALID;
+    keyboard->key_margin = 2;
+    keyboard->btn_desc.radius = 4;
 
     keyboard->body_desc.alpha = SGL_THEME_ALPHA;
     keyboard->body_desc.border_alpha = SGL_THEME_ALPHA;

@@ -1817,19 +1817,6 @@ static inline void sgl_dirty_area_harvest(sgl_obj_t *obj)
             continue;
         }
 
-        /* check child need init coords */
-        if (unlikely(sgl_obj_is_needinit(obj))) {
-            sgl_event_t evt = {
-                .type = SGL_EVENT_DRAW_INIT,
-            };
-
-            /* check construct function */
-            SGL_ASSERT(obj->construct_fn != NULL);
-            obj->construct_fn(NULL, obj, &evt);
-            /* maybe no need to clear flag */
-            sgl_obj_clear_needinit(obj);
-        }
-
         /* check child dirty and merge all dirty area */
         if (sgl_obj_is_dirty(obj)) {
             /* merge dirty area */

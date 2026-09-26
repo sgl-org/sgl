@@ -110,7 +110,6 @@ sgl_obj_t* sgl_checkbox_create(sgl_obj_t* parent)
     sgl_obj_t *obj = &checkbox->obj;
     sgl_obj_init(&checkbox->obj, parent);
     obj->construct_fn = sgl_checkbox_construct_cb;
-    obj->needinit = 1;
 
     checkbox->status = false;
     checkbox->alpha = SGL_ALPHA_MAX;

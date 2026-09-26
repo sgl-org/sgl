@@ -216,7 +216,6 @@ sgl_obj_t* sgl_arc_create(sgl_obj_t* parent)
 
     sgl_obj_t *obj = &arc->obj;
     sgl_obj_init(&arc->obj, parent);
-    obj->needinit = 1;
     obj->clickable = 1;
     obj->movable = 1;
 

@@ -219,17 +219,7 @@ static void sgl_numberkbd_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_eve
         numberkbd->opcode = 0;
         sgl_obj_set_dirty(obj);
     }
-    else if(evt->type == SGL_EVENT_DRAW_INIT) {
-        int16_t new_width = box_w * NUMBERKBD_BTN_COL + (NUMBERKBD_BTN_COL + 1) * numberkbd->margin;
-        int16_t new_height = box_h * NUMBERKBD_BTN_ROW + (NUMBERKBD_BTN_ROW + 1) * numberkbd->margin;
-
-        obj->coords.x2 = obj->coords.x1 + new_width;
-        obj->coords.y2 = obj->coords.y1 + new_height;
-
-        SGL_ASSERT(numberkbd->font != NULL);
-    }
 }
-
 
 /**
  * @brief create numberkbd object
@@ -253,7 +243,6 @@ sgl_obj_t* sgl_numberkbd_create(sgl_obj_t* parent)
     sgl_obj_set_border_width(obj, SGL_THEME_BORDER_WIDTH);
 
     obj->clickable = 1;
-    obj->needinit  = 1;
 
     numberkbd->body_desc.alpha = SGL_THEME_ALPHA;
     numberkbd->body_desc.color = SGL_THEME_COLOR;
