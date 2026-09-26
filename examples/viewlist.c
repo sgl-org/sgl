@@ -91,15 +91,6 @@ static void music_draw_item(sgl_obj_t *list, sgl_surf_t *surf, sgl_area_t *clip,
     sgl_draw_string(surf, clip, coords->x2 - dur_w - 20,
                     coords->y1 + (coords->y2 - coords->y1 + 1 - sgl_font_get_height(&consolas14)) / 2,
                     duration, SGL_COLOR_GRAY, 255, &consolas14);
-
-    /* playing indicator bar on the selected item */
-    if (selected) {
-        sgl_area_t bar = {
-            .x1 = coords->x2 - 6, .y1 = coords->y1 + 8,
-            .x2 = coords->x2 - 2, .y2 = coords->y2 - 8,
-        };
-        sgl_draw_fill_rect(surf, clip, &bar, 2, SGL_COLOR_GREEN, 255);
-    }
 }
 
 /**

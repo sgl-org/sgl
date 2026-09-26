@@ -53,7 +53,7 @@ typedef struct sgl_button {
     sgl_color_t             text_color;
     uint8_t                 alpha;
     uint8_t                 align;
-}sgl_button_t;
+} sgl_button_t;
 
 /**
  * @brief  create a button object
