@@ -24,6 +24,7 @@
 
 #include <sgl.h>
 #include <sgl_font.h>
+#include <sgl_anim.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -38,6 +39,8 @@
  *   - right column: 250px circular cover with white border + music icon,
  *     46-bar spectrum below
  *   - bottom center: "ALL TRACKS" caption with small underline
+ *   - swipe up to reveal the track list sheet (dark gradient panel)
+ *   - swipe down to hide the track list sheet
  *
  * Icons are FontAwesome glyphs converted to sgl/source/fonts/sgl_icon_music20.c
  * via sgl_font_conv_cli (20px, bpp=4).
@@ -91,6 +94,19 @@ extern const sgl_font_t sgl_icon_music20;
 #define PROG_DOT         12
 #define SONG_LEN_SEC     214   /* 3:34 */
 
+/* sheet (track list panel) */
+#define SHEET_H          (SCR_H - 60)   /* leave 60px top margin */
+#define SHEET_Y_CLOSE    SCR_H          /* fully below screen */
+#define SHEET_Y_OPEN     60             /* top edge when open */
+#define SHEET_RADIUS     20
+#define SHEET_HANDLE_W   50
+#define SHEET_HANDLE_H   5
+#define TRACK_ITEM_H     64
+#define TRACK_NUM        20
+
+/* sheet animation duration (ms) */
+#define SHEET_ANIM_MS    300
+
 /* color palette (light theme, from layout.html) */
 #define COL_BG           sgl_rgb(238, 240, 246)   /* #eef0f6 */
 #define COL_TITLE        sgl_rgb(59, 63, 82)      /* #3b3f52 */
@@ -109,24 +125,91 @@ extern const sgl_font_t sgl_icon_music20;
 #define COL_ALLTRACKS    sgl_rgb(125, 129, 160)   /* #7d81a0 */
 #define COL_ALLTRACKS_LN sgl_rgb(201, 196, 245)   /* #c9c4f5 */
 
+/* sheet colors (dark gradient) */
+#define COL_SHEET_TOP    sgl_rgb(70, 65, 101)     /* #464165 */
+#define COL_SHEET_BOT    sgl_rgb(55, 50, 79)      /* #37324f */
+#define COL_HANDLE       sgl_rgb(255, 255, 255)   /* rgba(255,255,255,.28) */
+#define COL_TRACK_NAME   sgl_rgb(217, 218, 234)   /* #d9daea */
+#define COL_TRACK_ARTIST sgl_rgb(143, 144, 171)   /* #8f90ab */
+#define COL_TRACK_DUR    sgl_rgb(167, 168, 194)   /* #a7a8c2 */
+#define COL_TRACK_ACT_N  sgl_rgb(255, 255, 255)   /* active name */
+#define COL_TRACK_ACT_A  sgl_rgb(179, 174, 240)   /* active artist */
+#define COL_TRACK_BTN    sgl_rgb(236, 238, 248)   /* #eceef8 */
+
 /* widgets */
 static sgl_obj_t *progress_bar;
 static sgl_obj_t *progress_dot;
 static sgl_obj_t *time_label;
 static sgl_obj_t *play_btn;
 static sgl_obj_t *spectrum;
+static sgl_obj_t *sheet;
+static sgl_obj_t *sheet_handle;
+static sgl_obj_t *track_viewlist;
 
 /* player state */
 static bool     playing = true;
 static uint32_t elapsed_sec;
 static int16_t  spec_phase;
+static int16_t  sheet_y = SHEET_Y_CLOSE;   /* current sheet top y */
+static bool     sheet_open = false;
+static int16_t  active_track = 1;          /* index of playing track */
+
+/* sheet animation */
+static sgl_anim_t *sheet_anim;
 
 /* static text buffer for time label (sgl_label_set_text stores pointer) */
 static char g_time_buf[8];
 
-/* ------------------------------------------------------------------ */
-/* helpers                                                            */
-/* ------------------------------------------------------------------ */
+/* track data */
+static const char *track_name_list[TRACK_NUM] = {
+    "Waiting for true love",
+    "Need a Better Future",
+    "Vibrations",
+    "Why now?",
+    "Midnight Sun",
+    "Silver Rain",
+    "Lost Echoes",
+    "Neon Skyline",
+    "Golden Hour",
+    "Quiet Storm",
+    "Aurora",
+    "Starfall",
+    "Night Drive",
+    "Blue Horizon",
+    "Crystal Lake",
+    "Paper Planes",
+    "Velvet Moon",
+    "Amber Waves",
+    "Zero Gravity",
+    "Echo Valley",
+};
+static const char *track_artist_list[TRACK_NUM] = {
+    "The John Smith Band",
+    "My True Name",
+    "Robotics",
+    "Night Owl",
+    "Luna Park",
+    "Echo Valley",
+    "Nova Beat",
+    "Solar Twins",
+    "Crystal Lake",
+    "Paper Planes",
+    "Velvet Moon",
+    "Amber Waves",
+    "Zero Gravity",
+    "The Wanderers",
+    "Luna Park",
+    "Echo Valley",
+    "Nova Beat",
+    "Solar Twins",
+    "Crystal Lake",
+    "Paper Planes",
+};
+static const char *track_dur_list[TRACK_NUM] = {
+    "1:14", "2:26", "1:54", "2:08", "3:15", "2:45", "1:58", "2:33",
+    "3:02", "2:19", "1:47", "2:56", "3:28", "2:11", "1:39", "2:47",
+    "3:09", "2:24", "1:52", "2:38",
+};
 
 static void fmt_time(char *buf, uint32_t sec)
 {
@@ -154,6 +237,121 @@ static void playing_set(bool play)
 {
     playing = play;
     sgl_button_set_text(play_btn, play ? ICON_PAUSE : ICON_PLAY);
+}
+
+static void sheet_anim_path_cb(sgl_anim_t *anim, int32_t value)
+{
+    sheet_y = (int16_t)value;
+    sgl_obj_set_pos(sheet, 0, sheet_y);
+    sgl_obj_set_dirty(sheet);
+}
+
+static void sheet_anim_finish_cb(sgl_anim_t *anim)
+{
+    /* animation finished, update final state */
+    sheet_y = sheet_open ? SHEET_Y_OPEN : SHEET_Y_CLOSE;
+    sgl_obj_set_pos(sheet, 0, sheet_y);
+    sgl_obj_set_dirty(sheet);
+}
+
+static void sheet_anim_start(bool open)
+{
+    if (sheet_anim == NULL) {
+        sheet_anim = sgl_anim_create();
+        if (sheet_anim == NULL) return;
+        sgl_anim_set_path(sheet_anim, sheet_anim_path_cb, SGL_ANIM_PATH_EASE_OUT);
+        sgl_anim_set_finish_cb(sheet_anim, sheet_anim_finish_cb);
+    }
+
+    sgl_anim_stop(sheet_anim);
+    sgl_anim_set_start_value(sheet_anim, sheet_y);
+    sgl_anim_set_end_value(sheet_anim, open ? SHEET_Y_OPEN : SHEET_Y_CLOSE);
+    sgl_anim_set_act_duration(sheet_anim, SHEET_ANIM_MS);
+    sgl_anim_start(sheet_anim, SGL_ANIM_REPEAT_ONCE);
+}
+
+static void sheet_set_open(bool open)
+{
+    if (sheet_open == open) return;
+    sheet_open = open;
+    sheet_anim_start(open);
+}
+
+static void sheet_toggle(void)
+{
+    sheet_set_open(!sheet_open);
+}
+
+/* ------------------------------------------------------------------ */
+/* viewlist callbacks                                                 */
+/* ------------------------------------------------------------------ */
+
+static void track_get_item(sgl_obj_t *list, int32_t index, sgl_viewlist_item_t *item)
+{
+    SGL_UNUSED(list);
+    if (index < 0 || index >= TRACK_NUM) return;
+
+    sgl_snprintf(item->text, sizeof(item->text), "%s", track_name_list[index]);
+    sgl_snprintf(item->subtext, sizeof(item->subtext), "%s", track_artist_list[index]);
+    item->icon = (index == active_track) ? ICON_PAUSE : ICON_PLAY;
+}
+
+static void track_draw_item(sgl_obj_t *list, sgl_surf_t *surf, sgl_area_t *clip,
+                            sgl_area_t *coords, const sgl_viewlist_item_t *item, bool selected)
+{
+    SGL_UNUSED(list);
+    const int16_t pad = 20;
+    const int16_t btn_size = 34;
+    const int16_t btn_x = coords->x1 + pad;
+    const int16_t btn_y = coords->y1 + (coords->y2 - coords->y1 + 1 - btn_size) / 2;
+
+    /* play/pause button circle */
+    sgl_area_t btn_rect = {
+        .x1 = btn_x, .y1 = btn_y,
+        .x2 = btn_x + btn_size - 1, .y2 = btn_y + btn_size - 1,
+    };
+    sgl_color_t btn_color = selected ? COL_ACCENT : COL_SHEET_TOP;
+    sgl_draw_fill_rect(surf, clip, &btn_rect, btn_size / 2, btn_color, 255);
+
+    /* button icon */
+    const char *icon = selected ? ICON_PAUSE : ICON_PLAY;
+    const int16_t icon_w = (int16_t)sgl_font_get_string_width(icon, &sgl_icon_music20);
+    const int16_t icon_h = (int16_t)sgl_font_get_height(&sgl_icon_music20);
+    sgl_draw_string(surf, clip,
+                    btn_x + (btn_size - icon_w) / 2,
+                    btn_y + (btn_size - icon_h) / 2,
+                    icon, selected ? SGL_COLOR_WHITE : COL_TRACK_BTN, 255, &sgl_icon_music20);
+
+    /* track name */
+    const int16_t text_x = btn_x + btn_size + 16;
+    const int16_t name_y = coords->y1 + 10;
+    sgl_draw_string(surf, clip, text_x, name_y, item->text,
+                    selected ? COL_TRACK_ACT_N : COL_TRACK_NAME, 255, &consolas14);
+
+    /* track artist */
+    const int16_t artist_y = coords->y1 + 34;
+    sgl_draw_string(surf, clip, text_x, artist_y, item->subtext,
+                    selected ? COL_TRACK_ACT_A : COL_TRACK_ARTIST, 255, &consolas14);
+
+    /* duration (right-aligned) */
+    const char *dur = track_dur_list[item->index];
+    const int16_t dur_w = (int16_t)sgl_font_get_string_width(dur, &consolas14);
+    sgl_draw_string(surf, clip, coords->x2 - dur_w - pad,
+                    coords->y1 + (coords->y2 - coords->y1 + 1 - sgl_font_get_height(&consolas14)) / 2,
+                    dur, COL_TRACK_DUR, 255, &consolas14);
+}
+
+static void track_click_item(sgl_obj_t *list, int32_t index, const sgl_viewlist_item_t *item)
+{
+    SGL_UNUSED(list);
+    SGL_UNUSED(item);
+    if (index < 0 || index >= TRACK_NUM) return;
+
+    active_track = index;
+    elapsed_sec = 0;
+    playing_set(true);
+    progress_update();
+    sgl_viewlist_refresh(track_viewlist);
 }
 
 /* ------------------------------------------------------------------ */
@@ -208,6 +406,36 @@ static void next_click_cb(sgl_event_t *evt)
     }
 }
 
+static void all_tracks_click_cb(sgl_event_t *evt)
+{
+    if (evt->type == SGL_EVENT_CLICKED) {
+        sheet_toggle();
+    }
+}
+
+/* sheet drag: detect swipe up/down on the main player area */
+static void sheet_drag_cb(sgl_event_t *evt)
+{
+    switch (evt->type) {
+    case SGL_EVENT_MOVE_UP:
+        /* swipe up: open sheet */
+        if (!sheet_open) {
+            sheet_set_open(true);
+        }
+        break;
+
+    case SGL_EVENT_MOVE_DOWN:
+        /* swipe down: close sheet */
+        if (sheet_open) {
+            sheet_set_open(false);
+        }
+        break;
+
+    default:
+        break;
+    }
+}
+
 /* ------------------------------------------------------------------ */
 /* construction helpers                                               */
 /* ------------------------------------------------------------------ */
@@ -259,7 +487,8 @@ void sgl_demo_music_player_create(sgl_obj_t *parent)
     sgl_obj_set_size(obj, SCR_W, SCR_H);
     sgl_rect_set_color(obj, COL_BG);
     sgl_obj_set_border_width(obj, 0);
-    sgl_obj_set_clickable(obj);
+    sgl_obj_set_movable(obj);  /* enable MOVE_UP/MOVE_DOWN events */
+    sgl_obj_set_event_cb(obj, sheet_drag_cb, NULL);
 
     /* ------- decorative blobs (alpha-blended circles) ------- */
     obj = sgl_circle_create(parent);
@@ -387,7 +616,7 @@ void sgl_demo_music_player_create(sgl_obj_t *parent)
     sgl_spectrum_set_bar_color(spectrum, COL_SPEC_BOT);
     sgl_spectrum_set_alpha(spectrum, 255);
 
-    /* ------- bottom: ALL TRACKS ------- */
+    /* ------- bottom: ALL TRACKS (click to toggle sheet) ------- */
     obj = sgl_label_create(parent);
     sgl_obj_set_pos(obj, 0, SCR_H - 30);
     sgl_obj_set_size(obj, SCR_W, 16);
@@ -395,6 +624,8 @@ void sgl_demo_music_player_create(sgl_obj_t *parent)
     sgl_label_set_text(obj, "ALL TRACKS");
     sgl_label_set_text_color(obj, COL_ALLTRACKS);
     sgl_label_set_text_align(obj, SGL_ALIGN_CENTER);
+    sgl_obj_set_clickable(obj);
+    sgl_obj_set_event_cb(obj, all_tracks_click_cb, NULL);
 
     /* small underline decoration */
     obj = sgl_rect_create(parent);
@@ -404,7 +635,48 @@ void sgl_demo_music_player_create(sgl_obj_t *parent)
     sgl_obj_set_border_width(obj, 0);
     sgl_rect_set_color(obj, COL_ALLTRACKS_LN);
 
+    /* ------- sheet (track list panel, initially hidden below screen) ------- */
+    sheet = sgl_rect_create(parent);
+    sgl_obj_set_pos(sheet, 0, SHEET_Y_CLOSE);
+    sgl_obj_set_size(sheet, SCR_W, SHEET_H);
+    sgl_obj_set_radius(sheet, SHEET_RADIUS);
+    sgl_obj_set_border_width(sheet, 0);
+    sgl_rect_set_color(sheet, COL_SHEET_TOP);
+    sgl_obj_set_movable(sheet);  /* enable MOVE_UP/MOVE_DOWN events */
+    sgl_obj_set_event_cb(sheet, sheet_drag_cb, NULL);
+
+    /* sheet handle */
+    sheet_handle = sgl_rect_create(sheet);
+    sgl_obj_set_pos(sheet_handle, (SCR_W - SHEET_HANDLE_W) / 2, 10);
+    sgl_obj_set_size(sheet_handle, SHEET_HANDLE_W, SHEET_HANDLE_H);
+    sgl_obj_set_radius(sheet_handle, SHEET_HANDLE_H / 2);
+    sgl_obj_set_border_width(sheet_handle, 0);
+    sgl_rect_set_color(sheet_handle, COL_HANDLE);
+    sgl_rect_set_alpha(sheet_handle, 70);
+
+    /* track list using viewlist widget */
+    track_viewlist = sgl_viewlist_create(sheet);
+    sgl_obj_set_pos(track_viewlist, 0, 24);
+    sgl_obj_set_size(track_viewlist, SCR_W, SHEET_H - 24);
+    sgl_viewlist_set_bg_color(track_viewlist, COL_SHEET_TOP);
+    sgl_viewlist_set_border_width(track_viewlist, 0);
+    sgl_viewlist_set_radius(track_viewlist, 0);
+    sgl_viewlist_set_item_height(track_viewlist, TRACK_ITEM_H);
+    sgl_viewlist_set_item_margin(track_viewlist, 0, 0);
+    sgl_viewlist_set_font(track_viewlist, &consolas14);
+    sgl_viewlist_set_text_color(track_viewlist, COL_TRACK_NAME);
+    sgl_viewlist_set_subtext_color(track_viewlist, COL_TRACK_ARTIST);
+    sgl_viewlist_set_selected_color(track_viewlist, COL_SHEET_BOT);
+    sgl_viewlist_set_alpha(track_viewlist, 255);
+
+    /* set viewlist callbacks */
+    sgl_viewlist_set_item_num(track_viewlist, TRACK_NUM);
+    sgl_viewlist_set_item_get_cb(track_viewlist, track_get_item);
+    sgl_viewlist_set_item_draw_cb(track_viewlist, track_draw_item);
+    sgl_viewlist_set_item_click_cb(track_viewlist, track_click_item);
+    sgl_viewlist_set_selected(track_viewlist, active_track);
+
     /* ------- animation timer (30 FPS UI) ------- */
     tick = sgl_timer_create();
-    sgl_timer_setup(tick, tick_timer_cb, 10, -1, NULL);
+    sgl_timer_setup(tick, tick_timer_cb, 30, -1, NULL);
 }
