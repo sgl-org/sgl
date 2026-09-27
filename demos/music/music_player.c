@@ -29,15 +29,15 @@
 #include <stdlib.h>
 
 /**
- * Music player UI demo (light theme, full screen 800x480).
+ * Music player UI demo (light theme, adaptive to screen size).
  *
- * Layout follows demos/music/layout.html, scaled up to fill the screen:
+ * Layout follows demos/music/layout.html, scaled to fill the screen:
  *   - background: #eef0f6 full screen
  *   - 3 decorative background blobs (light circles, alpha-blended)
  *   - left column: title / artist / meta, 4 action icons, 5 control buttons,
  *     progress bar with dot knob + time label
- *   - right column: 250px circular cover with white border + music icon,
- *     46-bar spectrum below
+ *   - right column: circular cover with white border + music icon,
+ *     spectrum below
  *   - bottom center: "ALL TRACKS" caption with small underline
  *   - swipe up to reveal the track list sheet (dark gradient panel)
  *   - swipe down to hide the track list sheet
@@ -62,31 +62,31 @@ extern const sgl_font_t sgl_icon_music20;
 #define ICON_CHART       "\xef\x82\x80"       /* U+F080 chart-bar       */
 #define ICON_ELLIPSIS    "\xef\x85\x81"       /* U+F141 ellipsis-h      */
 
-/* screen geometry */
-#define SCR_W            800
-#define SCR_H            480
+/* screen geometry - use SGL screen size macros */
+#define SCR_W            SGL_SCREEN_WIDTH
+#define SCR_H            SGL_SCREEN_HEIGHT
 
-/* layout margins */
-#define MARGIN_X         60
-#define MARGIN_TOP       50
-#define MARGIN_BOT       50
+/* layout margins - proportional to screen size */
+#define MARGIN_X         (SCR_W / 13)      /* ~60 for 800px width */
+#define MARGIN_TOP       (SCR_H / 10)      /* ~48 for 480px height */
+#define MARGIN_BOT       (SCR_H / 10)      /* ~48 for 480px height */
 
-/* left column */
+/* left column - takes about half of screen width */
 #define LEFT_X           MARGIN_X
-#define LEFT_W           400
+#define LEFT_W           (SCR_W / 2 - MARGIN_X)
 #define TITLE_Y          MARGIN_TOP
-#define ARTIST_Y         (TITLE_Y + 40)
-#define META_Y           (ARTIST_Y + 28)
-#define ACTIONS_Y        (META_Y + 50)
-#define CONTROLS_Y       (ACTIONS_Y + 60)
-#define PROGRESS_Y       (SCR_H - MARGIN_BOT - 20)
+#define ARTIST_Y         (TITLE_Y + SCR_H / 12)
+#define META_Y           (ARTIST_Y + SCR_H / 17)
+#define ACTIONS_Y        (META_Y + SCR_H / 10)
+#define CONTROLS_Y       (ACTIONS_Y + SCR_H / 8)
+#define PROGRESS_Y       (SCR_H - MARGIN_BOT - SCR_H / 24)
 
 /* right column */
-#define RIGHT_X          (SCR_W - MARGIN_X - 280)
-#define RIGHT_W          280
-#define COVER_SIZE       250
-#define SPEC_W           280
-#define SPEC_H           60
+#define RIGHT_X          (SCR_W / 2 + MARGIN_X / 2)
+#define RIGHT_W          (SCR_W / 2 - MARGIN_X)
+#define COVER_SIZE       (SCR_H / 2 - 20)  /* ~220 for 480px height */
+#define SPEC_W           RIGHT_W
+#define SPEC_H           (SCR_H / 8)
 #define SPEC_BARS        46
 
 /* progress */
@@ -95,9 +95,9 @@ extern const sgl_font_t sgl_icon_music20;
 #define SONG_LEN_SEC     214   /* 3:34 */
 
 /* sheet (track list panel) */
-#define SHEET_H          (SCR_H - 60)   /* leave 60px top margin */
-#define SHEET_Y_CLOSE    SCR_H          /* fully below screen */
-#define SHEET_Y_OPEN     60             /* top edge when open */
+#define SHEET_H          (SCR_H - SCR_H / 8)   /* leave top margin */
+#define SHEET_Y_CLOSE    SCR_H                 /* fully below screen */
+#define SHEET_Y_OPEN     (SCR_H / 8)           /* top edge when open */
 #define SHEET_RADIUS     20
 #define SHEET_HANDLE_W   50
 #define SHEET_HANDLE_H   5
@@ -150,9 +150,10 @@ static sgl_obj_t *track_viewlist;
 static bool     playing = true;
 static uint32_t elapsed_sec;
 static int16_t  spec_phase;
-static int16_t  sheet_y = SHEET_Y_CLOSE;   /* current sheet top y */
+static int16_t  sheet_y;                   /* current sheet top y, initialized in create */
 static bool     sheet_open = false;
 static int16_t  active_track = 1;          /* index of playing track */
+static bool     liked = false;             /* heart icon liked state */
 
 /* sheet animation */
 static sgl_anim_t *sheet_anim;
@@ -437,6 +438,34 @@ static void sheet_drag_cb(sgl_event_t *evt)
 }
 
 /* ------------------------------------------------------------------ */
+/* icon callbacks                                                     */
+/* ------------------------------------------------------------------ */
+
+/* heart icon: toggle liked state on click */
+static void heart_click_cb(sgl_event_t *evt)
+{
+    if (evt->type == SGL_EVENT_CLICKED) {
+        liked = !liked;
+        sgl_label_set_text_color(evt->obj, liked ? sgl_rgb(255, 80, 100) : COL_ICON);
+    }
+}
+
+/* generic icon: change color on press, restore on release */
+static void icon_press_cb(sgl_event_t *evt)
+{
+    switch (evt->type) {
+    case SGL_EVENT_PRESSED:
+        sgl_label_set_text_color(evt->obj, COL_ACCENT);
+        break;
+    case SGL_EVENT_RELEASED:
+        sgl_label_set_text_color(evt->obj, COL_ICON);
+        break;
+    default:
+        break;
+    }
+}
+
+/* ------------------------------------------------------------------ */
 /* construction helpers                                               */
 /* ------------------------------------------------------------------ */
 
@@ -451,6 +480,72 @@ static sgl_obj_t *icon_label_create(sgl_obj_t *parent, int16_t x, int16_t y,
     sgl_label_set_text_color(obj, color);
     sgl_label_set_text_align(obj, SGL_ALIGN_CENTER);
     return obj;
+}
+
+/* clickable icon with press/release color change */
+static sgl_obj_t *icon_clickable_create(sgl_obj_t *parent, int16_t x, int16_t y,
+                                        const char *icon, sgl_color_t color,
+                                        void (*cb)(sgl_event_t *))
+{
+    sgl_obj_t *obj = icon_label_create(parent, x, y, icon, color);
+    sgl_obj_set_clickable(obj);
+    sgl_obj_set_event_cb(obj, cb, NULL);
+    return obj;
+}
+
+/* control button: change color on press, restore on release */
+static void ctrl_btn_press_cb(sgl_event_t *evt)
+{
+    sgl_obj_t *btn = evt->obj;
+    bool is_accent = (btn == play_btn);
+
+    switch (evt->type) {
+    case SGL_EVENT_PRESSED:
+        sgl_button_set_color(btn, is_accent ? COL_ACCENT_LIGHT : COL_TRACK);
+        break;
+    case SGL_EVENT_RELEASED:
+        sgl_button_set_color(btn, is_accent ? COL_ACCENT : COL_BG);
+        break;
+    default:
+        break;
+    }
+}
+
+/* control button callbacks */
+static void shuffle_btn_cb(sgl_event_t *evt)
+{
+    ctrl_btn_press_cb(evt);
+    /* TODO: shuffle mode toggle */
+}
+
+static void prev_btn_cb(sgl_event_t *evt)
+{
+    ctrl_btn_press_cb(evt);
+    if (evt->type == SGL_EVENT_CLICKED) {
+        prev_click_cb(evt);
+    }
+}
+
+static void play_btn_cb(sgl_event_t *evt)
+{
+    ctrl_btn_press_cb(evt);
+    if (evt->type == SGL_EVENT_CLICKED) {
+        play_click_cb(evt);
+    }
+}
+
+static void next_btn_cb(sgl_event_t *evt)
+{
+    ctrl_btn_press_cb(evt);
+    if (evt->type == SGL_EVENT_CLICKED) {
+        next_click_cb(evt);
+    }
+}
+
+static void repeat_btn_cb(sgl_event_t *evt)
+{
+    ctrl_btn_press_cb(evt);
+    /* TODO: repeat mode toggle */
 }
 
 static sgl_obj_t *ctrl_button_create(sgl_obj_t *parent, int16_t x, int16_t y,
@@ -481,6 +576,9 @@ void sgl_demo_music_player_create(sgl_obj_t *parent)
     sgl_timer_t *tick;
     int16_t x, y;
 
+    /* initialize sheet position */
+    sheet_y = SHEET_Y_CLOSE;
+
     /* full screen background */
     obj = sgl_rect_create(parent);
     sgl_obj_set_pos(obj, 0, 0);
@@ -492,22 +590,22 @@ void sgl_demo_music_player_create(sgl_obj_t *parent)
 
     /* ------- decorative blobs (alpha-blended circles) ------- */
     obj = sgl_circle_create(parent);
-    sgl_obj_set_pos(obj, -120, -160);
-    sgl_obj_set_size(obj, 400, 400);
+    sgl_obj_set_pos(obj, -SCR_W / 6, -SCR_H / 3);
+    sgl_obj_set_size(obj, SCR_W / 2, SCR_W / 2);
     sgl_circle_set_color(obj, COL_BLOB1);
     sgl_circle_set_alpha(obj, 140);
     sgl_obj_set_border_width(obj, 0);
 
     obj = sgl_circle_create(parent);
-    sgl_obj_set_pos(obj, SCR_W - 280, SCR_H - 260);
-    sgl_obj_set_size(obj, 420, 420);
+    sgl_obj_set_pos(obj, SCR_W - SCR_W / 3, SCR_H - SCR_H / 2);
+    sgl_obj_set_size(obj, SCR_W / 2, SCR_W / 2);
     sgl_circle_set_color(obj, COL_BLOB2);
     sgl_circle_set_alpha(obj, 140);
     sgl_obj_set_border_width(obj, 0);
 
     obj = sgl_circle_create(parent);
-    sgl_obj_set_pos(obj, 80, SCR_H - 180);
-    sgl_obj_set_size(obj, 260, 260);
+    sgl_obj_set_pos(obj, SCR_W / 10, SCR_H - SCR_H / 3);
+    sgl_obj_set_size(obj, SCR_W / 3, SCR_W / 3);
     sgl_circle_set_color(obj, COL_BLOB3);
     sgl_circle_set_alpha(obj, 140);
     sgl_obj_set_border_width(obj, 0);
@@ -518,7 +616,7 @@ void sgl_demo_music_player_create(sgl_obj_t *parent)
 
     obj = sgl_label_create(parent);
     sgl_obj_set_pos(obj, x, y);
-    sgl_obj_set_size(obj, LEFT_W, 36);
+    sgl_obj_set_size(obj, LEFT_W, SCR_H / 13);
     sgl_label_set_font(obj, &consolas32);
     sgl_label_set_text(obj, "Need a Better Future");
     sgl_label_set_text_color(obj, COL_TITLE);
@@ -526,7 +624,7 @@ void sgl_demo_music_player_create(sgl_obj_t *parent)
 
     obj = sgl_label_create(parent);
     sgl_obj_set_pos(obj, x, ARTIST_Y);
-    sgl_obj_set_size(obj, LEFT_W, 26);
+    sgl_obj_set_size(obj, LEFT_W, SCR_H / 18);
     sgl_label_set_font(obj, &consolas23);
     sgl_label_set_text(obj, "My True Name");
     sgl_label_set_text_color(obj, COL_ARTIST);
@@ -534,7 +632,7 @@ void sgl_demo_music_player_create(sgl_obj_t *parent)
 
     obj = sgl_label_create(parent);
     sgl_obj_set_pos(obj, x, META_Y);
-    sgl_obj_set_size(obj, LEFT_W, 22);
+    sgl_obj_set_size(obj, LEFT_W, SCR_H / 22);
     sgl_label_set_font(obj, &consolas14);
     sgl_label_set_text(obj, "Drum'n bass - 2016");
     sgl_label_set_text_color(obj, COL_META);
@@ -542,24 +640,25 @@ void sgl_demo_music_player_create(sgl_obj_t *parent)
 
     /* ------- action icons row (heart, chart, download, more) ------- */
     y = ACTIONS_Y;
-    icon_label_create(parent, x, y, ICON_HEART, COL_ICON);
-    icon_label_create(parent, x + 60, y, ICON_CHART, COL_ICON);
-    icon_label_create(parent, x + 120, y, ICON_DOWNLOAD, COL_ICON);
-    icon_label_create(parent, x + 180, y, ICON_ELLIPSIS, COL_ICON);
+    icon_clickable_create(parent, x, y, ICON_HEART, COL_ICON, heart_click_cb);
+    icon_clickable_create(parent, x + SCR_W / 13, y, ICON_CHART, COL_ICON, icon_press_cb);
+    icon_clickable_create(parent, x + SCR_W / 6, y, ICON_DOWNLOAD, COL_ICON, icon_press_cb);
+    icon_clickable_create(parent, x + SCR_W / 4, y, ICON_ELLIPSIS, COL_ICON, icon_press_cb);
 
     /* ------- control buttons row ------- */
     y = CONTROLS_Y;
-    ctrl_button_create(parent, x, y + 14, 32, 32, ICON_SHUFFLE, false, NULL);
-    ctrl_button_create(parent, x + 60, y + 14, 32, 32, ICON_PREV, false, prev_click_cb);
-    play_btn = ctrl_button_create(parent, x + 120, y, 60, 60, ICON_PAUSE, true, play_click_cb);
-    ctrl_button_create(parent, x + 200, y + 14, 32, 32, ICON_NEXT, false, next_click_cb);
-    ctrl_button_create(parent, x + 260, y + 14, 32, 32, ICON_REPEAT, false, NULL);
+    int16_t btn_spacing = SCR_W / 13;
+    ctrl_button_create(parent, x, y + 14, 32, 32, ICON_SHUFFLE, false, shuffle_btn_cb);
+    ctrl_button_create(parent, x + btn_spacing, y + 14, 32, 32, ICON_PREV, false, prev_btn_cb);
+    play_btn = ctrl_button_create(parent, x + btn_spacing * 2, y + 8, 48, 48, ICON_PAUSE, true, play_btn_cb);
+    ctrl_button_create(parent, x + btn_spacing * 3 + 20, y + 14, 32, 32, ICON_NEXT, false, next_btn_cb);
+    ctrl_button_create(parent, x + btn_spacing * 4 + 20, y + 14, 32, 32, ICON_REPEAT, false, repeat_btn_cb);
 
     /* ------- progress bar + dot + time ------- */
     y = PROGRESS_Y;
     obj = sgl_bar_create(parent);
     sgl_obj_set_pos(obj, x, y);
-    sgl_obj_set_size(obj, LEFT_W - 60, PROG_H);
+    sgl_obj_set_size(obj, LEFT_W - SCR_W / 13, PROG_H);
     sgl_obj_set_radius(obj, PROG_H / 2);
     sgl_obj_set_border_width(obj, 0);
     sgl_bar_set_direct(obj, SGL_DIRECT_HORIZONTAL);
@@ -576,8 +675,8 @@ void sgl_demo_music_player_create(sgl_obj_t *parent)
     sgl_obj_set_pos(progress_dot, x - PROG_DOT / 2, y + PROG_H / 2 - PROG_DOT / 2);
 
     obj = sgl_label_create(parent);
-    sgl_obj_set_pos(obj, x + LEFT_W - 50, y - 8);
-    sgl_obj_set_size(obj, 50, 20);
+    sgl_obj_set_pos(obj, x + LEFT_W - SCR_W / 16, y - 8);
+    sgl_obj_set_size(obj, SCR_W / 16, 20);
     sgl_label_set_font(obj, &consolas14);
     sgl_label_set_text(obj, "0:00");
     sgl_label_set_text_color(obj, COL_META);
@@ -607,7 +706,7 @@ void sgl_demo_music_player_create(sgl_obj_t *parent)
     sgl_label_set_text_align(obj, SGL_ALIGN_CENTER);
 
     /* ------- spectrum below cover ------- */
-    y += COVER_SIZE + 24;
+    y += COVER_SIZE + SCR_H / 20;
     spectrum = sgl_spectrum_create(parent);
     sgl_obj_set_pos(spectrum, RIGHT_X + (RIGHT_W - SPEC_W) / 2, y);
     sgl_obj_set_size(spectrum, SPEC_W, SPEC_H);
@@ -618,8 +717,8 @@ void sgl_demo_music_player_create(sgl_obj_t *parent)
 
     /* ------- bottom: ALL TRACKS (click to toggle sheet) ------- */
     obj = sgl_label_create(parent);
-    sgl_obj_set_pos(obj, 0, SCR_H - 30);
-    sgl_obj_set_size(obj, SCR_W, 16);
+    sgl_obj_set_pos(obj, 0, SCR_H - SCR_H / 16);
+    sgl_obj_set_size(obj, SCR_W, SCR_H / 30);
     sgl_label_set_font(obj, &consolas14);
     sgl_label_set_text(obj, "ALL TRACKS");
     sgl_label_set_text_color(obj, COL_ALLTRACKS);
