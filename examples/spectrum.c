@@ -37,7 +37,7 @@
  * do not move in lockstep.
  */
 
-#define SPEC_PERIOD_MS  50              /* 20 FPS is plenty for bars */
+#define SPEC_PERIOD_MS  10              /* 50 FPS is plenty for bars */
 
 #define SPEC_BARS_GRAD  16              /* gradient panel bar count  */
 #define SPEC_BARS_FLAT  16              /* flat panel bar count      */
