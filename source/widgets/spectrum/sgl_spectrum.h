@@ -1,10 +1,10 @@
-/* source/widgets/sgl_spectrum.h
+/* source/widgets/spectrum/sgl_spectrum.h
  *
  * MIT License
  *
- * Copyright(c) 2023-present All contributors of SGL  
+ * Copyright(c) 2023-present All contributors of SGL
  * Document reference link: docs directory
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -38,9 +38,13 @@
 #define SGL_SPECTRUM_MODE_BLOCK                    (1 << 1)
 #define SGL_SPECTRUM_MODE_BAR_HAT                  (SGL_SPECTRUM_MODE_HAT_FLAG | SGL_SPECTRUM_MODE_BAR)
 #define SGL_SPECTRUM_MODE_BLOCK_HAT                (SGL_SPECTRUM_MODE_HAT_FLAG | SGL_SPECTRUM_MODE_BLOCK)
+#define SGL_SPECTRUM_MODE_GRADIENT                 (1 << 3)
 
 /* maximum number of bars; all buffers are static so no dynamic memory */
 #define SGL_SPECTRUM_BAR_MAX                       (64)
+
+/* maximum radius used for the rounded bar caps */
+#define SGL_SPECTRUM_ROUND_MAX                     (12)
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,11 +53,32 @@ extern "C" {
 /**
  * @brief sgl spectrum struct
  * @obj: sgl general object
+ * @bar_color: main bar colour (top of the gradient)
+ * @bar_color_low: bottom of the gradient, only used when bar_gradient is set
+ * @bar_hat_color: colour of the floating peak-hold cap
+ * @floor_color: colour of the optional baseline band
+ * @bar_num: active bar count, <= SGL_SPECTRUM_BAR_MAX
+ * @bar_height: widget inner height in px (cached)
+ * @bar_width: uniform bar width in px
+ * @bar_gap: gap between bars in px
+ * @bar_mode: bitmask of SGL_SPECTRUM_MODE_*
+ * @alpha: overall opacity
+ * @bar_hat_height: height of the peak-hold cap and of one block segment
+ * @round_radius: corner radius of the bar tops
+ * @peak_fall: px the peak cap drops per update, 0 = hold forever
+ * @floor_height: height of the baseline band, 0 = disabled
+ * @cut: per-row corner cut (px) of the rounded cap, cut[0] is the top row
+ * @grad_step: Q16.16 per-row gradient factor step, avoids a per-row division
+ * @bar_gradient: 1 when the vertical gradient is active
+ * @gap_auto: 1 when the gap is chosen automatically for the bar count
+ * @align_center: 1 to centre the bar row inside the widget
  */
 typedef struct sgl_spectrum {
     sgl_obj_t   obj;
     sgl_color_t bar_color;
+    sgl_color_t bar_color_low;
     sgl_color_t bar_hat_color;
+    sgl_color_t floor_color;
     uint16_t    bar_num;         /* active bar count, <= BAR_MAX      */
     uint16_t    bar_height;      /* widget inner height in px (cached) */
     uint8_t     bar_width;       /* uniform bar width in px            */
@@ -61,9 +86,18 @@ typedef struct sgl_spectrum {
     uint8_t     bar_mode;
     uint8_t     alpha;
     uint8_t     bar_hat_height;
+    uint8_t     round_radius;    /* rounded bar cap radius             */
+    uint8_t     peak_fall;       /* peak cap fall speed, px per update */
+    uint8_t     floor_height;    /* baseline band height, 0 = off      */
+    uint8_t     cut[SGL_SPECTRUM_ROUND_MAX]; /* cap corner cut per row */
+    uint32_t    grad_step;       /* Q16.16 gradient factor per row     */
+    uint8_t     bar_gradient : 1;
+    uint8_t     gap_auto : 1;
+    uint8_t     align_center : 1;
+    int16_t     layout_x;        /* coords.x1 snapshot at layout time */
     uint16_t    bar_value[SGL_SPECTRUM_BAR_MAX];
-    uint16_t    bar_hat[SGL_SPECTRUM_BAR_MAX];
-    int16_t     bar_x[SGL_SPECTRUM_BAR_MAX];   /* cached left x per bar */
+    uint16_t    bar_peek[SGL_SPECTRUM_BAR_MAX];  /* peak-hold heights   */
+    int16_t     bar_x[SGL_SPECTRUM_BAR_MAX];     /* cached left x       */
 } sgl_spectrum_t;
 
 /**
@@ -78,8 +112,8 @@ sgl_obj_t* sgl_spectrum_create(sgl_obj_t* parent);
  * @param obj spectrum object
  * @param number bar number
  * @return none
- * @note re-layouts the bars and (re)allocates the value/hat buffers; safe
- *       to call again with a different number.
+ * @note re-layouts the bars and resets the value/peak buffers; safe to call
+ *       again with a different number.
  */
 void sgl_spectrum_set_bar_number(sgl_obj_t *obj, uint16_t number);
 
@@ -89,6 +123,7 @@ void sgl_spectrum_set_bar_number(sgl_obj_t *obj, uint16_t number);
  * @param index bar index
  * @param value bar value, 0..widget height in px (clamped)
  * @return none
+ * @note only the changed rows are marked dirty.
  */
 void sgl_spectrum_set_bar_value(sgl_obj_t *obj, uint16_t index, uint16_t value);
 
@@ -102,6 +137,7 @@ void sgl_spectrum_set_bar_value(sgl_obj_t *obj, uint16_t index, uint16_t value);
  *       SGL_SPECTRUM_MODE_BLOCK: block mode
  *       SGL_SPECTRUM_MODE_BAR_HAT: bar mode with hat
  *       SGL_SPECTRUM_MODE_BLOCK_HAT: block mode with hat
+ *       SGL_SPECTRUM_MODE_GRADIENT: OR this in for a vertical gradient
  */
 void sgl_spectrum_set_bar_mode(sgl_obj_t *obj, uint8_t mode);
 
@@ -112,6 +148,14 @@ void sgl_spectrum_set_bar_mode(sgl_obj_t *obj, uint8_t mode);
  * @return none
  */
 void sgl_spectrum_set_bar_color(sgl_obj_t *obj, sgl_color_t color);
+
+/**
+ * @brief set the bottom (gradient) colour of the bars
+ * @param obj spectrum object
+ * @param color colour at the bottom of a full-height bar
+ * @return none
+ */
+void sgl_spectrum_set_bar_color_low(sgl_obj_t *obj, sgl_color_t color);
 
 /**
  * @brief set spectrum bar hat color
@@ -128,6 +172,47 @@ void sgl_spectrum_set_bar_hat_color(sgl_obj_t *obj, sgl_color_t color);
  * @return none
  */
 void sgl_spectrum_set_bar_hat_height(sgl_obj_t *obj, uint8_t height);
+
+/**
+ * @brief set the corner radius of the bar tops
+ * @param obj spectrum object
+ * @param radius radius in px, clamped to half the bar width
+ * @return none
+ */
+void sgl_spectrum_set_radius(sgl_obj_t *obj, uint8_t radius);
+
+/**
+ * @brief enable or disable the vertical gradient
+ * @param obj spectrum object
+ * @param enable true to interpolate bar_color -> bar_color_low
+ * @return none
+ */
+void sgl_spectrum_set_gradient(sgl_obj_t *obj, bool enable);
+
+/**
+ * @brief set the peak-hold fall speed
+ * @param obj spectrum object
+ * @param fall_px pixels the cap drops per value update, 0 holds forever
+ * @return none
+ */
+void sgl_spectrum_set_peak_fall(sgl_obj_t *obj, uint8_t fall_px);
+
+/**
+ * @brief set a floor / baseline band under the bars
+ * @param obj spectrum object
+ * @param height band height in px, 0 disables it
+ * @param color band color
+ * @return none
+ */
+void sgl_spectrum_set_floor(sgl_obj_t *obj, uint8_t height, sgl_color_t color);
+
+/**
+ * @brief force a gap between bars instead of the automatic one
+ * @param obj spectrum object
+ * @param gap gap in px, 0 restores automatic gap selection
+ * @return none
+ */
+void sgl_spectrum_set_bar_gap(sgl_obj_t *obj, uint8_t gap);
 
 /**
  * @brief set spectrum alpha
