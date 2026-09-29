@@ -143,6 +143,23 @@ static void sgl_spectrum_update_grad(sgl_spectrum_t *spectrum)
     spectrum->grad_step = (255u << 16) / (spectrum->bar_height - 1u);
 }
 
+static void sgl_spectrum_update_bar_colors(sgl_spectrum_t *spectrum)
+{
+    int n = spectrum->bar_num;
+
+    if (!(spectrum->bar_mode & SGL_SPECTRUM_MODE_HGRADIENT) || n <= 0) {
+        return;
+    }
+    if (n == 1) {
+        spectrum->bar_colors[0] = spectrum->bar_color;
+        return;
+    }
+    for (int i = 0; i < n; i++) {
+        uint32_t f = ((uint32_t)i * 255u) / (uint32_t)(n - 1);
+        spectrum->bar_colors[i] = sgl_color_mixer(spectrum->bar_color_low, spectrum->bar_color, (uint8_t)f);
+    }
+}
+
 static inline sgl_color_t sgl_spectrum_row_color(const sgl_spectrum_t *spectrum, int h, int from_top)
 {
     uint32_t f;
@@ -190,7 +207,7 @@ static void sgl_spectrum_draw_bar(sgl_surf_t *surf, const sgl_spectrum_t *spectr
     int16_t h  = (int16_t)spectrum->bar_value[i];
     int16_t y1, y1c, y2c;
     uint8_t r, cap;
-    sgl_color_t color;
+    sgl_color_t color, base;
 
     if (w <= 0 || h <= 0) {
         return;
@@ -209,6 +226,9 @@ static void sgl_spectrum_draw_bar(sgl_surf_t *surf, const sgl_spectrum_t *spectr
         /* segmented LED style: light only the rows inside a block; rows are
          * counted from the bar bottom so the lit segments stack upward */
         int16_t step = (int16_t)spectrum->bar_hat_height + 1;
+        sgl_color_t base = (spectrum->bar_mode & SGL_SPECTRUM_MODE_HGRADIENT)
+                         ? spectrum->bar_colors[i]
+                         : spectrum->bar_color;
 
         for (int16_t y = y1c; y <= y2c; y++) {
             int row = y2 - y;
@@ -218,14 +238,18 @@ static void sgl_spectrum_draw_bar(sgl_surf_t *surf, const sgl_spectrum_t *spectr
             }
             color = spectrum->bar_gradient
                   ? sgl_spectrum_row_color(spectrum, h, y - y1)
-                  : spectrum->bar_color;
+                  : base;
             sgl_spectrum_draw_row(surf, spectrum, x, y, w, 0, color);
         }
         return;
     }
 
-    /* solid bar: only the top `r` rows carry the rounded cap */
+    /* solid bar: one span per row (the round-cut path keeps the top rows
+     * narrower when a radius is set) */
     cap = (h > r) ? r : 0;
+    base = (spectrum->bar_mode & SGL_SPECTRUM_MODE_HGRADIENT)
+         ? spectrum->bar_colors[i]
+         : spectrum->bar_color;
 
     for (int16_t y = y1c; y <= y2c; y++) {
         int from_top = y - y1;              /* 0 at the bar top           */
@@ -233,7 +257,7 @@ static void sgl_spectrum_draw_bar(sgl_surf_t *surf, const sgl_spectrum_t *spectr
 
         color = spectrum->bar_gradient
               ? sgl_spectrum_row_color(spectrum, h, from_top)
-              : spectrum->bar_color;
+              : base;
         sgl_spectrum_draw_row(surf, spectrum, x, y, w, cut, color);
     }
 }
@@ -358,6 +382,7 @@ void sgl_spectrum_set_bar_number(sgl_obj_t *obj, uint16_t number)
 
     sgl_spectrum_layout(spectrum);
     sgl_spectrum_update_grad(spectrum);
+    sgl_spectrum_update_bar_colors(spectrum);
     sgl_obj_set_dirty(obj);
 }
 
@@ -440,6 +465,7 @@ void sgl_spectrum_set_bar_mode(sgl_obj_t *obj, uint8_t mode)
     spectrum->bar_mode = mode;
     spectrum->bar_gradient = !!(mode & SGL_SPECTRUM_MODE_GRADIENT);
     sgl_spectrum_update_grad(spectrum);
+    sgl_spectrum_update_bar_colors(spectrum);
     sgl_obj_set_dirty(obj);
 }
 
@@ -453,6 +479,7 @@ void sgl_spectrum_set_bar_color(sgl_obj_t *obj, sgl_color_t color)
 {
     sgl_spectrum_t *spectrum = sgl_container_of(obj, sgl_spectrum_t, obj);
     spectrum->bar_color = color;
+    sgl_spectrum_update_bar_colors(spectrum);
     sgl_obj_set_dirty(obj);
 }
 
@@ -468,6 +495,7 @@ void sgl_spectrum_set_bar_color_low(sgl_obj_t *obj, sgl_color_t color)
 {
     sgl_spectrum_t *spectrum = sgl_container_of(obj, sgl_spectrum_t, obj);
     spectrum->bar_color_low = color;
+    sgl_spectrum_update_bar_colors(spectrum);
     sgl_obj_set_dirty(obj);
 }
 

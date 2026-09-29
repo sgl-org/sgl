@@ -26,23 +26,23 @@
 
 /**
  * Spectrum widget examples (screen 800x480, one row of four panels):
- *  1. gradient bar mode with floating peak-hold caps (cyan -> blue)
- *  2. flat bars with peak caps (magenta)
- *  3. segmented LED / block mode with gradient (green)
- *  4. rounded bar tops with peak caps (amber)
+ *  1. vertical gradient bars, cyan -> blue
+ *  2. flat solid bars, magenta
+ *  3. segmented LED / block mode with vertical gradient, green
+ *  4. left-to-right gradient bars (HGRADIENT), amber -> red
  *
- * All four are driven by one 33 ms timer with a pseudo-music envelope:
+ * All four are driven by one 50 ms timer with a pseudo-music envelope:
  * a slow sine envelope over the row plus random jitter, so the bars dance
  * like an audio analyser. Each panel keeps its own random phase so they
  * do not move in lockstep.
  */
 
-#define SPEC_PERIOD_MS  33              /* ~30 FPS update            */
+#define SPEC_PERIOD_MS  50              /* 20 FPS is plenty for bars */
 
-#define SPEC_BARS_GRAD  20              /* gradient panel bar count  */
-#define SPEC_BARS_FLAT  24              /* flat panel bar count      */
-#define SPEC_BARS_LED   16              /* LED panel bar count       */
-#define SPEC_BARS_ROUND 12              /* rounded panel bar count   */
+#define SPEC_BARS_GRAD  16              /* gradient panel bar count  */
+#define SPEC_BARS_FLAT  16              /* flat panel bar count      */
+#define SPEC_BARS_LED   12              /* LED panel bar count       */
+#define SPEC_BARS_ROUND 12              /* flat panel bar count      */
 
 static const int g_bars[4] = { SPEC_BARS_GRAD, SPEC_BARS_FLAT, SPEC_BARS_LED, SPEC_BARS_ROUND };
 
@@ -107,7 +107,7 @@ void sgl_spectrum_examples(sgl_obj_t *parent)
     const int16_t h   = 120;            /* panel height */
     const int16_t gap = (800 - 4 * w) / 5;
 
-    /* ---- 1. gradient bars + peak caps ---- */
+    /* ---- 1. gradient bars ---- */
     g_spec[0] = sgl_spectrum_create(parent);
     sgl_obj_set_pos(g_spec[0], gap, 180);
     sgl_obj_set_size(g_spec[0], w, h);
@@ -115,21 +115,15 @@ void sgl_spectrum_examples(sgl_obj_t *parent)
     sgl_spectrum_set_bar_mode(g_spec[0], SGL_SPECTRUM_MODE_BAR | SGL_SPECTRUM_MODE_GRADIENT);
     sgl_spectrum_set_bar_color(g_spec[0], sgl_rgb(0, 200, 255));
     sgl_spectrum_set_bar_color_low(g_spec[0], sgl_rgb(0, 40, 180));
-    sgl_spectrum_set_bar_hat_color(g_spec[0], sgl_rgb(255, 255, 255));
-    sgl_spectrum_set_bar_hat_height(g_spec[0], 3);
-    sgl_spectrum_set_peak_fall(g_spec[0], 3);
     sgl_spectrum_set_alpha(g_spec[0], 255);
 
-    /* ---- 2. flat bars + peak caps ---- */
+    /* ---- 2. flat bars ---- */
     g_spec[1] = sgl_spectrum_create(parent);
     sgl_obj_set_pos(g_spec[1], gap + w + gap, 180);
     sgl_obj_set_size(g_spec[1], w, h);
     sgl_spectrum_set_bar_number(g_spec[1], SPEC_BARS_FLAT);
-    sgl_spectrum_set_bar_mode(g_spec[1], SGL_SPECTRUM_MODE_BAR_HAT);
+    sgl_spectrum_set_bar_mode(g_spec[1], SGL_SPECTRUM_MODE_BAR);
     sgl_spectrum_set_bar_color(g_spec[1], sgl_rgb(255, 60, 160));
-    sgl_spectrum_set_bar_hat_color(g_spec[1], sgl_rgb(255, 220, 120));
-    sgl_spectrum_set_bar_hat_height(g_spec[1], 3);
-    sgl_spectrum_set_peak_fall(g_spec[1], 2);
     sgl_spectrum_set_alpha(g_spec[1], 255);
 
     /* ---- 3. segmented LED block mode with gradient ---- */
@@ -139,22 +133,18 @@ void sgl_spectrum_examples(sgl_obj_t *parent)
     sgl_spectrum_set_bar_number(g_spec[2], SPEC_BARS_LED);
     sgl_spectrum_set_bar_mode(g_spec[2], SGL_SPECTRUM_MODE_BLOCK | SGL_SPECTRUM_MODE_GRADIENT);
     sgl_spectrum_set_bar_color(g_spec[2], sgl_rgb(120, 255, 140));
-    sgl_spectrum_set_bar_color_low(g_spec[2], sgl_rgb(0, 120, 60));
+    sgl_spectrum_set_bar_color_low(g_spec[2], sgl_rgb(0, 120, 0));
     sgl_spectrum_set_bar_hat_height(g_spec[2], 4);
     sgl_spectrum_set_alpha(g_spec[2], 255);
 
-    /* ---- 4. rounded bar tops + peak caps ---- */
+    /* ---- 4. left-to-right gradient bars ---- */
     g_spec[3] = sgl_spectrum_create(parent);
     sgl_obj_set_pos(g_spec[3], gap + 3 * (w + gap), 180);
     sgl_obj_set_size(g_spec[3], w, h);
     sgl_spectrum_set_bar_number(g_spec[3], SPEC_BARS_ROUND);
-    sgl_spectrum_set_bar_mode(g_spec[3], SGL_SPECTRUM_MODE_BAR | SGL_SPECTRUM_MODE_GRADIENT);
+    sgl_spectrum_set_bar_mode(g_spec[3], SGL_SPECTRUM_MODE_BAR | SGL_SPECTRUM_MODE_HGRADIENT);
     sgl_spectrum_set_bar_color(g_spec[3], sgl_rgb(255, 180, 60));
     sgl_spectrum_set_bar_color_low(g_spec[3], sgl_rgb(200, 40, 20));
-    sgl_spectrum_set_bar_hat_color(g_spec[3], sgl_rgb(255, 255, 255));
-    sgl_spectrum_set_radius(g_spec[3], 3);
-    sgl_spectrum_set_bar_hat_height(g_spec[3], 3);
-    sgl_spectrum_set_peak_fall(g_spec[3], 4);
     sgl_spectrum_set_alpha(g_spec[3], 255);
 
     /* seed the values once so the first painted frame is already alive */

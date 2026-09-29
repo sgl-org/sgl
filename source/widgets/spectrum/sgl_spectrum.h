@@ -40,6 +40,13 @@
 #define SGL_SPECTRUM_MODE_BLOCK_HAT                (SGL_SPECTRUM_MODE_HAT_FLAG | SGL_SPECTRUM_MODE_BLOCK)
 #define SGL_SPECTRUM_MODE_GRADIENT                 (1 << 3)
 
+/**
+ * @brief horizontal gradient: bar colour sweeps bar_color (leftmost bar) to
+ *        bar_color_low (rightmost bar). One colour per BAR, so it costs the
+ *        same as flat mode - no per-pixel work. Combine with BAR or BLOCK.
+ */
+#define SGL_SPECTRUM_MODE_HGRADIENT                (1 << 4)
+
 /* maximum number of bars; all buffers are static so no dynamic memory */
 #define SGL_SPECTRUM_BAR_MAX                       (64)
 
@@ -69,6 +76,7 @@ extern "C" {
  * @floor_height: height of the baseline band, 0 = disabled
  * @cut: per-row corner cut (px) of the rounded cap, cut[0] is the top row
  * @grad_step: Q16.16 per-row gradient factor step, avoids a per-row division
+ * @bar_colors: per-bar colour cache, one entry per bar (HGRADIENT mode)
  * @bar_gradient: 1 when the vertical gradient is active
  * @gap_auto: 1 when the gap is chosen automatically for the bar count
  * @align_center: 1 to centre the bar row inside the widget
@@ -91,6 +99,7 @@ typedef struct sgl_spectrum {
     uint8_t     floor_height;    /* baseline band height, 0 = off      */
     uint8_t     cut[SGL_SPECTRUM_ROUND_MAX]; /* cap corner cut per row */
     uint32_t    grad_step;       /* Q16.16 gradient factor per row     */
+    sgl_color_t bar_colors[SGL_SPECTRUM_BAR_MAX]; /* HGRADIENT cache    */
     uint8_t     bar_gradient : 1;
     uint8_t     gap_auto : 1;
     uint8_t     align_center : 1;
@@ -138,6 +147,7 @@ void sgl_spectrum_set_bar_value(sgl_obj_t *obj, uint16_t index, uint16_t value);
  *       SGL_SPECTRUM_MODE_BAR_HAT: bar mode with hat
  *       SGL_SPECTRUM_MODE_BLOCK_HAT: block mode with hat
  *       SGL_SPECTRUM_MODE_GRADIENT: OR this in for a vertical gradient
+ *       SGL_SPECTRUM_MODE_HGRADIENT: OR this in for a left-to-right gradient
  */
 void sgl_spectrum_set_bar_mode(sgl_obj_t *obj, uint8_t mode);
 
