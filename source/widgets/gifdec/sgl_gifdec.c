@@ -29,7 +29,8 @@
  *   sgl_gifdec_timer_cb (sgl_timer) 按帧间隔触发一次刷新
  *       -> sgl_gifdec_construct_cb (SGL_EVENT_DRAW_MAIN)
  *       -> gd_decode_frame_range() 分片把帧像素直写 SGL 屏幕 framebuffer
- *          (pitch = surf->w, 起点 = GIF 画布在屏幕的居中偏移)
+ *          (pitch = surf->w, 起点 = 画布左上角 obj->coords, 即当前画布的屏幕位置;
+ *           初始位置由 load 居中给出, 之后随时可用 sgl_obj_set_pos() 移动)
  *       -> 帧间隔由定时器保证, 不再自轮询 set_dirty
  *
  * 内存 (与帧数、画面尺寸无关):
@@ -1504,8 +1505,10 @@ typedef struct sgl_gifdec {
     uint32_t            data_len;
     int32_t             pos;            /* read cursor */
 
-    /* --- placement (居中, 相对 screen 0,0) --- */
-    int16_t             gif_ox, gif_oy; /* GIF 画布左上角在屏幕上的坐标 */
+    /* --- placement: 画布的实际屏幕位置以 obj->coords 为唯一来源 (见 construct_cb),
+     *     随时可用 sgl_obj_set_pos(&obj) 移动 (含播放中);
+     *     gif_ox/gif_oy 仅记录 load 时的初始(居中)位置, 供日志/参考 --- */
+    int16_t             gif_ox, gif_oy;
 
     /* --- timing / counters --- */
     uint16_t            width, height;     /* GIF canvas size */
@@ -1781,15 +1784,20 @@ static void sgl_gifdec_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
     /* 只处理 GIF 画布区域: 本对象尺寸 = GIF 画布, SGL 只把对象区域的 slice 传进来,
      * 画布外由 SGL page 背景 + 其他组件自行渲染, gifdec 不触碰。 */
 
+    /* canvas screen position: obj->coords 是唯一来源 (load 时 set_pos 同步为居中;
+       之后任何 sgl_obj_set_pos() 都会同时移动刷新区域和像素落点) */
+    int canvas_x = (int)obj->coords.x1;
+    int canvas_y = (int)obj->coords.y1;
+
     /* row intersection of this SGL slice with the GIF canvas (screen coords) */
-    int y0 = (surf->y1 > (int)g->gif_oy) ? (int)surf->y1 : (int)g->gif_oy;
-    int y1 = ((int)surf->y2 + 1 < (int)g->gif_oy + (int)g->height)
-                 ? ((int)surf->y2 + 1) : ((int)g->gif_oy + (int)g->height);
+    int y0 = (surf->y1 > canvas_y) ? (int)surf->y1 : canvas_y;
+    int y1 = ((int)surf->y2 + 1 < canvas_y + (int)g->height)
+                 ? ((int)surf->y2 + 1) : (canvas_y + (int)g->height);
     if (y1 <= y0) {
         return;   /* this slice holds no GIF pixels */
     }
-    int row0 = y0 - (int)g->gif_oy;   /* canvas row range start */
-    int row1 = y1 - (int)g->gif_oy;   /* canvas row range end */
+    int row0 = y0 - canvas_y;   /* canvas row range start */
+    int row1 = y1 - canvas_y;   /* canvas row range end */
 
     /* frame boundary: the canvas-row-0 slice advances the frame.
        The playback timer (sgl_gifdec_timer_cb) guarantees the frame interval,
@@ -1808,7 +1816,7 @@ static void sgl_gifdec_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
     /* write target: slice buffer position of canvas row row0, canvas col 0 */
     {
         int32_t slice_row = y0 - (int32_t)surf->y1;
-        int32_t slice_col = (int32_t)g->gif_ox - (int32_t)surf->x1;
+        int32_t slice_col = (int32_t)canvas_x - (int32_t)surf->x1;
         uint8_t *dst = (uint8_t *)surf->buffer
                        + (slice_row * (int32_t)surf->w + slice_col) * (int32_t)g->gif->out_bpp;
 

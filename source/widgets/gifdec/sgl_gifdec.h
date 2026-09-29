@@ -29,7 +29,8 @@
  *   sgl_gifdec_timer_cb (sgl_timer) 按帧间隔触发一次刷新
  *   -> sgl_gifdec_construct_cb (SGL_EVENT_DRAW_MAIN)
  *   -> gd_decode_frame_range() 分片流式把帧像素直写 SGL 屏幕 framebuffer
- *      (pitch = surf->w, 起点 = GIF 画布在屏幕的居中偏移)
+ *      (pitch = surf->w, 起点 = 画布左上角 obj->coords, 即当前画布的屏幕位置;
+ *       初始位置由 load 居中给出, 之后随时可用 sgl_obj_set_pos() 移动)
  *
  * 内存 (与帧数、画面尺寸无关):
  *   arena = gd_estimate_arena(&cfg, RGB565, 0)
