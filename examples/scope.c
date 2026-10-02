@@ -42,7 +42,7 @@
 #define SCOPE_BORDER  2             /* border width */
 #define SCOPE_CAP     (SCOPE_WIDTH - 2 * SCOPE_BORDER)  /* =196, the ring capacity */
 #define SCOPE_CH      2             /* number of channels */
-#define TIMER_PERIOD  30            /* ms between data points */
+#define TIMER_PERIOD  10            /* ms between data points */
 
 /* number of full waveform cycles shown across the whole plot width */
 #define SCOPE_CYCLES  4
@@ -50,7 +50,6 @@
 #define SCOPE_DEG_STEP  (360.0f * SCOPE_CYCLES / SCOPE_CAP)
 
 static int16_t s_scope_buf[SCOPE_CH][SCOPE_CAP];
-static sgl_color_t s_scope_colors[SCOPE_CH] = {SGL_COLOR_GREEN, SGL_COLOR_YELLOW};
 static sgl_obj_t *g_scope = NULL;
 static sgl_timer_t *g_scope_timer = NULL;
 static float s_phase_deg = 0.0f;  /* 0..360 degrees, wraps once per cycle */
@@ -60,8 +59,10 @@ static float s_phase_deg = 0.0f;  /* 0..360 degrees, wraps once per cycle */
  * ch0: sine wave (-32767..32767), ch1: square wave (+/- 20000).
  * NOTE: sgl_sinf() takes an angle in DEGREES and returns -1.0..1.0.
  */
-static void scope_tick_cb(const sgl_timer_t *timer __attribute__((unused)), void *user_data __attribute__((unused)))
+static void scope_tick_cb(const sgl_timer_t *timer, void *user_data)
 {
+    SGL_UNUSED(timer);
+    SGL_UNUSED(user_data);
     if (!g_scope) return;
 
     /* sine: full int16 amplitude; sgl_sinf expects degrees, returns -1.0..1.0 */
@@ -103,8 +104,10 @@ void sgl_scope_examples(sgl_obj_t *parent)
     sgl_scope_set_alpha(scope, 255);
 
     /* Bind buffers now - this ensures wave_buffers and channel_count are set
-     * before the first construct_cb/draw happens. */
-    sgl_scope_set_buffers(scope, (int16_t *)s_scope_buf, s_scope_colors, SCOPE_CH);
+     * before the first construct_cb/draw happens. Channel colors default to
+     * green, override ch1 with yellow. */
+    sgl_scope_set_waveform_buffers(scope, (int16_t *)s_scope_buf, SCOPE_CH);
+    sgl_scope_set_waveform_color(scope, 1, SGL_COLOR_YELLOW);
 
     /* Create a timer to feed new samples and make the waveform scroll live */
     timer = sgl_timer_create();

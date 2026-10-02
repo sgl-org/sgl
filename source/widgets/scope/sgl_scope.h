@@ -61,14 +61,15 @@ extern "C" {
  *       width in pixels, so the hot draw loop needs no scaling at all.
  *
  * @wave_buffers  base of user-owned [channel_count][width] sample array
- * @wave_colors   user-owned [channel_count] waveform color array
+ * @wave_colors   internal per-channel waveform colors (set via
+ *                `sgl_scope_set_waveform_color()`, defaults to green)
  * @in / @out     per-channel FIFO write index / oldest displayed index
  * @count         per-channel number of valid samples
  */
 typedef struct {
     sgl_obj_t obj;
     int16_t *wave_buffers;             // user-owned [channels][width] samples
-    sgl_color_t *wave_colors;          // user-owned [channels] wave colors
+    sgl_color_t wave_colors[SGL_SCOPE_MAX_CHANNELS];  // per-channel wave colors
     uint16_t in[SGL_SCOPE_MAX_CHANNELS];     // FIFO write index
     uint16_t out[SGL_SCOPE_MAX_CHANNELS];    // FIFO read (oldest) index
     uint16_t count[SGL_SCOPE_MAX_CHANNELS];  // valid samples per channel
@@ -79,7 +80,6 @@ typedef struct {
     sgl_color_t grid_color;            // grid line color
     sgl_color_t border_color;          // border color
     uint8_t channel_count;             // number of channels (1-4)
-    uint8_t border_width;              // border width in pixels
     uint8_t alpha;                     // alpha of waveform
 } sgl_scope_t;
 
@@ -91,14 +91,62 @@ typedef struct {
 sgl_obj_t* sgl_scope_create(sgl_obj_t* parent);
 
 /**
- * @brief bind the sample/color arrays to the scope
+ * @brief bind the sample buffer array to the scope
  * @param obj scope object
  * @param wave_buffers base of [wave_count][widget_width] sample array
- * @param wave_colors [wave_count] waveform color array
  * @param wave_count number of channels (1 - SGL_SCOPE_MAX_CHANNELS)
  * @note resets the FIFO of every channel
  */
-void sgl_scope_set_buffers(sgl_obj_t *obj, int16_t *wave_buffers, sgl_color_t *wave_colors, uint8_t wave_count);
+void sgl_scope_set_waveform_buffers(sgl_obj_t *obj, int16_t *wave_buffers, uint8_t wave_count);
+
+/**
+ * @brief set scope waveform color for a specific channel
+ * @param obj scope object
+ * @param channel channel number (0-based)
+ * @param color waveform color
+ * @return none
+ */
+void sgl_scope_set_waveform_color(sgl_obj_t* obj, uint8_t channel, sgl_color_t color);
+
+/**
+ * @brief set scope background color
+ * @param obj scope object
+ * @param color background color
+ * @return none
+ */
+void sgl_scope_set_bg_color(sgl_obj_t* obj, sgl_color_t color);
+
+/**
+ * @brief set scope grid line color
+ * @param obj scope object
+ * @param color grid line color
+ * @return none
+ */
+void sgl_scope_set_grid_color(sgl_obj_t* obj, sgl_color_t color);
+
+/**
+ * @brief set scope alpha
+ * @param obj scope object
+ * @param alpha alpha
+ * @return none
+ */
+void sgl_scope_set_alpha(sgl_obj_t* obj, uint8_t alpha);
+
+/**
+ * @brief set scope border color
+ * @param obj scope object
+ * @param color border color
+ * @return none
+ */
+void sgl_scope_set_border_color(sgl_obj_t* obj, sgl_color_t color);
+
+/**
+ * @brief set scope border width
+ * @param obj scope object
+ * @param width border width
+ * @return none
+ */
+void sgl_scope_set_border_width(sgl_obj_t* obj, uint8_t width);
 
 /**
  * @brief Append a new data point to the oscilloscope for a specific channel
@@ -131,80 +179,6 @@ void sgl_scope_clear(sgl_obj_t *obj, uint8_t channel);
  * @param v_max value mapped to the top edge
  */
 void sgl_scope_set_vrange(sgl_obj_t *obj, int16_t v_min, int16_t v_max);
-
-/**
- * @brief set scope waveform color for a specific channel
- * @param obj scope object
- * @param channel channel number (0-based)
- * @param color waveform color
- * @return none
- */
-void sgl_scope_set_channel_waveform_color(sgl_obj_t* obj, uint8_t channel, sgl_color_t color);
-
-/**
- * @brief set scope background color
- * @param obj scope object
- * @param color background color
- * @return none
- */
-static inline void sgl_scope_set_bg_color(sgl_obj_t* obj, sgl_color_t color)
-{
-    sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
-    scope->bg_color = color;
-    sgl_obj_set_dirty(obj);
-}
-
-/**
- * @brief set scope grid line color
- * @param obj scope object
- * @param color grid line color
- * @return none
- */
-static inline void sgl_scope_set_grid_color(sgl_obj_t* obj, sgl_color_t color)
-{
-    sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
-    scope->grid_color = color;
-    sgl_obj_set_dirty(obj);
-}
-
-/**
- * @brief set scope alpha
- * @param obj scope object
- * @param alpha alpha
- * @return none
- */
-static inline void sgl_scope_set_alpha(sgl_obj_t* obj, uint8_t alpha)
-{
-    sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
-    scope->alpha = alpha;
-    sgl_obj_set_dirty(obj);
-}
-
-/**
- * @brief set scope border color
- * @param obj scope object
- * @param color border color
- * @return none
- */
-static inline void sgl_scope_set_border_color(sgl_obj_t* obj, sgl_color_t color)
-{
-    sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
-    scope->border_color = color;
-    sgl_obj_set_dirty(obj);
-}
-
-/**
- * @brief set scope border width
- * @param obj scope object
- * @param width border width
- * @return none
- */
-static inline void sgl_scope_set_border_width(sgl_obj_t* obj, uint8_t width)
-{
-    sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
-    scope->border_width = width;
-    sgl_obj_set_border_width(obj, width);
-}
 
 #ifdef __cplusplus
 }
