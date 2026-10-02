@@ -81,6 +81,7 @@ typedef struct {
     sgl_color_t border_color;          // border color
     uint8_t channel_count;             // number of channels (1-4)
     uint8_t alpha;                     // alpha of waveform
+    uint8_t line_width[SGL_SCOPE_MAX_CHANNELS];  // per-channel waveform line width
 } sgl_scope_t;
 
 /**
@@ -107,6 +108,16 @@ void sgl_scope_set_waveform_buffers(sgl_obj_t *obj, int16_t *wave_buffers, uint8
  * @return none
  */
 void sgl_scope_set_waveform_color(sgl_obj_t* obj, uint8_t channel, sgl_color_t color);
+
+/**
+ * @brief set scope waveform line width for a specific channel
+ * @param obj scope object
+ * @param channel channel number (0-based)
+ * @param width line width in pixels (1 = single pixel, centered on the
+ *        sample value for larger widths)
+ * @return none
+ */
+void sgl_scope_set_waveform_width(sgl_obj_t* obj, uint8_t channel, uint8_t width);
 
 /**
  * @brief set scope background color

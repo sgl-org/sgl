@@ -98,6 +98,11 @@ static void scope_draw_channel(sgl_surf_t *surf, sgl_scope_t *scope, uint8_t ch,
     const int16_t *buf_data = scope->wave_buffers + (int32_t)ch * cap;
     sgl_color_t color = scope->wave_colors[ch];
 
+    /* line thickness, each sample span grows symmetrically around it:
+     * width 1 -> 1px, 2 -> 2px, 3 -> 3px, ... (w-1)/2 pixels below, w/2 above */
+    int16_t lw_lo = (int16_t)(scope->line_width[ch] - 1) / 2;
+    int16_t lw_hi = (int16_t)scope->line_width[ch] / 2;
+
     /* visible column range = plot clipped to the dirty area */
     int16_t x_from = sgl_max(plot->x1, clip->x1);
     int16_t x_to = sgl_min(plot->x2, clip->x2);
@@ -132,15 +137,15 @@ static void scope_draw_channel(sgl_surf_t *surf, sgl_scope_t *scope, uint8_t ch,
 
         int16_t y = scope_map_y(buf_data[idx], scope->v_min, scale_q16, y_top, y_bot);
 
-        /* vertical span between the previous and the current sample,
-         * clamped to [clip->y1, clip->y2]. In a partial-slice redraw the
-         * span may lie fully outside the clip (above or below): such a
-         * column must be skipped WITHOUT touching p/row, otherwise the
-         * additive pointer walk desyncs from `row` and later columns
-         * write out of the slice bounds (crash on merged dirty areas,
-         * e.g. an exit msgbox popping over the scope) */
-        int16_t lo = y < prev_y ? y : prev_y;
-        int16_t hi = y > prev_y ? y : prev_y;
+        /* vertical span between the previous and the current sample, grown
+         * by the line width and clamped to [clip->y1, clip->y2]. In a
+         * partial-slice redraw the span may lie fully outside the clip
+         * (above or below): such a column must be skipped WITHOUT touching
+         * p/row, otherwise the additive pointer walk desyncs from `row` and
+         * later columns write out of the slice bounds (crash on merged
+         * dirty areas, e.g. an exit msgbox popping over the scope) */
+        int16_t lo = (y < prev_y ? y : prev_y) - lw_lo;
+        int16_t hi = (y > prev_y ? y : prev_y) + lw_hi;
         if (hi < clip->y1 || lo > clip->y2) {
             /* span fully outside the clip: keep p/row in sync, hop column */
             p++;
@@ -269,8 +274,10 @@ sgl_obj_t* sgl_scope_create(sgl_obj_t* parent)
     scope->v_min = -32768;
     scope->v_max = 32767;
 
-    for (uint8_t c = 0; c < SGL_SCOPE_MAX_CHANNELS; c++)
+    for (uint8_t c = 0; c < SGL_SCOPE_MAX_CHANNELS; c++) {
         scope->wave_colors[c] = SGL_COLOR_GREEN;
+        scope->line_width[c] = 1;
+    }
 
     return obj;
 }
@@ -317,6 +324,26 @@ void sgl_scope_set_waveform_color(sgl_obj_t* obj, uint8_t channel, sgl_color_t c
         return;
 
     scope->wave_colors[channel] = color;
+    sgl_obj_set_dirty(obj);
+}
+
+/**
+ * @brief set scope waveform line width for a specific channel
+ * @param obj scope object
+ * @param channel channel number (0-based)
+ * @param width line width in pixels (1 = single pixel, centered on the
+ *        sample value for larger widths)
+ * @return none
+ */
+void sgl_scope_set_waveform_width(sgl_obj_t* obj, uint8_t channel, uint8_t width)
+{
+    SGL_ASSERT(obj != NULL);
+    sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
+
+    if (channel >= scope->channel_count || width == 0)
+        return;
+
+    scope->line_width[channel] = width;
     sgl_obj_set_dirty(obj);
 }
 
@@ -464,6 +491,11 @@ void sgl_scope_append_data(sgl_obj_t* obj, uint8_t channel, int16_t value)
      * cover what the draw pass renders */
     int32_t scale_q16 = ((int32_t)(h - 1) << 16) / span;
 
+    /* line thickness of this channel, dirty rects grow by the same amount
+     * the draw pass grows the spans (half below, half above) */
+    int16_t lw_lo = (int16_t)(scope->line_width[channel] - 1) / 2;
+    int16_t lw_hi = (int16_t)scope->line_width[channel] / 2;
+
     if (!scrolled) {
         uint16_t n = scope->count[channel];
         int16_t x = area.x1 + (int16_t)n - 1;
@@ -476,8 +508,8 @@ void sgl_scope_append_data(sgl_obj_t* obj, uint8_t channel, int16_t value)
         }
 
         area.x1 = area.x2 = x;
-        area.y1 = sgl_min(y, prev_y);
-        area.y2 = sgl_max(y, prev_y);
+        area.y1 = sgl_min(y, prev_y) - lw_lo;
+        area.y2 = sgl_max(y, prev_y) + lw_hi;
         sgl_update_area(&area);
         return;
     }
@@ -510,17 +542,19 @@ void sgl_scope_append_data(sgl_obj_t* obj, uint8_t channel, int16_t value)
         int16_t ymax = INT16_MIN;
         for (int32_t s = s1; s <= s2; s++) {
             uint16_t idx = (uint16_t)(((uint32_t)out + (uint32_t)s) % cap);
-            int16_t y = scope_map_y(buf[idx], scope->v_min, scale_q16, area.y1, area.y2);
+            int16_t y = scope_map_y(buf[idx], scope->v_min, scale_q16, area.y1, area.y2) - lw_lo;
             if (y < ymin)
                 ymin = y;
+            y = scope_map_y(buf[idx], scope->v_min, scale_q16, area.y1, area.y2) + lw_hi;
             if (y > ymax)
                 ymax = y;
         }
         if (q == 0) {
             /* the dropped sample just scrolled off the left edge */
-            int16_t y = scope_map_y(dropped, scope->v_min, scale_q16, area.y1, area.y2);
+            int16_t y = scope_map_y(dropped, scope->v_min, scale_q16, area.y1, area.y2) - lw_lo;
             if (y < ymin)
                 ymin = y;
+            y = scope_map_y(dropped, scope->v_min, scale_q16, area.y1, area.y2) + lw_hi;
             if (y > ymax)
                 ymax = y;
         }

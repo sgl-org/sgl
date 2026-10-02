@@ -37,8 +37,8 @@
  * @note The sample buffer array stride MUST equal the plot width (cap = widget_width - 2*border).
  */
 
-#define SCOPE_WIDTH   200           /* widget width, must match buffer column count */
-#define SCOPE_HEIGHT  100           /* widget height */
+#define SCOPE_WIDTH   480           /* widget width, must match buffer column count */
+#define SCOPE_HEIGHT  320           /* widget height */
 #define SCOPE_BORDER  2             /* border width */
 #define SCOPE_CAP     (SCOPE_WIDTH - 2 * SCOPE_BORDER)  /* =196, the ring capacity */
 #define SCOPE_CH      2             /* number of channels */
@@ -108,6 +108,8 @@ void sgl_scope_examples(sgl_obj_t *parent)
      * green, override ch1 with yellow. */
     sgl_scope_set_waveform_buffers(scope, (int16_t *)s_scope_buf, SCOPE_CH);
     sgl_scope_set_waveform_color(scope, 1, SGL_COLOR_YELLOW);
+    sgl_scope_set_waveform_width(scope, 0, 2);   /* thin sine */
+    sgl_scope_set_waveform_width(scope, 1, 3);   /* thick square */
 
     /* Create a timer to feed new samples and make the waveform scroll live */
     timer = sgl_timer_create();
