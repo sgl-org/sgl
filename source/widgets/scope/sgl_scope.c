@@ -32,7 +32,61 @@
 #include "sgl_scope.h"
 
 /* alpha used for the quarter grid lines */
-#define SGL_SCOPE_GRID_ALPHA            (90)
+#define SGL_SCOPE_GRID_ALPHA            (128)
+
+/* dash/gap length of the dashed grid lines, in pixels */
+#define SGL_SCOPE_GRID_DASH_LEN         (3)
+#define SGL_SCOPE_GRID_GAP_LEN          (3)
+
+/**
+ * @brief draw one axis-aligned dashed line (horizontal or vertical) with
+ *        alpha blending: axis-aligned so no Bresenham needed, a plain
+ *        pattern walk over the pixels, skipped pixels leave the gap
+ */
+static void scope_draw_dashed_line(sgl_surf_t *surf, sgl_area_t *clip,
+                                   int16_t x0, int16_t y0, int16_t x1, int16_t y1,
+                                   sgl_color_t color, uint8_t alpha)
+{
+    int16_t dx = x1 > x0 ? 1 : (x1 < x0 ? -1 : 0);
+    int16_t dy = y1 > y0 ? 1 : (y1 < y0 ? -1 : 0);
+    int16_t x = x0, y = y0;
+    uint32_t pos = 0;
+    uint32_t period = (uint32_t)SGL_SCOPE_GRID_DASH_LEN + SGL_SCOPE_GRID_GAP_LEN;
+
+    while ((dx && (x != x1 + dx)) || (dy && (y != y1 + dy))) {
+        if ((pos % period) < SGL_SCOPE_GRID_DASH_LEN &&
+            x >= clip->x1 && x <= clip->x2 && y >= clip->y1 && y <= clip->y2) {
+            sgl_color_t *p = sgl_surf_get_buf(surf, x - surf->x1, y - surf->y1);
+            *p = (alpha == 255) ? color : sgl_color_mixer(color, *p, alpha);
+        }
+        pos++;
+        x += dx;
+        y += dy;
+    }
+}
+
+/**
+ * @brief draw one axis-aligned line, dashed when scope->grid_dashed else a
+ *        solid fill rect
+ */
+static void scope_draw_grid_line(sgl_scope_t *scope, sgl_surf_t *surf,
+                                 sgl_area_t *clip, sgl_area_t *line)
+{
+    if (!scope->grid_dashed) {
+        sgl_draw_fill_rect(surf, &scope->obj.area, line, 0, scope->grid_color, SGL_SCOPE_GRID_ALPHA);
+        return;
+    }
+
+    /* one-pixel thick: shrink the 1-px rect into its single line */
+    if (line->x1 == line->x2) {
+        scope_draw_dashed_line(surf, clip, line->x1, line->y1, line->x1, line->y2,
+                               scope->grid_color, SGL_SCOPE_GRID_ALPHA);
+    }
+    else {
+        scope_draw_dashed_line(surf, clip, line->x1, line->y1, line->x2, line->y1,
+                               scope->grid_color, SGL_SCOPE_GRID_ALPHA);
+    }
+}
 
 /**
  * @brief derive the ring capacity from the current widget size and reset the
@@ -212,28 +266,6 @@ static void sgl_scope_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_t
     if (h <= 0)
         return;
 
-    /* quarter grid lines, cheap: six thin fill rects per frame */
-    sgl_area_t line;
-    for (int16_t g = 1; g < 4; g++) {
-        line.x1 = plot.x1 + (int16_t)(cap * g / 4);
-        line.x2 = line.x1;
-        line.y1 = plot.y1;
-        line.y2 = plot.y2;
-        sgl_draw_fill_rect(surf, &obj->area, &line, 0, scope->grid_color, SGL_SCOPE_GRID_ALPHA);
-
-        line.x1 = plot.x1;
-        line.x2 = plot.x2;
-        line.y1 = plot.y1 + (int16_t)(h * g / 4);
-        line.y2 = line.y1;
-        sgl_draw_fill_rect(surf, &obj->area, &line, 0, scope->grid_color, SGL_SCOPE_GRID_ALPHA);
-    }
-
-    /* value range -> pixel span, precomputed once per frame */
-    int32_t span = (int32_t)scope->v_max - scope->v_min;
-    if (span <= 0)
-        return;
-    int32_t scale_q16 = ((int32_t)(h - 1) << 16) / span;
-
     /* direct pixel path: must stay inside both the slice owned by this
      * object (obj->area) and the surface bounds, otherwise partial-slice
      * draws would write into neighbour objects or past the buffer */
@@ -242,6 +274,28 @@ static void sgl_scope_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_t
         return;
     if (!sgl_area_selfclip(&clip, &plot))
         return;
+
+    /* quarter grid lines, cheap: six thin lines per frame */
+    sgl_area_t line;
+    for (int16_t g = 1; g < 4; g++) {
+        line.x1 = plot.x1 + (int16_t)(cap * g / 4);
+        line.x2 = line.x1;
+        line.y1 = plot.y1;
+        line.y2 = plot.y2;
+        scope_draw_grid_line(scope, surf, &clip, &line);
+
+        line.x1 = plot.x1;
+        line.x2 = plot.x2;
+        line.y1 = plot.y1 + (int16_t)(h * g / 4);
+        line.y2 = line.y1;
+        scope_draw_grid_line(scope, surf, &clip, &line);
+    }
+
+    /* value range -> pixel span, precomputed once per frame */
+    int32_t span = (int32_t)scope->v_max - scope->v_min;
+    if (span <= 0)
+        return;
+    int32_t scale_q16 = ((int32_t)(h - 1) << 16) / span;
 
     for (uint8_t ch = 0; ch < scope->channel_count; ch++)
         scope_draw_channel(surf, scope, ch, &plot, &clip, scale_q16);
@@ -269,6 +323,7 @@ sgl_obj_t* sgl_scope_create(sgl_obj_t* parent)
     scope->bg_color = SGL_COLOR_BLACK;
     scope->grid_color = SGL_COLOR_GRAY;
     scope->border_color = SGL_THEME_BORDER_COLOR;
+    scope->grid_dashed = 0;             /* solid grid by default */
     sgl_obj_set_border_width(obj, 1);
     scope->alpha = 255;
     scope->v_min = -32768;
@@ -370,6 +425,19 @@ void sgl_scope_set_grid_color(sgl_obj_t* obj, sgl_color_t color)
 {
     sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
     scope->grid_color = color;
+    sgl_obj_set_dirty(obj);
+}
+
+/**
+ * @brief set scope grid line style
+ * @param obj scope object
+ * @param dashed 1 = dashed grid lines, 0 = solid grid lines
+ * @return none
+ */
+void sgl_scope_set_grid_dashed(sgl_obj_t* obj, uint8_t dashed)
+{
+    sgl_scope_t *scope = sgl_container_of(obj, sgl_scope_t, obj);
+    scope->grid_dashed = dashed ? 1 : 0;
     sgl_obj_set_dirty(obj);
 }
 

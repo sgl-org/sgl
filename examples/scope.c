@@ -100,6 +100,7 @@ void sgl_scope_examples(sgl_obj_t *parent)
     sgl_scope_set_vrange(scope, -32768, 32767);         /* full int16 range */
     sgl_scope_set_bg_color(scope, SGL_COLOR_BLACK);
     sgl_scope_set_grid_color(scope, SGL_COLOR_GRAY);
+    sgl_scope_set_grid_dashed(scope, 1);          /* dashed grid lines */
     sgl_scope_set_border_color(scope, SGL_COLOR_CYAN);
     sgl_scope_set_alpha(scope, 255);
 

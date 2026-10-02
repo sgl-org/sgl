@@ -82,6 +82,7 @@ typedef struct {
     uint8_t channel_count;             // number of channels (1-4)
     uint8_t alpha;                     // alpha of waveform
     uint8_t line_width[SGL_SCOPE_MAX_CHANNELS];  // per-channel waveform line width
+    uint8_t grid_dashed;               // 1 = dashed grid lines, 0 = solid
 } sgl_scope_t;
 
 /**
@@ -134,6 +135,14 @@ void sgl_scope_set_bg_color(sgl_obj_t* obj, sgl_color_t color);
  * @return none
  */
 void sgl_scope_set_grid_color(sgl_obj_t* obj, sgl_color_t color);
+
+/**
+ * @brief set scope grid line style
+ * @param obj scope object
+ * @param dashed 1 = dashed grid lines, 0 = solid grid lines
+ * @return none
+ */
+void sgl_scope_set_grid_dashed(sgl_obj_t* obj, uint8_t dashed);
 
 /**
  * @brief set scope alpha
