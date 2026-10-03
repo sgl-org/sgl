@@ -1265,7 +1265,8 @@ static int fatfs_read(void *fs, int fd, void *buffer, uint32_t count)
         uint32_t tc = (count - br < avail) ? count - br : avail;
         memcpy(dst + br, &ctx->sec_buf[os], tc);
         br += tc; f->cur_pos += tc;
-        if (f->cur_pos % cb == 0 && br < count) {
+
+        if (f->cur_pos % cb == 0 && f->cur_pos < f->file_size) {
             uint32_t next = fat_get_entry(ctx, f->cur_cluster);
             if (next < 2 || is_eoc(ctx, next)) break;
             f->cur_cluster = next;
@@ -1323,7 +1324,7 @@ static int fatfs_write(void *fs, int fd, const void *buffer, uint32_t count)
             f->dirty = 1; 
         }
 
-        if (f->cur_pos % cb == 0 && bw < count) {
+        if (f->cur_pos % cb == 0) {
             uint32_t next = fat_get_entry(ctx, f->cur_cluster);
             if (next < 2 || is_eoc(ctx, next)) {
                 next = fat_alloc_cluster(ctx);
