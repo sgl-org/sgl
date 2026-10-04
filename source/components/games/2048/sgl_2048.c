@@ -478,7 +478,7 @@ static void pop_start(void)
         sgl_label_set_text_align(g_pop_l[i], SGL_ALIGN_CENTER);
     }
 
-    sgl_anim_move_to(0, 100, SGL_2048_POP_MS, pop_cb, SGL_ANIM_PATH_EASE_OUT, pop_done_cb);
+    sgl_anim_setup_action(0, 100, SGL_2048_POP_MS, pop_cb, SGL_ANIM_PATH_EASE_OUT, pop_done_cb);
 }
 
 /**

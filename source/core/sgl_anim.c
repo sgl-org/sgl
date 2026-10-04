@@ -824,7 +824,7 @@ void sgl_anim_move_obj_vert_with_free(struct sgl_obj *obj, int16_t distance, uin
 }
 
 /**
- * sgl_anim_move_to - Move to a specific position
+ * sgl_anim_setup_action - Create and start a one-shot animation with a custom path callback
  * @param start     Start value of the animation
  * @param end       End value of the animation
  * @param duration  Duration of the animation (in milliseconds)
@@ -833,11 +833,11 @@ void sgl_anim_move_obj_vert_with_free(struct sgl_obj *obj, int16_t distance, uin
  * @param finish_cb Callback function to be called when the animation finishes
  * @return none
  */
-void sgl_anim_move_to(int16_t start, int16_t end, uint16_t duration, sgl_anim_path_cb_t cb, sgl_anim_path_algo_t effect, sgl_anim_finish_cb_t finish_cb)
+void sgl_anim_setup_action(int16_t start, int16_t end, uint16_t duration, sgl_anim_path_cb_t cb, sgl_anim_path_algo_t effect, sgl_anim_finish_cb_t finish_cb)
 {
     sgl_anim_t *anim = sgl_anim_alloc_and_init(NULL, start, end, duration, cb, effect);
     if (!anim) {
-        SGL_LOG_ERROR("Failed to create animation object for sgl_anim_move_to");
+        SGL_LOG_ERROR("Failed to create animation object for sgl_anim_setup_action");
         return;
     }
     sgl_anim_set_finish_cb(anim, finish_cb);
@@ -845,21 +845,42 @@ void sgl_anim_move_to(int16_t start, int16_t end, uint16_t duration, sgl_anim_pa
 }
 
 /**
- * sgl_anim_move_obj_to - Move an object to a specific position
- * @param obj       Pointer to the object to move
- * @param start     Start position of the object
- * @param end       End position of the object
+ * sgl_anim_setup_action_loop - Create and start a looping animation with a custom path callback
+ * @param start     Start value of the animation
+ * @param end       End value of the animation
  * @param duration  Duration of the animation (in milliseconds)
  * @param cb        Callback function for the animation
  * @param effect    Animation path effect (e.g., SGL_ANIM_PATH_EASE_IN_OUT, SGL_ANIM_PATH_EASE_IN, SGL_ANIM_PATH_EASE_OUT)
  * @param finish_cb Callback function to be called when the animation finishes
  * @return none
  */
-void sgl_anim_move_obj_to(struct sgl_obj *obj, int16_t start, int16_t end, uint16_t duration, sgl_anim_path_cb_t cb, sgl_anim_path_algo_t effect, sgl_anim_finish_cb_t finish_cb)
+void sgl_anim_setup_action_loop(int16_t start, int16_t end, uint16_t duration, sgl_anim_path_cb_t cb, sgl_anim_path_algo_t effect, sgl_anim_finish_cb_t finish_cb)
+{
+    sgl_anim_t *anim = sgl_anim_alloc_and_init(NULL, start, end, duration, cb, effect);
+    if (!anim) {
+        SGL_LOG_ERROR("Failed to create animation object for sgl_anim_setup_action_loop");
+        return;
+    }
+    sgl_anim_set_finish_cb(anim, finish_cb);
+    sgl_anim_start(anim, SGL_ANIM_REPEAT_LOOP);
+}
+
+/**
+ * sgl_anim_setup_obj_action - Create and start a one-shot animation attached to an object
+ * @param obj       Pointer to the object to attach the animation to
+ * @param start     Start value of the animation
+ * @param end       End value of the animation
+ * @param duration  Duration of the animation (in milliseconds)
+ * @param cb        Callback function for the animation
+ * @param effect    Animation path effect (e.g., SGL_ANIM_PATH_EASE_IN_OUT, SGL_ANIM_PATH_EASE_IN, SGL_ANIM_PATH_EASE_OUT)
+ * @param finish_cb Callback function to be called when the animation finishes
+ * @return none
+ */
+void sgl_anim_setup_obj_action(struct sgl_obj *obj, int16_t start, int16_t end, uint16_t duration, sgl_anim_path_cb_t cb, sgl_anim_path_algo_t effect, sgl_anim_finish_cb_t finish_cb)
 {
     sgl_anim_t *anim = sgl_anim_alloc_and_init(obj, start, end, duration, cb, effect);
     if (!anim) {
-        SGL_LOG_ERROR("Failed to create animation object for sgl_anim_move_to");
+        SGL_LOG_ERROR("Failed to create animation object for sgl_anim_setup_obj_action");
         return;
     }
     sgl_anim_set_finish_cb(anim, finish_cb);
@@ -867,21 +888,21 @@ void sgl_anim_move_obj_to(struct sgl_obj *obj, int16_t start, int16_t end, uint1
 }
 
 /**
- * sgl_anim_move_obj_to_loop - Move an object to a specific position with loop
- * @param obj       Pointer to the object to move
- * @param start     Start position of the object
- * @param end       End position of the object
+ * sgl_anim_setup_obj_action_loop - Create and start a looping animation with a custom path callback
+ * @param obj       Pointer to the object to attach the animation to
+ * @param start     Start value of the animation
+ * @param end       End value of the animation
  * @param duration  Duration of the animation (in milliseconds)
  * @param cb        Callback function for the animation
  * @param effect    Animation path effect (e.g., SGL_ANIM_PATH_EASE_IN_OUT, SGL_ANIM_PATH_EASE_IN, SGL_ANIM_PATH_EASE_OUT)
  * @param finish_cb Callback function to be called when the animation finishes
  * @return none
  */
-void sgl_anim_move_obj_to_loop(struct sgl_obj *obj, int16_t start, int16_t end, uint16_t duration, sgl_anim_path_cb_t cb, sgl_anim_path_algo_t effect, sgl_anim_finish_cb_t finish_cb)
+void sgl_anim_setup_obj_action_loop(struct sgl_obj *obj, int16_t start, int16_t end, uint16_t duration, sgl_anim_path_cb_t cb, sgl_anim_path_algo_t effect, sgl_anim_finish_cb_t finish_cb)
 {
     sgl_anim_t *anim = sgl_anim_alloc_and_init(obj, start, end, duration, cb, effect);
     if (!anim) {
-        SGL_LOG_ERROR("Failed to create animation object for sgl_anim_move_to_loop");
+        SGL_LOG_ERROR("Failed to create animation object for sgl_anim_setup_obj_action_loop");
         return;
     }
     sgl_anim_set_finish_cb(anim, finish_cb);
