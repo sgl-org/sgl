@@ -79,6 +79,7 @@
 #include "widgets/filebrowser/sgl_filebrowser.h"
 #include "widgets/gif/sgl_gif.h"
 #include "widgets/gifdec/sgl_gifdec.h"
+#include "widgets/avi/sgl_avi.h"
 #include "widgets/curve/sgl_curve.h"
 #include "widgets/stepper/sgl_stepper.h"
 #include "widgets/menu/sgl_menu.h"
@@ -90,6 +91,7 @@
 #include "fs/fatfs/sgl_fatfs.h"
 #include "fs/littlefs/sgl_littlefs.h"
 #include "fs/ramfs/sgl_ramfs.h"
+#include "fs/winfs/sgl_winfs.h"
 #include "components/timer/sgl_timer.h"
 #include "components/3dvortex/sgl_3dvortex.h"
 
