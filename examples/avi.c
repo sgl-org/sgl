@@ -283,7 +283,7 @@ void sgl_avi_examples(sgl_obj_t *parent)
     }
 
     sgl_obj_set_pos(avi, 20, 20);
-    sgl_obj_set_size(avi, 360, 220);
+    sgl_obj_set_size(avi, 320, 240);
 
     for (i = 0; paths[i] != NULL; ++i) {
         if (sgl_fs_stat(paths[i], &st) == 0) {
@@ -294,11 +294,11 @@ void sgl_avi_examples(sgl_obj_t *parent)
 
     if (selected == NULL) {
         sgl_avi_example_status(avi, "No local .avi file found");
-        SGL_LOG_INFO("avi: no .avi file found in the local working tree; set a path via sgl_avi_set_file()");
+        SGL_LOG_INFO("avi: no .avi file found in the local working tree; set a path via sgl_avi_load_file()");
         return;
     }
 
-    if (sgl_avi_set_file(avi, selected) == 0) {
+    if (sgl_avi_load_file(avi, selected) == 0) {
         sgl_avi_set_decode_scale(avi, 0);
         sgl_avi_progress_create(avi);
         sgl_avi_play(avi);

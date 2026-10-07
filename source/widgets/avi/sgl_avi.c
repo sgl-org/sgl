@@ -51,7 +51,6 @@
 #include <sgl_cfgfix.h>
 #include <sgl_theme.h>
 #include "sgl_avi.h"
-#include "components/timer/sgl_timer.h"
 
 /*===========================================================================*/
 /*  Built-in JPEG decoder (inlined TJpgDec R0.03, no external component)     */
@@ -1367,9 +1366,6 @@ struct sgl_avi {
     uint32_t last_adv_tick;  /* last tick the clock advanced */
     uint32_t play_tick_base; /* tick when playback (re)started */
     uint32_t play_ms_accum;  /* played ms accumulated before a pause */
-
-    /* background audio pump */
-    sgl_timer_t *pump;
 };
 
 /* decoder io device shared by the RAM and streaming input paths */
@@ -2170,29 +2166,11 @@ static void avi_audio_pump(sgl_avi_t *avi)
 }
 
 /**
- * @brief background task feeding the audio device every few ms
- */
-static void avi_anim_restart(sgl_avi_t *avi);
-
-static void avi_pump_task(const sgl_timer_t *timer, void *param)
-{
-    sgl_avi_t *avi = (sgl_avi_t *)param;
-
-    SGL_UNUSED(timer);
-    if (avi != NULL && avi->state == SGL_AVI_STATE_PLAYING) {
-        /* safety net: if the frame timer is ever lost while playing
-         * (deleted by a core cleanup path or any other bug), re-arm it
-         * so playback resumes instead of freezing */
-        if (sgl_anim_get_by_obj(&avi->obj) == NULL) {
-            avi_anim_restart(avi);
-        }
-        avi_audio_pump(avi);
-    }
-}
-
-/**
  * @brief initialize the audio hardware once, open the pcm stream
  * @return 0 on success, -1 when audio is not available
+ * @note  the audio is fed by the playback animation: the 0->1000 linear
+ *        ramp fires its path callback on every 1ms tick, and avi_cycle
+ *        pumps the audio at its top, so no separate timer is needed
  */
 static int avi_audio_start(sgl_avi_t *avi)
 {
@@ -2214,24 +2192,14 @@ static int avi_audio_start(sgl_avi_t *avi)
      * continues from the current sample frame count (pause/resume) */
     avi->played_base =
         (int32_t)(avi->audio_frame * avi->audio_align) - (int32_t)avi_audio_consumed_bytes();
-    if (avi->pump == NULL) {
-        avi->pump = sgl_timer_create();
-        if (avi->pump != NULL) {
-            sgl_timer_setup(avi->pump, avi_pump_task, 5, -1, avi);
-        }
-    }
     return 0;
 }
 
 /**
- * @brief stop the audio stream and remove the pump task
+ * @brief stop the audio stream
  */
 static void avi_audio_stop(sgl_avi_t *avi)
 {
-    if (avi->pump != NULL) {
-        sgl_timer_delete(avi->pump);
-        avi->pump = NULL;
-    }
     if (g_audio_port_ready) {
         g_audio_port.stop(g_audio_port.user_data);
     }
@@ -2517,6 +2485,14 @@ static void sgl_avi_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_t *
     int32_t y;
 
     if (evt->type == SGL_EVENT_DRAW_MAIN) {
+        /* safety net: if the playback animation is ever lost while
+         * playing (deleted by a core cleanup path or any other bug),
+         * re-arm it so playback resumes instead of freezing. Draw
+         * events keep coming because every presented frame invalidates
+         * the frame area */
+        if (avi->state == SGL_AVI_STATE_PLAYING && sgl_anim_get_by_obj(obj) == NULL) {
+            avi_anim_restart(avi);
+        }
         if (!sgl_surf_clip(surf, &obj->coords, &clip)) {
             return;
         }
@@ -2695,7 +2671,7 @@ int sgl_avi_set_audio_port(const sgl_avi_audio_port_t *port)
  * @return 0 on success, or -1 if the file cannot be opened or parsed
  * @note supports MJPEG video and optional uncompressed PCM audio
  */
-int sgl_avi_set_file(sgl_obj_t *obj, const char *path)
+int sgl_avi_load_file(sgl_obj_t *obj, const char *path)
 {
     sgl_avi_t *avi;
     sgl_stat_t st;

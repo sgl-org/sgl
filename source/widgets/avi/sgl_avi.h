@@ -179,7 +179,7 @@ int sgl_avi_set_audio_port(const sgl_avi_audio_port_t *port);
  * @return 0 on success, or -1 if the file cannot be opened or parsed
  * @note supports MJPEG video and optional uncompressed PCM audio
  */
-int sgl_avi_set_file(sgl_obj_t *obj, const char *path);
+int sgl_avi_load_file(sgl_obj_t *obj, const char *path);
 
 /**
  * @brief start or resume AVI audio and video playback
