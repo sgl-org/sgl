@@ -1261,11 +1261,17 @@ static MJRESULT mj_decomp(MJDEC *jd, /* Initialized decompression object */
 #define AVI_WALK_CHUNK_GUARD     4096 /* max chunks per video walk */
 #define AVI_PUMP_CHUNK_GUARD     64   /* max chunks per pump walk */
 #define AVI_POS_NONE (-1)
-#define AVI_AUDIDX_MAX           4096u    /* audio index entry cap (sparse when exceeded) */
-#define AVI_AUDSEEK_WALK_GUARD   1024 /* max chunk headers walked per audio seek */
-#ifndef AVI_VIDX_MAX
-#define AVI_VIDX_MAX             4096u /* video index entry cap; idx1 sampled evenly beyond */
+
+#ifndef AVI_AUDIDX_MAX
+#define AVI_AUDIDX_MAX           512u /* audio index entry cap (sparse when exceeded) */
 #endif
+
+#define AVI_AUDSEEK_WALK_GUARD   1024 /* max chunk headers walked per audio seek */
+
+#ifndef AVI_VIDX_MAX
+#define AVI_VIDX_MAX             512u /* video index entry cap; idx1 sampled evenly beyond */
+#endif
+
 #define AVI_VSEEK_WALK_GUARD     1024 /* max chunk headers walked per video seek */
 #define AVI_CLOCK_STALL_MS       500u /* audio clock watchdog */
 

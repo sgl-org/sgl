@@ -43,15 +43,18 @@ extern "C" {
 
 /* Maximum decoded RGB565 frame buffer: 2 * decoded_width * decoded_height.
  * The decoder scales by 1/1, 1/2, 1/4 or 1/8 to fit this byte budget.
- * 160 KiB fits a full 320x240 frame. */
+ * 160 KiB fits a full 320x240 frame.
+ * Low-memory MCUs: a 48 KiB budget decodes a 320x240 source at 160x120
+ * (1/2 scale) and saves ~100 KiB of heap. */
 #ifndef SGL_AVI_PIXMAP_MAX
 #define SGL_AVI_PIXMAP_MAX          (160 * 1024)
 #endif
 
-/* decoder work pool for the inlined JPEG decoder (fast-decode LUTs and a
- * 4KB stream input buffer included) */
+/* decoder work pool for the inlined JPEG decoder. 16 KiB covers the 4KB
+ * stream input buffer, the fast-decode huffman LUTs (6 KiB), quant and
+ * huffman tables plus MCU work areas of standard MJPEG streams */
 #ifndef SGL_AVI_JDEC_POOL_SIZE
-#define SGL_AVI_JDEC_POOL_SIZE      (20 * 1024)
+#define SGL_AVI_JDEC_POOL_SIZE      (16 * 1024)
 #endif
 
 /* video frame staging buffer. Each video chunk is bulk-read here first so
@@ -66,9 +69,10 @@ extern "C" {
 #define SGL_AVI_AUDIO_CHUNK         (1024)
 #endif
 
-/* PCM buffering owned and allocated by the AVI core. */
+/* PCM buffering owned and allocated by the AVI core. 8 KiB is about 190 ms
+ * of 44.1 kHz / 16-bit / stereo audio; the pump refills it every few ms */
 #ifndef SGL_AVI_AUDIO_BUFFER_SIZE
-#define SGL_AVI_AUDIO_BUFFER_SIZE   (16 * 1024)
+#define SGL_AVI_AUDIO_BUFFER_SIZE   (8 * 1024)
 #endif
 
 /**
