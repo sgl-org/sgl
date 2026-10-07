@@ -1,27 +1,35 @@
 # SGL 内存管理配置指南
 
 > **堆配置，一页读懂**  
-> `lm.cfg` 描述 SGL 可选的动态内存管理器、参数范围、默认值和条件源码。它不是运行时 allocator；配置还必须传递给当前构建系统，并确保所选实现参与编译。
+> 当前版本通过顶层 `CMakeLists.txt` 中的 `SGL_HEAP_ALGO` 与 `SGL_HEAP_MEMORY_SIZE` 选择 allocator 和堆大小，再由 `source/mm/build.cmake` 加入对应实现。本文说明如何在 CMake 工程中选择并验证内存分配器。
 
 ## 目录
 
-- [配置速览](#配置速览)
-- [配置生效链路](#配置生效链路)
-- [配置项详解](#配置项详解)
-- [allocator 选型](#allocator-选型)
-- [TLSF 索引配置](#tlsf-索引配置)
-- [堆大小估算](#堆大小估算)
-- [构建接入](#构建接入)
-- [配置示例](#配置示例)
-- [常见问题](#常见问题)
+- [SGL 内存管理配置指南](#sgl-内存管理配置指南)
+  - [目录](#目录)
+  - [配置速览](#配置速览)
+  - [配置生效链路](#配置生效链路)
+  - [配置项详解](#配置项详解)
+    - [`SGL_HEAP_ALGO`](#sgl_heap_algo)
+    - [`CONFIG_SGL_TLSF_INDEX_MAX`（仅 TLSF）](#config_sgl_tlsf_index_max仅-tlsf)
+    - [`SGL_HEAP_MEMORY_SIZE`](#sgl_heap_memory_size)
+  - [allocator 选型](#allocator-选型)
+    - [allocator 源码映射](#allocator-源码映射)
+  - [TLSF 索引配置](#tlsf-索引配置)
+  - [堆大小估算](#堆大小估算)
+  - [构建接入](#构建接入)
+  - [配置示例](#配置示例)
+    - [CMake 中的嵌入式通用配置](#cmake-中的嵌入式通用配置)
+    - [生成的 C 配置头示例](#生成的-c-配置头示例)
+  - [常见问题](#常见问题)
 
 ## 配置速览
 
-| 配置项 | 作用 | `lm.cfg` 默认值 |
+| CMake 设置项 | 生成宏 / 配置位置 | 当前默认值 |
 |---|---|---:|
-| `CONFIG_SGL_HEAP_ALGO` | 选择动态内存分配算法 | `lwmem` |
-| `CONFIG_SGL_TLSF_INDEX_MAX` | 设置 TLSF 的一级空闲链表索引上限 | `20` |
-| `CONFIG_SGL_HEAP_MEMORY_SIZE` | 配置堆内存区域大小，单位为字节 | `10240` |
+| `SGL_HEAP_ALGO` | `CONFIG_SGL_HEAP_ALGO` | `lwmem` |
+| `SGL_HEAP_MEMORY_SIZE` | `CONFIG_SGL_HEAP_MEMORY_SIZE` | `10240` B |
+| TLSF 专用：`CONFIG_SGL_TLSF_INDEX_MAX` | 当前 CMake 未提供对应变量，需显式定义 | fallback `13`（仅 heap-size 宏未定义时） |
 
 堆用于 SGL 运行时动态对象和缓冲区，例如 widget、AVI 帧缓存、JPEG 解码工作区、索引表等。配置值表示**交给 allocator 管理的内存区域总大小**，并不代表应用可以完整使用每一个字节：allocator 元数据、对齐、碎片和仍存活的对象都会占用空间。
 
@@ -29,14 +37,15 @@
 
 ```mermaid
 flowchart LR
-    A["lm.cfg 配置描述"] --> B["配置工具 / 项目设置"]
+    A["sgl/CMakeLists.txt 设置 SGL_HEAP_*"] --> B["cmake/config.h.in"]
     B --> C["生成 CONFIG_SGL_* 配置宏"]
-    C --> D["构建系统选择 allocator 源码"]
+    A --> D["source/mm/build.cmake 选择 allocator 源码"]
     D --> E["sgl_init 初始化堆区域"]
+    C --> E
     E --> F["sgl_malloc / sgl_free 管理运行时内存"]
 ```
 
-`lm.cfg` 定义“有哪些选项以及默认值是什么”。它本身不是运行时代码；只修改它，不一定会改变已经配置好的 CMake 工程。排查配置是否生效时，应同时检查：
+当前工程的实际配置入口是 `sgl/CMakeLists.txt` 中的 `SGL_HEAP_ALGO` 与 `SGL_HEAP_MEMORY_SIZE`。它们被 `cmake/config.h.in` 写入生成配置头，同时 `source/mm/build.cmake` 按算法选择源文件。排查配置是否生效时，应同时检查：
 
 - 当前构建真正使用的项目/CMake 配置。
 - 生成或实际包含的 `sgl_config.h` 中的 `CONFIG_SGL_*` 值。
@@ -44,35 +53,32 @@ flowchart LR
 
 ## 配置项详解
 
-### `CONFIG_SGL_HEAP_ALGO`
+### `SGL_HEAP_ALGO`
 
-`lm.cfg` 声明的选项和默认值：
+在 `sgl/CMakeLists.txt` 中设置 allocator 名称。当前代码默认值为 `lwmem`，可选值由 `source/mm/build.cmake` 的条件分支决定：
 
 ```text
-choices = tlsf, lwmem, bump, other, umm_malloc, mtlsf
-default = lwmem
+set(SGL_HEAP_ALGO lwmem)
 ```
 
 该选项选择为 SGL 提供内存管理实现的后端。不同后端的分配策略、元数据开销、碎片行为、多内存池支持和编译源文件都不同。不能只改宏而不把对应实现加入构建。
 
-### `CONFIG_SGL_TLSF_INDEX_MAX`
+### `CONFIG_SGL_TLSF_INDEX_MAX`（仅 TLSF）
 
-```text
-choices = [10, 31]
-depends = CONFIG_SGL_HEAP_ALGO
-default = 20
+该值控制 TLSF 空闲链表的一级索引范围。当前 CMake 生成模板 `cmake/config.h.in` 没有导出 TLSF 索引变量；`source/include/sgl_cfgfix.h` 中的 fallback 默认值为 `13`，但它位于 heap-size fallback 条件内。使用 TLSF 前，应在实际配置头中显式定义该宏，并确认数值与堆大小及 TLSF 实现匹配：
+
+```c
+#define CONFIG_SGL_TLSF_INDEX_MAX 13
 ```
 
-该值只在 `CONFIG_SGL_HEAP_ALGO=tlsf` 时起作用，用于约束 TLSF 空闲链表的一级索引范围。索引范围需要覆盖配置堆可能出现的最大块；设置不匹配可能限制可管理块大小，或使 allocator 初始化/分配失败。
+索引范围需要覆盖配置堆可能出现的最大块；设置不匹配可能限制可管理块大小，或导致编译、初始化或分配失败。`configure.md` 中的索引建议可作为起点，最终应以当前 TLSF 实现要求为准。
 
-注意此仓库存在默认值差异：`lm.cfg` 默认值为 `20`，`source/include/sgl_cfgfix.h` 的 fallback 是 `13`，而 `configure.md` 中也记录了 `13` 作为建议默认值。实际应以当前配置工具或构建生成的宏为准，不要假设这些默认值已经同步。
+### `SGL_HEAP_MEMORY_SIZE`
 
-### `CONFIG_SGL_HEAP_MEMORY_SIZE`
+在 `sgl/CMakeLists.txt` 中设置堆区域大小，单位为字节；当前 CMake 默认值为 `10240`：
 
-```text
-choices = [1, 10000000]
-depends = CONFIG_SGL_HEAP_ALGO
-default = 10240
+```cmake
+set(SGL_HEAP_MEMORY_SIZE 262144)
 ```
 
 配置 allocator 管理的内存大小，**单位是字节**：
@@ -96,7 +102,6 @@ default = 10240
 | `mtlsf` | TLSF 风格 allocator；索引范围由 `CONFIG_SGL_HEAP_MEMORY_SIZE` 自动推导；本实现定义 pool 最小为 2048 B，初始化后不支持增加 pool。 | 只有一个连续 heap 区域，希望省去手动设置 TLSF 索引时。 |
 | `umm_malloc` | 嵌入式 allocator；上游实现提供 fit 策略和诊断能力。SGL 适配层初始化一个 heap，`sgl_mm_add_pool()` 会警告并忽略额外 pool。 | 需要其诊断能力且使用单个初始化 heap 的项目。 |
 | `other` | 当前提供的是弱实现，直接转发到 C 库 `malloc/realloc/free`；`CONFIG_SGL_HEAP_MEMORY_SIZE` 不会限制这些 C 库分配。 | 桌面原型或项目自行提供强符号覆盖时。 |
-| `bump` | `lm.cfg` 和 `source/mm/build.cmake` 都声明了该选项，但当前 checkout 缺少 `source/mm/bump/sgl_mm.c`。 | 补齐 allocator 实现之前，不要在当前 checkout 选择。 |
 
 ### allocator 源码映射
 
@@ -107,13 +112,12 @@ default = 10240
 | `tlsf` | `tlsf/tlsf.c`、`tlsf/sgl_mm.c` |
 | `mtlsf` | `mtlsf/mtlsf.c`、`mtlsf/sgl_mm.c` |
 | `lwmem` | `lwmem/lwmem.c`、`lwmem/sgl_mm.c` |
-| `bump` | `bump/sgl_mm.c`（当前 checkout 缺少该目录） |
 | `other` | `other/sgl_mm.c` |
 | `umm_malloc` | allocator 核心、info/integrity/poison 模块和 `umm_malloc/sgl_mm.c` |
 
 ## TLSF 索引配置
 
-`lm.cfg` 中给出的经验规则是：堆大小每翻倍，索引最大值加 1。
+TLSF 索引可按堆大小估算：堆大小每翻倍，索引最大值加 1。
 
 | 堆大小 | 建议 `CONFIG_SGL_TLSF_INDEX_MAX` |
 |---:|---:|
@@ -123,7 +127,7 @@ default = 10240
 | 8 KiB | 13 |
 | 16 KiB | 14 |
 
-配置声明范围为 10 到 31。该表只是估算起点；还应核对所选 TLSF 实现、目标堆上限以及最终生成的配置宏。
+配置范围通常为 10 到 31。该表只是估算起点；还应核对所选 TLSF 实现、目标堆上限以及最终实际编译使用的配置宏。
 
 ## 堆大小估算
 
@@ -152,48 +156,43 @@ AVI widget、路径和索引表
 
 ## 构建接入
 
-本仓库的顶层 `CMakeLists.txt` 设置 `SGL_HEAP_ALGO` 和 `SGL_HEAP_MEMORY_SIZE`，再由 `source/mm/build.cmake` 添加匹配的 allocator 源码，生成配置头中的 `CONFIG_SGL_*` 宏供源码使用。
+本仓库的 `sgl/CMakeLists.txt` 直接设置 `SGL_HEAP_ALGO` 和 `SGL_HEAP_MEMORY_SIZE`，由 `cmake/config.h.in` 生成配置头中的 `CONFIG_SGL_*` 宏，并由 `source/mm/build.cmake` 添加匹配的 allocator 源码。
 
 更换或调整 allocator 时建议按以下顺序检查：
 
-1. 修改当前构建实际读取的算法和 heap size 配置。
-2. 使用 TLSF 时设置与 heap 范围相符的索引上限。
+1. 在 `sgl/CMakeLists.txt` 修改 `SGL_HEAP_ALGO` 和 `SGL_HEAP_MEMORY_SIZE`。
+2. 使用 TLSF 时，在实际配置头中显式提供 `CONFIG_SGL_TLSF_INDEX_MAX`。
 3. 确认对应 allocator 实现存在，且已加入当前构建目标。
 4. 重新配置并构建，使生成头文件与源码选择同步。
-5. 检查生成的 `sgl_config.h` 和运行时内存监视数据，不要只看 fallback 宏。
+5. 检查 `build/generated/sgl_config.h`（或实际构建目录中的生成头）和运行时内存监视数据。
 
 ## 配置示例
 
-### `lm.cfg` 中的嵌入式通用配置
+### CMake 中的嵌入式通用配置
 
-```text
-CONFIG_SGL_HEAP_ALGO
-    choices = tlsf, lwmem, bump, other, umm_malloc, mtlsf
-    default = lwmem
+在 `sgl/CMakeLists.txt` 中选择 allocator 和堆大小：
 
-CONFIG_SGL_HEAP_MEMORY_SIZE
-    choices = [1, 10000000]
-    depends = CONFIG_SGL_HEAP_ALGO
-    default = 10240
+```cmake
+set(SGL_HEAP_ALGO lwmem)
+set(SGL_HEAP_MEMORY_SIZE 262144)
 ```
 
 ### 生成的 C 配置头示例
 
-配置工具/构建系统可能生成等价宏，例如：
+`cmake/config.h.in` 会据此生成供源码使用的宏，例如：
 
 ```c
 #define CONFIG_SGL_HEAP_ALGO        lwmem
 #define CONFIG_SGL_HEAP_MEMORY_SIZE 262144
 ```
 
-不同工程的配置入口可能不同；请保持 `lm.cfg`、项目/CMake 设置、生成头文件和 allocator 源码选择一致。
+请保持 CMake 变量、生成头文件和 allocator 源码选择一致。若将 SGL 作为源码集成到非 CMake 工程，则需要自行设置相同的 `CONFIG_SGL_*` 宏，并把 `source/mm/build.cmake` 中对应的 allocator 源文件加入工程。
 
 ## 常见问题
 
-- **改了 `lm.cfg`，编译结果却没变化：** 当前构建可能读取项目配置或 CMake 变量。检查生成头文件并重新配置。
+- **改了错误的 CMake 文件，编译结果却没变化：** allocator 变量位于 SGL 子工程的 `sgl/CMakeLists.txt`，不是应用根目录的同名配置。检查当前实际构建的 SGL 源路径和生成头文件。
 - **TLSF 没设索引上限：** 根据 heap 范围检查 `CONFIG_SGL_TLSF_INDEX_MAX` 和实现约束。
 - **把配置字节数当成可用 payload：** 元数据、对齐和碎片会减少实际可分配容量。
 - **`mtlsf` 或 `umm_malloc` 需要多个 pool：** 本仓库对应的 SGL 适配层不支持初始化后追加 pool。
-- **当前 checkout 选择 `bump`：** 配置项存在，但实现目录缺失，构建会缺少对应源文件。
 - **把 `other` 当作受 heap size 限制的 allocator：** 当前 fallback 使用 C 运行库分配，配置 heap size 不会限制其实际分配。
 - **只按平均用量配置 heap：** 应按同时存活的峰值缓冲和最复杂界面留出安全余量。

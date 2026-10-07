@@ -45,13 +45,6 @@ if(${SGL_HEAP_ALGO} STREQUAL "lwmem")
     )
 endif()
 
-if(${SGL_HEAP_ALGO} STREQUAL "bump")
-    set(SGL_SOURCE
-        ${SGL_SOURCE}
-        ${CMAKE_CURRENT_LIST_DIR}/bump/sgl_mm.c
-    )
-endif()
-
 if(${SGL_HEAP_ALGO} STREQUAL "other")
     set(SGL_SOURCE
         ${SGL_SOURCE}
