@@ -1236,33 +1236,38 @@ static MJRESULT mj_decomp(MJDEC *jd, /* Initialized decompression object */
 /*==========================================================================*/
 
 /* RIFF chunk identifiers, read as little-endian 32-bit words */
-#define CC_RIFF 0x46464952u /* "RIFF" */
-#define CC_AVIF 0x20495641u /* "AVI " */
-#define CC_LIST 0x5453494Cu /* "LIST" */
-#define CC_AVIH 0x68697661u /* "avih" */
-#define CC_HDRL 0x6C726468u /* "hdrl" */
-#define CC_STRL 0x6C727473u /* "strl" */
-#define CC_STRH 0x68727473u /* "strh" */
-#define CC_STRF 0x66727473u /* "strf" */
-#define CC_MOVI 0x69766F6Du /* "movi" */
-#define CC_IDX1 0x31786469u /* "idx1" */
-#define CC_VIDS 0x73646976u /* "vids" */
-#define CC_AUDS 0x73647561u /* "auds" */
-#define CC_MJPG 0x47504A4Du /* "MJPG" */
-#define CC_00DC 0x63643030u /* "00dc" */
-#define CC_01DC 0x63643130u /* "01dc" */
-#define CC_00WB 0x62773030u /* "00wb" */
-#define CC_01WB 0x62773130u /* "01wb" */
+#define CC_RIFF                  0x46464952u /* "RIFF" */
+#define CC_AVIF                  0x20495641u /* "AVI " */
+#define CC_LIST                  0x5453494Cu /* "LIST" */
+#define CC_AVIH                  0x68697661u /* "avih" */
+#define CC_HDRL                  0x6C726468u /* "hdrl" */
+#define CC_STRL                  0x6C727473u /* "strl" */
+#define CC_STRH                  0x68727473u /* "strh" */
+#define CC_STRF                  0x66727473u /* "strf" */
+#define CC_MOVI                  0x69766F6Du /* "movi" */
+#define CC_IDX1                  0x31786469u /* "idx1" */
+#define CC_VIDS                  0x73646976u /* "vids" */
+#define CC_AUDS                  0x73647561u /* "auds" */
+#define CC_MJPG                  0x47504A4Du /* "MJPG" */
+#define CC_00DC                  0x63643030u /* "00dc" */
+#define CC_01DC                  0x63643130u /* "01dc" */
+#define CC_00WB                  0x62773030u /* "00wb" */
+#define CC_01WB                  0x62773130u /* "01wb" */
 
-#define CC_ID_NONE 0u
+#define CC_ID_NONE               0u
 
-#define AVI_MIN_FRAME_SIZE 32u /* ignore tiny/bogus chunks */
-#define AVI_DEFAULT_FPS 10u
-#define AVI_WALK_CHUNK_GUARD 4096 /* max chunks per video walk */
-#define AVI_PUMP_CHUNK_GUARD 64   /* max chunks per pump walk */
+#define AVI_MIN_FRAME_SIZE       32u /* ignore tiny/bogus chunks */
+#define AVI_DEFAULT_FPS          10u
+#define AVI_WALK_CHUNK_GUARD     4096 /* max chunks per video walk */
+#define AVI_PUMP_CHUNK_GUARD     64   /* max chunks per pump walk */
 #define AVI_POS_NONE (-1)
-#define AVI_AUDIDX_MAX 4096u    /* audio index entry cap */
-#define AVI_CLOCK_STALL_MS 500u /* audio clock watchdog */
+#define AVI_AUDIDX_MAX           4096u    /* audio index entry cap (sparse when exceeded) */
+#define AVI_AUDSEEK_WALK_GUARD   1024 /* max chunk headers walked per audio seek */
+#ifndef AVI_VIDX_MAX
+#define AVI_VIDX_MAX             4096u /* video index entry cap; idx1 sampled evenly beyond */
+#endif
+#define AVI_VSEEK_WALK_GUARD     1024 /* max chunk headers walked per video seek */
+#define AVI_CLOCK_STALL_MS       500u /* audio clock watchdog */
 
 /* video frame index entry, offsets are absolute chunk DATA positions */
 typedef struct {
@@ -1292,7 +1297,8 @@ struct sgl_avi {
     sgl_avi_state_t state;
     uint8_t loop;       /* replay from start at stream end */
     uint8_t fps;        /* frame rate 1..60 */
-    uint16_t period_ms; /* 1000 / fps */
+    uint16_t period_ms; /* floor(1000 / fps) */
+    uint32_t period_us; /* exact frame period in microseconds (1000000/fps) */
 
     /* RIFF layout */
     int32_t movi_first; /* offset of the first chunk in movi */
@@ -1303,6 +1309,7 @@ struct sgl_avi {
     /* frame index */
     avi_vidx_t *vidx; /* frame index (from idx1), may be NULL */
     int32_t vidx_count;
+    int32_t vidx_step;    /* frames per index entry, 1 = dense, 0 = no index */
     int32_t frames_total; /* frames from avih, fallback for no idx */
 
     /* decoded pixmap */
@@ -1546,6 +1553,8 @@ static void avi_scan_idx(sgl_avi_t *avi, int32_t base)
     int32_t n, i, off, remaining;
     int32_t v_count = 0, a_count = 0;
     int32_t filled = 0, aud_pos = 0;
+    int32_t aud_step = 1, aud_seen = 0;
+    int32_t v_step = 1, v_seen = 0, v_cap;
 
     /* walk the top level chunks after movi to find idx1, skipping
      * anything else in between (JUNK chunks are common here) */
@@ -1593,13 +1602,34 @@ static void avi_scan_idx(sgl_avi_t *avi, int32_t base)
     if (v_count == 0)
         return;
 
-    avi->vidx = (avi_vidx_t *)sgl_malloc(sizeof(avi_vidx_t) * (size_t)v_count);
+    /* bound the index for MCU targets: past AVI_VIDX_MAX entries the idx1
+     * is sampled evenly (vidx_step frames per entry). Sequential playback
+     * walks the movi chunks at full frame rate and does not need the index;
+     * seeking lands on the nearest sampled frame and walks the few chunks
+     * in between, so the footprint stays bounded no matter the duration */
+    v_step = (v_count + (int32_t)AVI_VIDX_MAX - 1) / (int32_t)AVI_VIDX_MAX;
+    if (v_step < 1) {
+        v_step = 1;
+    }
+    v_cap = (v_count + v_step - 1) / v_step;
+
+    avi->vidx = (avi_vidx_t *)sgl_malloc(sizeof(avi_vidx_t) * (size_t)v_cap);
     if (avi->vidx == NULL)
         return;
 
     if (a_count > 0) {
-        int32_t cap = a_count > (int32_t)AVI_AUDIDX_MAX ? (int32_t)AVI_AUDIDX_MAX : a_count;
-        avi->audidx = (avi_audidx_t *)sgl_malloc(sizeof(avi_audidx_t) * (size_t)cap);
+        /* store at most AVI_AUDIDX_MAX entries, sampled evenly over the
+         * whole stream: seeking later than the last entry then only needs
+         * a short forward walk instead of restarting at movi */
+        aud_step = (a_count + (int32_t)AVI_AUDIDX_MAX - 1) / (int32_t)AVI_AUDIDX_MAX;
+        if (aud_step < 1) {
+            aud_step = 1;
+        }
+        {
+            size_t cap = (size_t)a_count > (size_t)AVI_AUDIDX_MAX ? (size_t)AVI_AUDIDX_MAX
+                                                                  : (size_t)a_count;
+            avi->audidx = (avi_audidx_t *)sgl_malloc(sizeof(avi_audidx_t) * cap);
+        }
     }
 
     /* pass 2: fill the tables */
@@ -1616,16 +1646,21 @@ static void avi_scan_idx(sgl_avi_t *avi, int32_t base)
             int32_t ofs = (int32_t)avi_rd32(e + 8);
             int32_t csz = (int32_t)avi_rd32(e + 12);
 
-            if (ck == avi->vflag && filled < v_count) {
-                avi->vidx[filled].offset = base + ofs;
-                avi->vidx[filled].size = csz;
-                filled++;
+            if (ck == avi->vflag && v_seen < v_count) {
+                if ((v_seen % v_step) == 0 && filled < v_cap) {
+                    avi->vidx[filled].offset = base + ofs;
+                    avi->vidx[filled].size = csz;
+                    filled++;
+                }
+                v_seen++;
             } else if (avi->aflag != 0 && ck == avi->aflag) {
-                if (avi->audidx != NULL && avi->audidx_count < (int32_t)AVI_AUDIDX_MAX) {
+                if (avi->audidx != NULL && (aud_seen % aud_step) == 0 &&
+                    avi->audidx_count < (int32_t)AVI_AUDIDX_MAX) {
                     avi->audidx[avi->audidx_count].offset = base + ofs;
                     avi->audidx[avi->audidx_count].cstart = aud_pos;
                     avi->audidx_count++;
                 }
+                aud_seen++;
                 aud_pos += csz;
             }
         }
@@ -1634,6 +1669,7 @@ static void avi_scan_idx(sgl_avi_t *avi, int32_t base)
     }
 
     avi->vidx_count = filled;
+    avi->vidx_step = (filled > 0) ? v_step : 0;
     avi->aud_bytes_total = aud_pos;
 }
 
@@ -1941,8 +1977,8 @@ static int avi_decode_next(sgl_avi_t *avi)
 {
     int32_t frame = avi->next_frame;
 
-    if (avi->vidx_count > 0) {
-        /* indexed: every MJPEG frame is a keyframe, decode directly */
+    if (avi->vidx_count > 0 && avi->vidx_step <= 1) {
+        /* dense index: every MJPEG frame is a keyframe, decode directly */
         if (frame >= avi->vidx_count) {
             return -1;
         }
@@ -1950,7 +1986,9 @@ static int avi_decode_next(sgl_avi_t *avi)
             return -1;
         }
     } else {
-        /* no idx1: guarded forward walk over the movi chunks */
+        /* guarded forward walk over the movi chunks: no idx1, or a sampled
+         * index where decoding every frame keeps the full frame rate while
+         * the index footprint stays bounded */
         int32_t guard = 0;
 
         if (avi->v_pos < 0) {
@@ -2223,6 +2261,76 @@ static int32_t avi_played_ms(sgl_avi_t *avi)
 }
 
 /**
+ * @brief timestamp of a frame slot in milliseconds, using the exact frame
+ *        period (66.67ms for 15fps) instead of the truncated period_ms
+ *        (66ms), which would drift ~0.6s per minute ahead of the audio
+ * @param avi pointer to the player
+ * @param frame zero-based frame index
+ * @return slot time in milliseconds, rounded down
+ */
+static int32_t avi_frame_slot_ms(const sgl_avi_t *avi, int32_t frame)
+{
+    return (int32_t)(((int64_t)frame * avi->period_us) / 1000);
+}
+
+/* frames per index entry, 1 when the index is dense or absent */
+static int32_t avi_vidx_stride(const sgl_avi_t *avi)
+{
+    return avi->vidx_step > 1 ? avi->vidx_step : 1;
+}
+
+/* total video frame count; index entries are sampled when the idx1 is
+ * sparse, so the entry count alone is not the frame count */
+static int32_t avi_vidx_total(const sgl_avi_t *avi)
+{
+    if (avi->vidx_count > 0) {
+        return (avi->vidx_count - 1) * avi_vidx_stride(avi) + 1;
+    }
+    return avi->frames_total;
+}
+
+/**
+ * @brief advance the video walk cursor by count video chunks (skipping
+ *        audio and any other chunks). Used after a seek onto a sampled
+ *        index entry to reach the exact requested frame
+ * @return 0 on success, -1 when the stream ends before the target
+ */
+static int avi_walk_video_skip(sgl_avi_t *avi, int32_t count)
+{
+    int32_t pos = avi->v_pos;
+    int32_t guard = 0;
+
+    while (count > 0 && guard++ < AVI_VSEEK_WALK_GUARD) {
+        uint8_t hdr[8];
+        uint32_t id;
+        int32_t size;
+
+        if (pos < 0 || pos + 8 > avi->movi_end || avi_pread(avi->fd, hdr, pos, 8) != 8) {
+            return -1;
+        }
+        id = avi_rd32(hdr);
+        size = (int32_t)avi_rd32(hdr + 4);
+        if (size < 0 || size > avi->file_size || pos + 8 + size > avi->movi_end) {
+            return -1;
+        }
+        if (id != avi->vflag) {
+            pos += 8 + size + (size & 1);
+            continue;
+        }
+        /* video chunk: count it, stop with the cursor on the target one */
+        if (--count == 0) {
+            break;
+        }
+        pos += 8 + size + (size & 1);
+    }
+    if (count > 0) {
+        return -1;
+    }
+    avi->v_pos = pos;
+    return 0;
+}
+
+/**
  * @brief restart the animation timer at the current frame period
  */
 static void avi_anim_restart(sgl_avi_t *avi);
@@ -2243,7 +2351,7 @@ static void avi_cycle(sgl_avi_t *avi)
 
     if (!avi->frame_pending) {
         int32_t played_ms = avi_played_ms(avi);
-        int32_t slot = avi->next_frame * avi->period_ms;
+        int32_t slot = avi_frame_slot_ms(avi, avi->next_frame);
         int need = 1;
 
         /* keep exactly one frame of decode-ahead over the play clock. Once
@@ -2303,7 +2411,7 @@ static void avi_cycle(sgl_avi_t *avi)
      * already includes the decode latency) */
     if (avi->frame_pending) {
         int32_t played_ms = avi_played_ms(avi);
-        int32_t slot = avi->show_frame * avi->period_ms;
+        int32_t slot = avi_frame_slot_ms(avi, avi->show_frame);
         int present = 1;
 
         if (played_ms + (int32_t)avi->period_ms < slot) {
@@ -2461,6 +2569,7 @@ static void sgl_avi_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_t *
             avi->audidx = NULL;
         }
         avi->vidx_count = 0;
+        avi->vidx_step = 0;
         avi->audidx_count = 0;
     }
 }
@@ -2501,6 +2610,7 @@ static void avi_release_file(sgl_avi_t *avi)
     }
     avi_audio_ring_reset(avi);
     avi->vidx_count = 0;
+    avi->vidx_step = 0;
     avi->audidx_count = 0;
     avi->has_frame = 0;
     avi->show_frame = AVI_POS_NONE;
@@ -2539,6 +2649,7 @@ sgl_obj_t *sgl_avi_create(sgl_obj_t *parent)
     avi->afd = -1;
     avi->fps = (uint8_t)AVI_DEFAULT_FPS;
     avi->period_ms = (uint16_t)(1000 / AVI_DEFAULT_FPS);
+    avi->period_us = 1000000u / AVI_DEFAULT_FPS;
     avi->vflag = CC_00DC;
     avi->aflag = CC_01WB;
     avi->movi_first = -1;
@@ -2632,6 +2743,7 @@ int sgl_avi_set_file(sgl_obj_t *obj, const char *path)
     avi->audio_rate = 22050;
     avi->fps = (uint8_t)AVI_DEFAULT_FPS;
     avi->period_ms = (uint16_t)(1000 / AVI_DEFAULT_FPS);
+    avi->period_us = 1000000u / AVI_DEFAULT_FPS;
     avi->movi_first = -1;
     avi->movi_end = avi->file_size;
 
@@ -2645,6 +2757,7 @@ int sgl_avi_set_file(sgl_obj_t *obj, const char *path)
     if (avi->period_ms == 0) {
         avi->period_ms = 1;
     }
+    avi->period_us = 1000000u / avi->fps;
 
     if (avi->audio) {
         avi->audio_buf = (uint8_t *)sgl_malloc(SGL_AVI_AUDIO_BUFFER_SIZE);
@@ -2688,8 +2801,9 @@ int sgl_avi_set_file(sgl_obj_t *obj, const char *path)
     avi->has_frame = 0;
     avi->frame_pending = 0;
 
-    SGL_LOG_INFO("avi: frames %d fps %d audio %d size %d",
-                 (int)(avi->vidx_count > 0 ? avi->vidx_count : avi->frames_total), (int)avi->fps,
+    SGL_LOG_INFO("avi: frames %d (idx %d x%d) fps %d audio %d size %d",
+                 (int)avi_vidx_total(avi), (int)avi->vidx_count,
+                 avi->vidx_count > 0 ? (int)avi_vidx_stride(avi) : 0, (int)avi->fps,
                  (int)avi->audio, (int)avi->file_size);
     return 0;
 }
@@ -2805,6 +2919,7 @@ void sgl_avi_set_fps(sgl_obj_t *obj, uint8_t fps)
     if (avi->period_ms == 0) {
         avi->period_ms = 1;
     }
+    avi->period_us = 1000000u / fps;
     if (avi->state == SGL_AVI_STATE_PLAYING) {
         avi_anim_restart(avi);
     }
@@ -2828,6 +2943,87 @@ void sgl_avi_set_decode_scale(sgl_obj_t *obj, uint8_t scale)
 }
 
 /**
+ * @brief position the audio pump at an exact PCM byte position. Uses the
+ *        (sparse) audio index as a starting point, then walks chunk
+ *        headers forward until the chunk containing byte_pos is found.
+ *        The first chunk is trimmed so feeding resumes exactly at byte_pos
+ * @param avi pointer to the player
+ * @param byte_pos absolute pcm byte position within the audio stream
+ * @param skipp receives the number of leading bytes of the target chunk to
+ *              discard before feeding (>= 0)
+ * @return 0 on success, -1 when the position cannot be resolved
+ */
+static int avi_audio_locate(sgl_avi_t *avi, int64_t byte_pos, int32_t *skipp)
+{
+    int32_t start, pos;
+    int64_t cstart;
+    int32_t guard = 0;
+
+    *skipp = 0;
+    if (!avi->audio || byte_pos < 0) {
+        return -1;
+    }
+
+    /* index shortcut: last indexed chunk starting at or before byte_pos.
+     * The index is sparse, so byte_pos can still be past its last entry */
+    start = avi->movi_first;
+    cstart = 0;
+    if (avi->audidx_count > 0) {
+        int32_t lo = 0, hi = avi->audidx_count - 1, pick = -1;
+
+        while (lo <= hi) {
+            int32_t mid = (lo + hi) / 2;
+
+            if ((int64_t)avi->audidx[mid].cstart <= byte_pos) {
+                pick = mid;
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        if (pick >= 0) {
+            start = avi->audidx[pick].offset - 8;
+            cstart = avi->audidx[pick].cstart;
+        }
+    }
+
+    /* forward walk over chunk headers to the chunk holding byte_pos */
+    pos = start;
+    while (pos >= 0 && pos + 8 <= avi->movi_end && guard++ < AVI_AUDSEEK_WALK_GUARD) {
+        uint8_t hdr[8];
+        uint32_t id;
+        int32_t size;
+
+        if (avi_pread(avi->afd, hdr, pos, 8) != 8) {
+            return -1;
+        }
+        id = avi_rd32(hdr);
+        size = (int32_t)avi_rd32(hdr + 4);
+        if (size < 0 || size > avi->file_size || pos + 8 + size > avi->movi_end) {
+            return -1;
+        }
+        if (id == avi->aflag) {
+            if (cstart + (int64_t)size > byte_pos) {
+                int32_t skip = (int32_t)(byte_pos - cstart);
+
+                /* keep the feed sample-frame aligned */
+                skip -= skip % (int32_t)avi->audio_align;
+                avi->a_pos = pos;
+                avi->a_next = pos + 8 + size + (size & 1);
+                avi->aud_off = pos + 8 + skip;
+                avi->aud_left = size - skip;
+                avi->a_size = avi->aud_left;
+                *skipp = skip;
+                return 0;
+            }
+            cstart += size;
+        }
+        pos += 8 + size + (size & 1);
+    }
+    return -1;
+}
+
+/**
  * @brief seek to a video frame and align audio to the same playback position
  * @param obj AVI player object
  * @param frame_index zero-based frame index; values are clamped to the file
@@ -2840,6 +3036,7 @@ int sgl_avi_seek_frame(sgl_obj_t *obj, int32_t frame_index)
     int32_t frame = frame_index;
     int64_t byte_pos;
     uint32_t audio_frame;
+    int32_t audio_skip = 0;
 
     if (obj == NULL)
         return -1;
@@ -2849,22 +3046,40 @@ int sgl_avi_seek_frame(sgl_obj_t *obj, int32_t frame_index)
     }
     if (frame < 0)
         frame = 0;
-    if (avi->vidx_count > 0 && frame >= avi->vidx_count) {
-        frame = avi->vidx_count - 1;
-    } else if (avi->vidx_count == 0 && avi->frames_total > 0 && frame >= avi->frames_total) {
-        frame = avi->frames_total - 1;
+    if (frame >= avi_vidx_total(avi)) {
+        frame = avi_vidx_total(avi) - 1;
     }
 
-    /* video cursor: indexed files decode directly, walkers resume here */
-    avi->v_pos = (avi->vidx_count > 0) ? avi->vidx[frame].offset - 8 : avi->movi_first;
-    if (avi->vidx_count > 0) {
+    if (avi->vidx_count > 0 && avi->vidx_step <= 1) {
+        /* dense index: land exactly on the requested frame */
+        avi->v_pos = avi->vidx[frame].offset - 8;
+        avi->next_frame = frame;
+    } else if (avi->vidx_count > 0) {
+        /* sampled index: land on the nearest sampled frame at or before
+         * the target, then walk the few chunks in between */
+        int32_t stride = avi_vidx_stride(avi);
+        int32_t entry = frame / stride;
+        int32_t base;
+
+        if (entry >= avi->vidx_count) {
+            entry = avi->vidx_count - 1;
+        }
+        base = entry * stride;
+        avi->v_pos = avi->vidx[entry].offset - 8;
+        if (avi_walk_video_skip(avi, frame - base) != 0) {
+            /* walk failed: settle on the sampled frame instead */
+            avi->v_pos = avi->vidx[entry].offset - 8;
+            frame = base;
+        }
         avi->next_frame = frame;
     } else {
+        /* no index: walkers resume from the top */
+        avi->v_pos = avi->movi_first;
         avi->next_frame = 0;
     }
 
-    /* audio: derive the byte position from the frame slot and search it */
-    audio_frame = (uint32_t)((int64_t)frame * avi->period_ms * avi->audio_rate / 1000);
+    /* audio: derive the byte position from the exact frame timestamp */
+    audio_frame = (uint32_t)(((int64_t)frame * avi->period_us) * avi->audio_rate / 1000000);
     byte_pos = (int64_t)audio_frame * avi->audio_align;
 
     avi->v_size = 0;
@@ -2874,25 +3089,14 @@ int sgl_avi_seek_frame(sgl_obj_t *obj, int32_t frame_index)
     avi->a_size = 0;
     avi->a_id = CC_ID_NONE;
 
-    if (avi->audidx_count > 0) {
-        /* binary search: last audio chunk with cstart <= byte_pos */
-        int32_t lo = 0, hi = avi->audidx_count - 1, pick = 0;
-
-        while (lo <= hi) {
-            int32_t mid = (lo + hi) / 2;
-
-            if ((int64_t)avi->audidx[mid].cstart <= byte_pos) {
-                pick = mid;
-                lo = mid + 1;
-            } else {
-                hi = mid - 1;
-            }
-        }
-        avi->a_pos = avi->audidx[pick].offset - 8;
-        avi->a_next = avi->audidx[pick].offset - 8;
-    } else {
-        avi->a_pos = avi->movi_first;
-        avi->a_next = avi->movi_first;
+    /* position the audio pump exactly on byte_pos (index + short walk);
+     * a position past the audio stream end just drains the pump and the
+     * clock keeps running silent instead of restarting from the top */
+    if (avi->audio && avi->afd >= 0 && byte_pos > 0 &&
+        avi_audio_locate(avi, byte_pos, &audio_skip) != 0) {
+        audio_skip = 0;
+        avi->a_pos = avi->movi_end;
+        avi->a_next = avi->movi_end;
     }
 
     /* sample frames fed before the seek point keep the clock consistent */
@@ -2921,7 +3125,7 @@ int sgl_avi_seek_frame(sgl_obj_t *obj, int32_t frame_index)
     }
 
     /* the tick clock restarts at the seek position */
-    avi->play_ms_accum = (uint32_t)(frame * avi->period_ms);
+    avi->play_ms_accum = (uint32_t)avi_frame_slot_ms(avi, frame);
     avi->play_tick_base = sgl_tick_get();
 
     avi->has_frame = 0;
@@ -2951,7 +3155,7 @@ int sgl_avi_seek_percent(sgl_obj_t *obj, int32_t percent)
     if (percent > 100)
         percent = 100;
 
-    total = avi->vidx_count > 0 ? avi->vidx_count : avi->frames_total;
+    total = avi_vidx_total(avi);
     if (total <= 0)
         return -1;
 
@@ -2969,8 +3173,8 @@ int32_t sgl_avi_get_frame_total(sgl_obj_t *obj)
     sgl_avi_t *avi;
     if (obj == NULL)
         return 0;
-    avi = sgl_container_of(obj, sgl_avi_t, obj);
-    return avi->vidx_count > 0 ? avi->vidx_count : avi->frames_total;
+ avi = sgl_container_of(obj, sgl_avi_t, obj);
+    return avi_vidx_total(avi);
 }
 
 /**
@@ -3007,7 +3211,7 @@ int32_t sgl_avi_get_duration(sgl_obj_t *obj)
         if (dur > 0)
             return dur;
     }
-    return (avi->vidx_count > 0 ? avi->vidx_count : avi->frames_total) * (int32_t)avi->period_ms;
+    return avi_frame_slot_ms(avi, avi_vidx_total(avi));
 }
 
 /**
@@ -3031,7 +3235,7 @@ int32_t sgl_avi_get_position(sgl_obj_t *obj)
             pos = 0;
         return pos;
     }
-    pos = (avi->next_frame > 0 ? avi->next_frame - 1 : 0) * (int32_t)avi->period_ms;
+    pos = avi_frame_slot_ms(avi, avi->next_frame > 0 ? avi->next_frame - 1 : 0);
     return pos;
 }
 
