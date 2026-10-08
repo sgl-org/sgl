@@ -50,11 +50,11 @@ extern "C" {
 #define SGL_AVI_PIXMAP_MAX          (160 * 1024)
 #endif
 
-/* decoder work pool for the inlined JPEG decoder. 16 KiB covers the 4KB
- * stream input buffer, the fast-decode huffman LUTs (6 KiB), quant and
- * huffman tables plus MCU work areas of standard MJPEG streams */
+/* Decoder work pool for the inlined JPEG decoder. The default 12 KiB is
+ * sufficient for common baseline MJPEG streams with the 4 KiB input buffer
+ * and 8-bit fast Huffman LUT. Override for unusual table-heavy JPEG files. */
 #ifndef SGL_AVI_JDEC_POOL_SIZE
-#define SGL_AVI_JDEC_POOL_SIZE      (16 * 1024)
+#define SGL_AVI_JDEC_POOL_SIZE      (12 * 1024)
 #endif
 
 /* video frame staging buffer. Each video chunk is bulk-read here first so

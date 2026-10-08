@@ -161,7 +161,7 @@ struct MJDEC {
 };
 
 #if MJDEC_FASTDECODE == 2
-#define HUFF_BIT 10 /* Bit length to apply fast huffman decode */
+#define HUFF_BIT 8 /* LUT uses about 2.5 KiB instead of 6 KiB at 10 bits */
 #define HUFF_LEN (1 << HUFF_BIT)
 #define HUFF_MASK (HUFF_LEN - 1)
 #endif
@@ -761,9 +761,12 @@ static MJRESULT mcu_load(MJDEC *jd /* Pointer to the decompressor object */
             tmp[0] = d * dqf[0] >>
                      8; /* De-quantize, apply scale factor of Arai algorithm and descale 8 bits */
 
-            /* Extract following 63 AC elements from input stream */
-            memset(&tmp[1], 0, 63 * sizeof(int32_t)); /* Initialize all AC elements */
-            z = 1;                                    /* Top of the AC elements (in zigzag-order) */
+            /* Extract following 63 AC elements from input stream. At 1/8
+             * scale every block is emitted from its DC value, so no AC
+             * coefficient workspace is consumed and clearing it is wasted. */
+            if (!(MJDEC_USE_SCALE && jd->scale == 3))
+                memset(&tmp[1], 0, 63 * sizeof(int32_t));
+            z = 1; /* Top of the AC elements (in zigzag-order) */
             do {
                 d = huffext(jd, id,
                             1); /* Extract a huffman coded value (zero runs and bit length) */
@@ -825,10 +828,8 @@ static MJRESULT mcu_output(MJDEC *jd, /* Pointer to the decompressor object */
 {
     const int CVACC =
         (sizeof(int) > 2) ? 1024 : 128; /* Adaptive accuracy for both 16-/32-bit systems */
-    unsigned int ix, iy, mx, my, rx, ry;
+    unsigned int mx, my, rx, ry;
     int yy, cb, cr;
-    mj_yuv_t *py, *pc;
-    uint8_t *pix;
     MJRECT rect;
 
     mx = jd->msx * 8;
@@ -851,6 +852,52 @@ static MJRESULT mcu_output(MJDEC *jd, /* Pointer to the decompressor object */
     rect.top = y;
     rect.bottom = y + ry - 1;
 
+    /* Convert and scale directly from YCbCr into RGB565. This avoids writing
+     * a full RGB888 MCU and reading it back for both downsampling and packing.
+     * Average in YCbCr first to reduce the number of color conversions. */
+    {
+        uint16_t *out = (uint16_t *)jd->workbuf;
+        const unsigned int factor = 1U << jd->scale;
+        const unsigned int samples = factor * factor;
+        const unsigned int y_blocks = jd->msx * jd->msy;
+        unsigned int ox, oy, sx, sy;
+
+        for (oy = 0; oy < ry; oy++) {
+            for (ox = 0; ox < rx; ox++) {
+                int sum_y = 0;
+                int sum_cb = 0, sum_cr = 0;
+                for (sy = 0; sy < factor; sy++) {
+                    unsigned int src_y = oy * factor + sy;
+                    for (sx = 0; sx < factor; sx++) {
+                        unsigned int src_x = ox * factor + sx;
+                        unsigned int y_block = (src_y >> 3) * jd->msx + (src_x >> 3);
+                        unsigned int y_offset = y_block * 64 + (src_y & 7) * 8 + (src_x & 7);
+                        unsigned int c_x = (mx == 16) ? (src_x >> 1) : src_x;
+                        unsigned int c_y = (my == 16) ? (src_y >> 1) : src_y;
+                        unsigned int c_offset = c_y * 8 + c_x;
+                        mj_yuv_t *chroma = jd->mcubuf + y_blocks * 64;
+                        sum_y += (unsigned int)jd->mcubuf[y_offset];
+                        sum_cb += (int)chroma[c_offset] - 128;
+                        sum_cr += (int)chroma[64 + c_offset] - 128;
+                    }
+                }
+                yy = (int)(sum_y / samples);
+                cb = sum_cb / (int)samples;
+                cr = sum_cr / (int)samples;
+                {
+                    unsigned int r = BYTECLIP(yy + ((int)(1.402 * CVACC) * cr) / CVACC);
+                    unsigned int g = BYTECLIP(
+                        yy - ((int)(0.344 * CVACC) * cb + (int)(0.714 * CVACC) * cr) / CVACC);
+                    unsigned int b = BYTECLIP(yy + ((int)(1.772 * CVACC) * cb) / CVACC);
+                    *out++ = (uint16_t)(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3));
+                }
+            }
+        }
+        return outfunc(jd, jd->workbuf, &rect) ? MJDR_OK : MJDR_INTR;
+    }
+
+    /* The direct YCbCr-to-RGB565 path above handles every supported scale. */
+#if 0
     if (!MJDEC_USE_SCALE || jd->scale != 3) { /* Not for 1/8 scaling */
         pix = (uint8_t *)jd->workbuf;
 
@@ -994,6 +1041,7 @@ static MJRESULT mcu_output(MJDEC *jd, /* Pointer to the decompressor object */
 
     /* Output the rectangular */
     return outfunc(jd, jd->workbuf, &rect) ? MJDR_OK : MJDR_INTR;
+#endif
 }
 
 /*-----------------------------------------------------------------------*/
@@ -1315,6 +1363,7 @@ struct sgl_avi {
     avi_vidx_t *vidx; /* frame index (from idx1), may be NULL */
     int32_t vidx_count;
     int32_t vidx_step;    /* frames per index entry, 1 = dense, 0 = no index */
+    int32_t vidx_total;   /* exact video entry count in idx1, including sparse tail */
     int32_t frames_total; /* frames from avih, fallback for no idx */
 
     /* decoded pixmap */
@@ -1671,6 +1720,7 @@ static void avi_scan_idx(sgl_avi_t *avi, int32_t base)
     }
 
     avi->vidx_count = filled;
+    avi->vidx_total = v_count;
     avi->vidx_step = (filled > 0) ? v_step : 0;
     avi->aud_bytes_total = aud_pos;
 }
@@ -1835,7 +1885,7 @@ static int avi_ensure_pixbuf(sgl_avi_t *avi, int32_t w, int32_t h)
 
 /**
  * @brief output callback: copy one decoded MCU rect into the RGB565 pixmap
- * @return 0 to continue, 0 to abort is never used here
+ * @return nonzero to continue decoding; zero aborts the decode
  */
 static int avi_out_func(MJDEC *jd, void *bitmap, MJRECT *rect)
 {
@@ -2258,7 +2308,8 @@ static int32_t avi_vidx_stride(const sgl_avi_t *avi)
 static int32_t avi_vidx_total(const sgl_avi_t *avi)
 {
     if (avi->vidx_count > 0) {
-        return (avi->vidx_count - 1) * avi_vidx_stride(avi) + 1;
+        /* v_count is exact; the last sampled index need not be the final frame. */
+        return avi->vidx_total > 0 ? avi->vidx_total : avi->frames_total;
     }
     return avi->frames_total;
 }
@@ -2593,6 +2644,7 @@ static void avi_release_file(sgl_avi_t *avi)
     avi_audio_ring_reset(avi);
     avi->vidx_count = 0;
     avi->vidx_step = 0;
+    avi->vidx_total = 0;
     avi->audidx_count = 0;
     avi->has_frame = 0;
     avi->show_frame = AVI_POS_NONE;
@@ -2695,7 +2747,8 @@ int sgl_avi_load_file(sgl_obj_t *obj, const char *path)
         SGL_LOG_ERROR("avi: open audio fd failed");
         return -1;
     }
-    if (sgl_fs_stat(path, &st) != 0 || st.st_size < 64) {
+    if (sgl_fs_stat(path, &st) != 0 || st.st_size < 64 ||
+        (uint64_t)st.st_size > (uint64_t)INT32_MAX) {
         sgl_fs_close(fd);
         sgl_fs_close(afd);
         SGL_LOG_ERROR("avi: stat failed or file too small");
@@ -3047,6 +3100,9 @@ int sgl_avi_seek_frame(sgl_obj_t *obj, int32_t frame_index)
             entry = avi->vidx_count - 1;
         }
         base = entry * stride;
+        if (base >= avi->vidx_total) {
+            base = avi->vidx_total - 1;
+        }
         avi->v_pos = avi->vidx[entry].offset - 8;
         if (avi_walk_video_skip(avi, frame - base) != 0) {
             /* walk failed: settle on the sampled frame instead */
