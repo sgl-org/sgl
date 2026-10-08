@@ -80,9 +80,6 @@
 #ifndef MJDEC_SZBUF
 #define MJDEC_SZBUF         4096 /* Size of stream input buffer, must be a power of 2 */
 #endif
-#ifndef MJDEC_FORMAT
-#define MJDEC_FORMAT        1 /* Output pixel format: 0:RGB888, 1:RGB565, 2:grayscale */
-#endif
 #ifndef MJDEC_USE_SCALE
 #define MJDEC_USE_SCALE     1 /* Use descaling feature (1:enabled, 0:disabled) */
 #endif
@@ -93,9 +90,18 @@
 #define MJDEC_FASTDECODE    2 /* 0:Basic, 1:Faster, 2:Faster+ (more RAM) */
 #endif
 
-/* the inlined decoder below is specialized for this configuration */
-#if MJDEC_FORMAT != 1 || MJDEC_TBLCLIP != 1 || MJDEC_FASTDECODE != 2
-#error "sgl_avi: the inlined decoder requires MJDEC_FORMAT=1, MJDEC_TBLCLIP=1, MJDEC_FASTDECODE=2"
+/* Match the decoder output format to SGL's configured framebuffer depth. */
+#if CONFIG_SGL_FBDEV_PIXEL_DEPTH == SGL_COLOR_RGB565
+#define MJDEC_FORMAT 1
+#elif CONFIG_SGL_FBDEV_PIXEL_DEPTH == SGL_COLOR_RGB888
+#define MJDEC_FORMAT 0
+#else
+#error "sgl_avi supports CONFIG_SGL_FBDEV_PIXEL_DEPTH 16 (RGB565) or 24 (RGB888)"
+#endif
+
+/* The inlined decoder implementation is specialized for these options. */
+#if MJDEC_TBLCLIP != 1 || MJDEC_FASTDECODE != 2
+#error "sgl_avi: the inlined decoder requires MJDEC_TBLCLIP=1 and MJDEC_FASTDECODE=2"
 #endif
 
 #if MJDEC_FASTDECODE >= 1
@@ -862,11 +868,15 @@ static MJRESULT mcu_output(MJDEC *jd, /* Pointer to the decompressor object */
     rect.top = y;
     rect.bottom = y + ry - 1;
 
-    /* Convert and scale directly from YCbCr into RGB565. Chroma samples are
-     * already shared by neighboring pixels in subsampled JPEGs, so average
-     * each stored chroma sample once rather than once per luma sample. */
+    /* Convert and scale directly from YCbCr into the configured output
+     * format. Chroma samples are shared by neighboring pixels in subsampled
+     * JPEGs, so average each stored chroma sample once. */
     {
-        uint16_t *out = (uint16_t *)jd->workbuf;
+#if MJDEC_FORMAT == 1
+        uint16_t *out565 = (uint16_t *)jd->workbuf;
+#else
+        uint8_t *out888 = (uint8_t *)jd->workbuf;
+#endif
         const unsigned int factor = 1U << jd->scale;
         const unsigned int y_blocks = jd->msx * jd->msy;
         const unsigned int chroma_w = (mx == 16) ? factor >> 1 : factor;
@@ -928,158 +938,19 @@ static MJRESULT mcu_output(MJDEC *jd, /* Pointer to the decompressor object */
                     unsigned int g = BYTECLIP(
                         yy - ((int)(0.344 * CVACC) * cb + (int)(0.714 * CVACC) * cr) / CVACC);
                     unsigned int b = BYTECLIP(yy + ((int)(1.772 * CVACC) * cb) / CVACC);
-                    *out++ = (uint16_t)(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3));
+#if MJDEC_FORMAT == 1
+                    *out565++ = (uint16_t)(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3));
+#else
+                    *out888++ = (uint8_t)r;
+                    *out888++ = (uint8_t)g;
+                    *out888++ = (uint8_t)b;
+#endif
                 }
             }
         }
         return outfunc(jd, jd->workbuf, &rect) ? MJDR_OK : MJDR_INTR;
     }
 
-#if 0 /* Retained temporarily as a reference for RGB888 output math. */
-    if (!MJDEC_USE_SCALE || jd->scale != 3) { /* Not for 1/8 scaling */
-        pix = (uint8_t *)jd->workbuf;
-
-        if (MJDEC_FORMAT != 2) { /* RGB output (build an RGB MCU from Y/C component) */
-            for (iy = 0; iy < my; iy++) {
-                pc = py = jd->mcubuf;
-                if (my == 16) { /* Double block height? */
-                    pc += 64 * 4 + (iy >> 1) * 8;
-                    if (iy >= 8)
-                        py += 64;
-                } else { /* Single block height */
-                    pc += mx * 8 + iy * 8;
-                }
-                py += iy * 8;
-                for (ix = 0; ix < mx; ix++) {
-                    cb = pc[0] - 128; /* Get Cb/Cr component and remove offset */
-                    cr = pc[64] - 128;
-                    if (mx == 16) { /* Double block width? */
-                        if (ix == 8)
-                            py += 64 - 8; /* Jump to next block if double block heigt */
-                        pc += ix & 1;     /* Step forward chroma pointer every two pixels */
-                    } else {              /* Single block width */
-                        pc++;             /* Step forward chroma pointer every pixel */
-                    }
-                    yy = *py++; /* Get Y component */
-                    *pix++ = /*R*/ BYTECLIP(yy + ((int)(1.402 * CVACC) * cr) / CVACC);
-                    *pix++ = /*G*/ BYTECLIP(
-                        yy - ((int)(0.344 * CVACC) * cb + (int)(0.714 * CVACC) * cr) / CVACC);
-                    *pix++ = /*B*/ BYTECLIP(yy + ((int)(1.772 * CVACC) * cb) / CVACC);
-                }
-            }
-        } else { /* Monochrome output (build a grayscale MCU from Y comopnent) */
-            for (iy = 0; iy < my; iy++) {
-                py = jd->mcubuf + iy * 8;
-                if (my == 16) { /* Double block height? */
-                    if (iy >= 8)
-                        py += 64;
-                }
-                for (ix = 0; ix < mx; ix++) {
-                    if (mx == 16) { /* Double block width? */
-                        if (ix == 8)
-                            py += 64 - 8; /* Jump to next block if double block height */
-                    }
-                    *pix++ = (uint8_t)*py++; /* Get and store a Y value as grayscale */
-                }
-            }
-        }
-
-        /* Descale the MCU rectangular if needed */
-        if (MJDEC_USE_SCALE && jd->scale) {
-            unsigned int x, y, r, g, b, s, w, a;
-            uint8_t *op;
-
-            /* Get averaged RGB value of each square correcponds to a pixel */
-            s = jd->scale * 2;  /* Number of shifts for averaging */
-            w = 1 << jd->scale; /* Width of square */
-            a = (mx - w) *
-                (MJDEC_FORMAT != 2 ? 3 : 1); /* Bytes to skip for next line in the square */
-            op = (uint8_t *)jd->workbuf;
-            for (iy = 0; iy < my; iy += w) {
-                for (ix = 0; ix < mx; ix += w) {
-                    pix = (uint8_t *)jd->workbuf + (iy * mx + ix) * (MJDEC_FORMAT != 2 ? 3 : 1);
-                    r = g = b = 0;
-                    for (y = 0; y < w; y++) { /* Accumulate RGB value in the square */
-                        for (x = 0; x < w; x++) {
-                            r += *pix++;             /* Accumulate R or Y (monochrome output) */
-                            if (MJDEC_FORMAT != 2) { /* RGB output? */
-                                g += *pix++;         /* Accumulate G */
-                                b += *pix++;         /* Accumulate B */
-                            }
-                        }
-                        pix += a;
-                    } /* Put the averaged pixel value */
-                    *op++ = (uint8_t)(r >> s);     /* Put R or Y (monochrome output) */
-                    if (MJDEC_FORMAT != 2) {       /* RGB output? */
-                        *op++ = (uint8_t)(g >> s); /* Put G */
-                        *op++ = (uint8_t)(b >> s); /* Put B */
-                    }
-                }
-            }
-        }
-
-    } else { /* For only 1/8 scaling (left-top pixel in each block are the DC value of the block) */
-
-        /* Build a 1/8 descaled RGB MCU from discrete comopnents */
-        pix = (uint8_t *)jd->workbuf;
-        pc = jd->mcubuf + mx * my;
-        cb = pc[0] - 128; /* Get Cb/Cr component and restore right level */
-        cr = pc[64] - 128;
-        for (iy = 0; iy < my; iy += 8) {
-            py = jd->mcubuf;
-            if (iy == 8)
-                py += 64 * 2;
-            for (ix = 0; ix < mx; ix += 8) {
-                yy = *py; /* Get Y component */
-                py += 64;
-                if (MJDEC_FORMAT != 2) {
-                    *pix++ = /*R*/ BYTECLIP(yy + ((int)(1.402 * CVACC) * cr / CVACC));
-                    *pix++ = /*G*/ BYTECLIP(
-                        yy - ((int)(0.344 * CVACC) * cb + (int)(0.714 * CVACC) * cr) / CVACC);
-                    *pix++ = /*B*/ BYTECLIP(yy + ((int)(1.772 * CVACC) * cb / CVACC));
-                } else {
-                    *pix++ = yy;
-                }
-            }
-        }
-    }
-
-    /* Squeeze up pixel table if a part of MCU is to be truncated */
-    mx >>= jd->scale;
-    if (rx < mx) { /* Is the MCU spans rigit edge? */
-        uint8_t *s, *d;
-        unsigned int x, y;
-
-        s = d = (uint8_t *)jd->workbuf;
-        for (y = 0; y < ry; y++) {
-            for (x = 0; x < rx; x++) { /* Copy effective pixels */
-                *d++ = *s++;
-                if (MJDEC_FORMAT != 2) {
-                    *d++ = *s++;
-                    *d++ = *s++;
-                }
-            }
-            s += (mx - rx) * (MJDEC_FORMAT != 2 ? 3 : 1); /* Skip truncated pixels */
-        }
-    }
-
-    /* Convert RGB888 to RGB565 if needed */
-    if (MJDEC_FORMAT == 1) {
-        uint8_t *s = (uint8_t *)jd->workbuf;
-        uint16_t w, *d = (uint16_t *)s;
-        unsigned int n = rx * ry;
-
-        do {
-            w = (*s++ & 0xF8) << 8;  /* RRRRR----------- */
-            w |= (*s++ & 0xFC) << 3; /* -----GGGGGG----- */
-            w |= *s++ >> 3;          /* -----------BBBBB */
-            *d++ = w;
-        } while (--n);
-    }
-
-    /* Output the rectangular */
-    return outfunc(jd, jd->workbuf, &rect) ? MJDR_OK : MJDR_INTR;
-#endif
 }
 
 /*-----------------------------------------------------------------------*/
@@ -1405,7 +1276,7 @@ struct sgl_avi {
     int32_t frames_total; /* frames from avih, fallback for no idx */
 
     /* decoded pixmap */
-    uint16_t *pixbuf;     /* RGB565 frame, pix_w * pix_h pixels */
+    uint8_t *pixbuf;      /* configured RGB frame, pix_w * pix_h pixels */
     int32_t pixbuf_size;  /* allocated capacity in pixels */
     int16_t pix_w, pix_h; /* decoded frame size after scaling */
     uint8_t jd_scale;     /* last chosen descale factor 0..3 */
@@ -1889,6 +1760,8 @@ static int avi_parse_header(sgl_avi_t *avi)
  * @brief make sure the pixmap buffer fits a w x h frame
  * @return 0 on success, -1 on allocation failure
  */
+#define AVI_OUTPUT_BPP ((MJDEC_FORMAT == 1) ? 2 : 3)
+
 static int avi_ensure_pixbuf(sgl_avi_t *avi, int32_t w, int32_t h)
 {
     int32_t need = w * h;
@@ -1906,7 +1779,7 @@ static int avi_ensure_pixbuf(sgl_avi_t *avi, int32_t w, int32_t h)
         avi->pixbuf = NULL;
         avi->pixbuf_size = 0;
     }
-    avi->pixbuf = (uint16_t *)sgl_malloc((size_t)need * 2);
+    avi->pixbuf = (uint8_t *)sgl_malloc((size_t)need * AVI_OUTPUT_BPP);
     if (avi->pixbuf == NULL) {
         SGL_LOG_ERROR("avi: pixmap alloc failed");
         return -1;
@@ -1929,7 +1802,7 @@ static int avi_out_func(MJDEC *jd, void *bitmap, MJRECT *rect)
 {
     sgl_avi_t *avi = g_vstream.avi;
     const uint8_t *src = (const uint8_t *)bitmap;
-    uint16_t *dst;
+    uint8_t *dst;
     int32_t rw = (int32_t)(rect->right - rect->left + 1);
     int32_t y, rows;
 
@@ -1937,13 +1810,13 @@ static int avi_out_func(MJDEC *jd, void *bitmap, MJRECT *rect)
         return 0; /* abort decode on missing pixmap */
     }
 
-    dst = avi->pixbuf + (int32_t)rect->top * avi->pix_w + rect->left;
+    dst = avi->pixbuf + ((int32_t)rect->top * avi->pix_w + rect->left) * AVI_OUTPUT_BPP;
     rows = (int32_t)rect->bottom - (int32_t)rect->top + 1;
 
     for (y = 0; y < rows; y++) {
-        memcpy(dst, src, (size_t)rw * 2);
-        src += (size_t)rw * 2;
-        dst += avi->pix_w;
+        memcpy(dst, src, (size_t)rw * AVI_OUTPUT_BPP);
+        src += (size_t)rw * AVI_OUTPUT_BPP;
+        dst += (size_t)avi->pix_w * AVI_OUTPUT_BPP;
     }
     return 1; /* continue */
 }
@@ -2046,7 +1919,8 @@ static int avi_decode_chunk(sgl_avi_t *avi, int32_t offset, int32_t size)
         uint8_t scale = avi->decode_scale;
 
         while (scale < 3 &&
-               (int64_t)(w >> scale) * (h >> scale) * 2 > (int64_t)SGL_AVI_PIXMAP_MAX) {
+               (int64_t)(w >> scale) * (h >> scale) * AVI_OUTPUT_BPP >
+                   (int64_t)SGL_AVI_PIXMAP_MAX) {
             scale++;
         }
         if (avi_ensure_pixbuf(avi, w >> scale, h >> scale) != 0) {
@@ -2551,9 +2425,22 @@ static void avi_blit(sgl_avi_t *avi, sgl_surf_t *surf, sgl_area_t *clip)
                 sgl_color_set(buf, SGL_COLOR_BLACK, (uint32_t)(sx1 - clip->x1));
             }
             if (sx1 <= sx2) {
-                const uint16_t *src = avi->pixbuf + (int32_t)(y - oy) * avi->pix_w + (sx1 - ox);
-
-                memcpy(buf + (sx1 - clip->x1), src, (size_t)(sx2 - sx1 + 1) * 2);
+                const uint8_t *src = avi->pixbuf +
+                                     ((int32_t)(y - oy) * avi->pix_w + (sx1 - ox)) * AVI_OUTPUT_BPP;
+#if MJDEC_FORMAT == 1
+                memcpy(buf + (sx1 - clip->x1), src,
+                       (size_t)(sx2 - sx1 + 1) * sizeof(sgl_color_t));
+#else
+                int32_t x;
+                sgl_color_t *dst = buf + (sx1 - clip->x1);
+                for (x = sx1; x <= sx2; x++) {
+                    dst->full[0] = src[2]; /* SGL RGB888 memory order is B,G,R. */
+                    dst->full[1] = src[1];
+                    dst->full[2] = src[0];
+                    dst++;
+                    src += 3;
+                }
+#endif
             }
             if (sx2 < clip->x2) {
                 sgl_color_set(buf + (sx2 - clip->x1 + 1), SGL_COLOR_BLACK,
