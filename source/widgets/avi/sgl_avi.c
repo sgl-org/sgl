@@ -816,8 +816,18 @@ static MJRESULT mcu_load(MJDEC *jd /* Pointer to the decompressor object */
     return MJDR_OK; /* All blocks have been loaded successfully */
 }
 
+/* Divide by a power of two with C's truncation-toward-zero semantics. */
+static int div_pow2_toward_zero(int value, unsigned int shift)
+{
+    if (!shift)
+        return value;
+    if (value < 0)
+        return -((-value) >> shift);
+    return value >> shift;
+}
+
 /*-----------------------------------------------------------------------*/
-/* Output an MCU: Convert YCrCb to RGB and output it in RGB form         */
+/* Output an MCU: Convert YCbCr directly to RGB565                       */
 /*-----------------------------------------------------------------------*/
 
 static MJRESULT mcu_output(MJDEC *jd, /* Pointer to the decompressor object */
@@ -852,38 +862,67 @@ static MJRESULT mcu_output(MJDEC *jd, /* Pointer to the decompressor object */
     rect.top = y;
     rect.bottom = y + ry - 1;
 
-    /* Convert and scale directly from YCbCr into RGB565. This avoids writing
-     * a full RGB888 MCU and reading it back for both downsampling and packing.
-     * Average in YCbCr first to reduce the number of color conversions. */
+    /* Convert and scale directly from YCbCr into RGB565. Chroma samples are
+     * already shared by neighboring pixels in subsampled JPEGs, so average
+     * each stored chroma sample once rather than once per luma sample. */
     {
         uint16_t *out = (uint16_t *)jd->workbuf;
         const unsigned int factor = 1U << jd->scale;
-        const unsigned int samples = factor * factor;
         const unsigned int y_blocks = jd->msx * jd->msy;
+        const unsigned int chroma_w = (mx == 16) ? factor >> 1 : factor;
+        const unsigned int chroma_h = (my == 16) ? factor >> 1 : factor;
+        const unsigned int chroma_shift = (mx == 16) + (my == 16);
+        const unsigned int y_shift = jd->scale * 2;
+        mj_yuv_t *chroma = jd->mcubuf + y_blocks * 64;
         unsigned int ox, oy, sx, sy;
 
         for (oy = 0; oy < ry; oy++) {
+            const unsigned int src_y0 = oy * factor;
             for (ox = 0; ox < rx; ox++) {
+                const unsigned int src_x0 = ox * factor;
+                const unsigned int chroma_x0 = (mx == 16) ? src_x0 >> 1 : src_x0;
+                const unsigned int chroma_y0 = (my == 16) ? src_y0 >> 1 : src_y0;
                 int sum_y = 0;
                 int sum_cb = 0, sum_cr = 0;
-                for (sy = 0; sy < factor; sy++) {
-                    unsigned int src_y = oy * factor + sy;
-                    for (sx = 0; sx < factor; sx++) {
-                        unsigned int src_x = ox * factor + sx;
-                        unsigned int y_block = (src_y >> 3) * jd->msx + (src_x >> 3);
-                        unsigned int y_offset = y_block * 64 + (src_y & 7) * 8 + (src_x & 7);
-                        unsigned int c_x = (mx == 16) ? (src_x >> 1) : src_x;
-                        unsigned int c_y = (my == 16) ? (src_y >> 1) : src_y;
-                        unsigned int c_offset = c_y * 8 + c_x;
-                        mj_yuv_t *chroma = jd->mcubuf + y_blocks * 64;
-                        sum_y += (unsigned int)jd->mcubuf[y_offset];
-                        sum_cb += (int)chroma[c_offset] - 128;
-                        sum_cr += (int)chroma[64 + c_offset] - 128;
+                if (factor != 1) {
+                    const unsigned int cb_shift = jd->scale * 2 - chroma_shift;
+                    for (sy = 0; sy < factor; sy++) {
+                        const unsigned int src_y = src_y0 + sy;
+                        const unsigned int y_row = (src_y >> 3) * jd->msx * 64 +
+                                                   (src_y & 7) * 8;
+                        for (sx = 0; sx < factor; sx++) {
+                            const unsigned int src_x = src_x0 + sx;
+                            const unsigned int y_block = (src_x >> 3) * 64;
+                            sum_y += (int)jd->mcubuf[y_row + y_block + (src_x & 7)];
+                        }
                     }
+                    yy = sum_y >> y_shift;
+
+                    for (sy = 0; sy < chroma_h; sy++) {
+                        const unsigned int crow = (chroma_y0 + sy) * 8;
+                        for (sx = 0; sx < chroma_w; sx++) {
+                            const unsigned int cx = chroma_x0 + sx;
+                            const unsigned int ci = crow + cx;
+                            sum_cb += (int)chroma[ci] - 128;
+                            sum_cr += (int)chroma[64 + ci] - 128;
+                        }
+                    }
+                    /* Signed division rounds toward zero, matching C's /.
+                     * Avoid a target-dependent signed right-shift result. */
+                    cb = div_pow2_toward_zero(sum_cb, cb_shift);
+                    cr = div_pow2_toward_zero(sum_cr, cb_shift);
+                } else {
+                    const unsigned int src_x = src_x0;
+                    const unsigned int src_y = src_y0;
+                    const unsigned int y_block = (src_y >> 3) * jd->msx + (src_x >> 3);
+                    const unsigned int y_index = y_block * 64 + (src_y & 7) * 8 + (src_x & 7);
+                    const unsigned int cx = (mx == 16) ? src_x >> 1 : src_x;
+                    const unsigned int cy = (my == 16) ? src_y >> 1 : src_y;
+                    const unsigned int ci = cy * 8 + cx;
+                    yy = (int)jd->mcubuf[y_index];
+                    cb = (int)chroma[ci] - 128;
+                    cr = (int)chroma[64 + ci] - 128;
                 }
-                yy = (int)(sum_y / samples);
-                cb = sum_cb / (int)samples;
-                cr = sum_cr / (int)samples;
                 {
                     unsigned int r = BYTECLIP(yy + ((int)(1.402 * CVACC) * cr) / CVACC);
                     unsigned int g = BYTECLIP(
@@ -896,8 +935,7 @@ static MJRESULT mcu_output(MJDEC *jd, /* Pointer to the decompressor object */
         return outfunc(jd, jd->workbuf, &rect) ? MJDR_OK : MJDR_INTR;
     }
 
-    /* The direct YCbCr-to-RGB565 path above handles every supported scale. */
-#if 0
+#if 0 /* Retained temporarily as a reference for RGB888 output math. */
     if (!MJDEC_USE_SCALE || jd->scale != 3) { /* Not for 1/8 scaling */
         pix = (uint8_t *)jd->workbuf;
 
