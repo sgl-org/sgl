@@ -8,12 +8,9 @@
  *
  * Playback engine (rewritten, derived from the reference implementation in
  * sgl/video_test):
- *  - the movi stream is read STRICTLY FORWARD. The file is opened twice,
- *    one descriptor for the video reader and one for the audio pump, and
- *    neither cursor ever seeks backwards during playback, so the fatfs
- *    layer walks the FAT chain once and every data read is a sequential,
- *    multi-sector transfer (this was the main bottleneck of the previous
- *    implementation, which seeked back and forth for every frame).
+ *  - audio and video share one file descriptor. Reads use explicit offsets,
+ *    and the playback task serializes the audio pump before video decoding,
+ *    so the shared file cursor is repositioned before each chunk is read.
  *  - each video chunk is bulk-read into a staging buffer first and the
  *    JPEG decoder then runs completely from RAM instead of interleaving
  *    small SD transactions into the huffman hot loop. Oversized chunks
@@ -1249,10 +1246,9 @@ typedef struct {
 struct sgl_avi {
     sgl_obj_t obj; /* widget object, must stay first */
 
-    /* file handles */
-    int fd;            /* main descriptor (header + video) */
-    int afd;           /* second descriptor for the audio pump */
-    char *path;        /* copy of the file path */
+    /* file handle */
+    int fd;       /* shared descriptor for header, video and audio */
+    char *path;   /* copy of the file path */
     int32_t file_size; /* total file size in bytes */
 
     /* playback state */
@@ -2006,7 +2002,7 @@ static int avi_decode_next(sgl_avi_t *avi)
 /*--------------------------------------------------------------------------*/
 
 /**
- * @brief feed the audio device from the second file descriptor. Walks the
+ * @brief feed the audio device from the shared file descriptor. Walks the
  *        movi chunks forward, refilling the device buffer until full
  */
 static void avi_audio_pump(sgl_avi_t *avi)
@@ -2015,7 +2011,7 @@ static void avi_audio_pump(sgl_avi_t *avi)
     uint32_t ring_free, ring_contiguous, port_contiguous;
     int progress;
 
-    if (!avi->audio || !g_audio_port_ready || avi->afd < 0 || avi->audio_align == 0 ||
+    if (!avi->audio || !g_audio_port_ready || avi->fd < 0 || avi->audio_align == 0 ||
         avi->audio_buf == NULL || avi->audio_buf_capacity == 0) {
         return;
     }
@@ -2037,7 +2033,7 @@ static void avi_audio_pump(sgl_avi_t *avi)
                 if (pos < 0 || pos + 8 > avi->movi_end) {
                     break;
                 }
-                if (avi_pread(avi->afd, hdr, pos, 8) != 8) {
+                if (avi_pread(avi->fd, hdr, pos, 8) != 8) {
                     break;
                 }
                 id = avi_rd32(hdr);
@@ -2071,7 +2067,7 @@ static void avi_audio_pump(sgl_avi_t *avi)
                 want = SGL_AVI_AUDIO_CHUNK;
             want -= want % (int32_t)avi->audio_align;
             if (want > 0) {
-                got = avi_pread(avi->afd, avi->audio_buf + avi->audio_buf_head, avi->aud_off, want);
+                got = avi_pread(avi->fd, avi->audio_buf + avi->audio_buf_head, avi->aud_off, want);
                 if (got > 0) {
                     aligned = got - (got % (int32_t)avi->audio_align);
                     if (aligned > 0) {
@@ -2491,10 +2487,6 @@ static void sgl_avi_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_t *
             sgl_fs_close(avi->fd);
             avi->fd = -1;
         }
-        if (avi->afd >= 0) {
-            sgl_fs_close(avi->afd);
-            avi->afd = -1;
-        }
         if (avi->path != NULL) {
             sgl_free(avi->path);
             avi->path = NULL;
@@ -2544,10 +2536,6 @@ static void avi_release_file(sgl_avi_t *avi)
     if (avi->fd >= 0) {
         sgl_fs_close(avi->fd);
         avi->fd = -1;
-    }
-    if (avi->afd >= 0) {
-        sgl_fs_close(avi->afd);
-        avi->afd = -1;
     }
     if (avi->path != NULL) {
         sgl_free(avi->path);
@@ -2605,7 +2593,6 @@ sgl_obj_t *sgl_avi_create(sgl_obj_t *parent)
     avi->obj.construct_fn = sgl_avi_construct_cb;
 
     avi->fd = -1;
-    avi->afd = -1;
     avi->fps = (uint8_t)AVI_DEFAULT_FPS;
     avi->period_ms = (uint16_t)(1000 / AVI_DEFAULT_FPS);
     avi->period_us = 1000000u / AVI_DEFAULT_FPS;
@@ -2654,7 +2641,7 @@ int sgl_avi_load_file(sgl_obj_t *obj, const char *path)
     sgl_stat_t st;
     char *copy;
     size_t len;
-    int fd, afd;
+    int fd;
 
     if (obj == NULL || path == NULL) {
         return -1;
@@ -2666,16 +2653,9 @@ int sgl_avi_load_file(sgl_obj_t *obj, const char *path)
         SGL_LOG_ERROR("avi: open failed");
         return -1;
     }
-    afd = sgl_fs_open(path, SGL_O_RDONLY);
-    if (afd < 0) {
-        sgl_fs_close(fd);
-        SGL_LOG_ERROR("avi: open audio fd failed");
-        return -1;
-    }
     if (sgl_fs_stat(path, &st) != 0 || st.st_size < 64 ||
         (uint64_t)st.st_size > (uint64_t)INT32_MAX) {
         sgl_fs_close(fd);
-        sgl_fs_close(afd);
         SGL_LOG_ERROR("avi: stat failed or file too small");
         return -1;
     }
@@ -2683,7 +2663,6 @@ int sgl_avi_load_file(sgl_obj_t *obj, const char *path)
     /* drop any previously loaded file */
     avi_release_file(avi);
     avi->fd = fd;
-    avi->afd = afd;
     avi->file_size = (int32_t)st.st_size;
 
     len = strlen(path) + 1;
@@ -2954,7 +2933,7 @@ static int avi_audio_locate(sgl_avi_t *avi, int64_t byte_pos, int32_t *skipp)
         uint32_t id;
         int32_t size;
 
-        if (avi_pread(avi->afd, hdr, pos, 8) != 8) {
+        if (avi_pread(avi->fd, hdr, pos, 8) != 8) {
             return -1;
         }
         id = avi_rd32(hdr);
@@ -3055,7 +3034,7 @@ int sgl_avi_seek_frame(sgl_obj_t *obj, int32_t frame_index)
     /* position the audio pump exactly on byte_pos (index + short walk);
      * a position past the audio stream end just drains the pump and the
      * clock keeps running silent instead of restarting from the top */
-    if (avi->audio && avi->afd >= 0 && byte_pos > 0 &&
+    if (avi->audio && avi->fd >= 0 && byte_pos > 0 &&
         avi_audio_locate(avi, byte_pos, &audio_skip) != 0) {
         audio_skip = 0;
         avi->a_pos = avi->movi_end;
@@ -3076,7 +3055,7 @@ int sgl_avi_seek_frame(sgl_obj_t *obj, int32_t frame_index)
         if (avi->audio) {
             avi_audio_pump(avi);
         }
-    } else if (avi->audio && avi->afd >= 0) {
+    } else if (avi->audio && avi->fd >= 0) {
         /* prime a little audio so play() has data ready instantly */
         if (g_audio_port_ready) {
             g_audio_port.flush(g_audio_port.user_data);
