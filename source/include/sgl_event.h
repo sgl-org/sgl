@@ -435,7 +435,7 @@ void sgl_key_esc(void);
  * @return none
  * @note: Call this function in your encoder ISR/timer handler. Handles both navigation and long-press.
  */
-void sgl_encoder_input(int8_t diff, bool pressed);
+void sgl_event_encoder_input(int8_t diff, bool pressed);
 
 #ifdef __cplusplus
 } /*extern "C"*/

@@ -430,6 +430,98 @@ sgl/source/widgets/...     # 仅加入用到的控件
 
 </details>
 
+#### 可选：接入外部物理按键与编码器按键
+
+以下输入接口均为**可选接口**。如果设备没有外部物理按键或编码器，可以不接入，不影响 SGL 的基本显示和触摸功能。需要使用时，建议在按键中断服务函数、按键扫描函数或编码器定时器回调中调用。
+
+##### 外部物理按键输入
+
+SGL 提供了一组物理按键输入接口，用于将外部按键、GPIO 按键或键盘驱动产生的事件传递给事件系统。
+
+| 接口 | 作用 |
+|:---|:---|
+| `sgl_key_up()` | 向上导航，触发 `SGL_EVENT_KEY_UP` |
+| `sgl_key_down()` | 向下导航，触发 `SGL_EVENT_KEY_DOWN` |
+| `sgl_key_left()` | 向左导航，触发 `SGL_EVENT_KEY_LEFT` |
+| `sgl_key_right()` | 向右导航，触发 `SGL_EVENT_KEY_RIGHT` |
+| `sgl_key_enter_pressed()` | ENTER/确认键按下 |
+| `sgl_key_enter_released()` | ENTER/确认键释放 |
+| `sgl_key_esc()` | ESC/返回键输入 |
+
+方向键接口会驱动当前焦点在按键组中导航；确认键按下和释放应分别上报，便于控件处理点击和长按；返回键可用于触发 ESC 事件。
+
+```c
+/* GPIO 按键扫描或按键中断处理函数 */
+void my_key_event_handler(my_key_t key, bool pressed)
+{
+    if (!pressed) {
+        return;    /* 方向键和 ESC 仅在按下时上报 */
+    }
+
+    switch (key) {
+    case MY_KEY_UP:
+        sgl_key_up();
+        break;
+    case MY_KEY_DOWN:
+        sgl_key_down();
+        break;
+    case MY_KEY_LEFT:
+        sgl_key_left();
+        break;
+    case MY_KEY_RIGHT:
+        sgl_key_right();
+        break;
+    case MY_KEY_ESC:
+        sgl_key_esc();
+        break;
+    default:
+        break;
+    }
+}
+
+/* 确认键需要分别上报按下和释放 */
+void my_enter_key_event(bool pressed)
+{
+    if (pressed) {
+        sgl_key_enter_pressed();
+    } else {
+        sgl_key_enter_released();
+    }
+}
+```
+
+##### 编码器输入
+
+`sgl_event_encoder_input` 用于将物理编码器的旋转和按键状态输入到 SGL 事件系统中。
+
+```c
+void sgl_event_encoder_input(int8_t diff, bool pressed);
+```
+
+参数说明：
+
+- `diff`：编码器旋转增量。大于 `0` 表示顺时针旋转，小于 `0` 表示逆时针旋转，绝对值表示旋转步数。
+- `pressed`：编码器按键当前状态。`true` 表示按下，`false` 表示释放。
+
+行为说明：
+
+- 顺时针旋转会触发 `sgl_key_up()`，逆时针旋转会触发 `sgl_key_down()`。
+- 按下编码器按键时触发 `sgl_key_enter_pressed()`。
+- 短按释放时触发 `sgl_key_enter_released()`。
+- 按住时间达到 `SGL_EVENT_CLICK_INTERVAL` 后释放时，触发 `sgl_key_esc()`，用于处理长按操作。
+
+```c
+/* 编码器顺时针旋转 1 格，同时按键未按下 */
+sgl_event_encoder_input(1, false);
+
+/* 编码器按键按下 */
+sgl_event_encoder_input(0, true);
+
+/* 编码器按键释放 */
+sgl_event_encoder_input(0, false);
+```
+
+
 ### 移植常见问题
 
 <details>
