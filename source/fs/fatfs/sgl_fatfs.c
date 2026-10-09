@@ -134,7 +134,20 @@ typedef struct {
     uint32_t fat_sectors;        /* sectors per FAT */
     uint32_t root_dir_sectors;   /* root dir sectors (FAT12/16) */
     uint32_t fat32_root_cluster; /* root dir cluster (FAT32) */
+    uint16_t fat32_fsinfo_sector;/* FSInfo sector relative to the volume */
+    uint8_t  fat32_fsinfo_valid; /* cached FSInfo free count is trustworthy */
     uint32_t free_hint;          /* first cluster to try on next allocation */
+    uint32_t free_count;         /* cached free cluster count, 0xFFFFFFFF=unknown */
+    uint8_t  cluster_bytes_shift;/* log2(cluster_size * sector_size) for fast division */
+
+    /* Sequential directory-chain lookup cursor. Directory scans request
+     * entries in order; caching the last mapped cluster avoids walking the
+     * chain from its head for every entry. */
+    uint32_t dir_cursor_start;
+    uint32_t dir_cursor_index;
+    uint32_t dir_cursor_cluster;
+    uint32_t dir_free_hint;      /* next entry index to try for free slot search */
+    uint32_t dir_free_hint_cluster; /* directory cluster the hint belongs to */
 
     /* Sector cache (single buffer) */
     uint8_t *sec_buf;
@@ -365,7 +378,7 @@ static uint32_t fat_get_entry(fat_ctx_t *ctx, uint32_t cluster)
         if ((uint16_t)ent_offset == ctx->sector_size - 1) {
             /* Entry spans two sectors */
             uint8_t b0 = ctx->sec_buf[ent_offset];
-            fat_cache_read(ctx, sec + 1);
+            if (fat_cache_read(ctx, sec + 1) != FAT_OK) return 0xFFFFFFFF;
             uint8_t b1 = ctx->sec_buf[0];
             val = (uint16_t)b0 | ((uint16_t)b1 << 8);
         } else {
@@ -381,9 +394,15 @@ static uint32_t fat_get_entry(fat_ctx_t *ctx, uint32_t cluster)
     }
 }
 
-/* Write FAT entry for a given cluster (writes to all FAT copies) */
+/* Write FAT entry for a given cluster (writes to all FAT copies).
+ * Batch mode: defer flush to reduce write amplification when freeing chains. */
 static int fat_set_entry(fat_ctx_t *ctx, uint32_t cluster, uint32_t value)
 {
+    /* Any FAT-chain mutation can invalidate a cached directory mapping. */
+    ctx->dir_cursor_start = 0;
+    ctx->dir_cursor_index = 0;
+    ctx->dir_cursor_cluster = 0;
+
     for (uint8_t f = 0; f < ctx->num_fats; f++) {
         uint32_t fat_base = ctx->fat_start + (uint32_t)f * ctx->fat_sectors;
         uint32_t offset, ent_offset, sec;
@@ -405,18 +424,33 @@ static int fat_set_entry(fat_ctx_t *ctx, uint32_t cluster, uint32_t value)
         }
 
         if (ctx->fat_type == FAT_TYPE_12) {
-            uint16_t val = rd16(&ctx->sec_buf[ent_offset]);
+            uint16_t val;
+            /* FAT12 entry may span sector boundary - read carefully to avoid buffer overrun */
+            if (ent_offset < ctx->sector_size - 1) {
+                val = rd16(&ctx->sec_buf[ent_offset]);
+            } else {
+                /* Entry spans boundary: read low byte from current, high from next */
+                val = ctx->sec_buf[ent_offset];
+                fat_cache_flush(ctx);
+                if (fat_cache_read(ctx, sec + 1) != FAT_OK) return FAT_ERR_IO;
+                val |= ((uint16_t)ctx->sec_buf[0] << 8);
+                /* Need to re-read first sector to write back */
+                if (fat_cache_read(ctx, sec) != FAT_OK) return FAT_ERR_IO;
+            }
             if (cluster & 1) {
                 val = (val & 0x000F) | ((value & 0x0FFF) << 4);
             } else {
                 val = (val & 0xF000) | (value & 0x0FFF);
             }
-            wr16(&ctx->sec_buf[ent_offset], val);
-            fat_cache_dirty(ctx);
-            /* Handle sector-spanning case */
-            if (ent_offset == (uint32_t)(ctx->sector_size - 1)) {
+            if (ent_offset < ctx->sector_size - 1) {
+                wr16(&ctx->sec_buf[ent_offset], val);
+                fat_cache_dirty(ctx);
+            } else {
+                /* Write back spanning entry */
+                ctx->sec_buf[ent_offset] = (uint8_t)(val & 0xFF);
+                fat_cache_dirty(ctx);
                 fat_cache_flush(ctx);
-                fat_cache_read(ctx, sec + 1);
+                if (fat_cache_read(ctx, sec + 1) != FAT_OK) return FAT_ERR_IO;
                 ctx->sec_buf[0] = (uint8_t)((val >> 8) & 0xFF);
                 fat_cache_dirty(ctx);
             }
@@ -428,7 +462,8 @@ static int fat_set_entry(fat_ctx_t *ctx, uint32_t cluster, uint32_t value)
             wr32(&ctx->sec_buf[ent_offset], (old & 0xF0000000) | (value & 0x0FFFFFFF));
             fat_cache_dirty(ctx);
         }
-        fat_cache_flush(ctx);
+        /* Defer flush: let caller or cache eviction handle writeback.
+         * This batches multiple FAT updates within one sector. */
     }
     return FAT_OK;
 }
@@ -450,6 +485,10 @@ static uint32_t fat_alloc_cluster(fat_ctx_t *ctx)
                            (ctx->fat_type == FAT_TYPE_16) ? 0xFFFF : 0x0FFFFFFF;
             fat_set_entry(ctx, c, eoc);
             ctx->free_hint = c + 1;
+            /* Decrement cached free count if valid */
+            if (ctx->free_count != 0xFFFFFFFF && ctx->free_count > 0) {
+                ctx->free_count--;
+            }
             return c;
         }
         c++;
@@ -458,17 +497,42 @@ static uint32_t fat_alloc_cluster(fat_ctx_t *ctx)
     return 0;
 }
 
-/* Free a cluster chain starting from 'start' */
+/* Free a cluster chain starting from 'start'.
+ * Batches FAT updates and flushes once at the end to reduce write amplification. */
 static int fat_free_chain(fat_ctx_t *ctx, uint32_t start)
 {
     if (start < 2) return FAT_OK;
+    uint32_t freed = 0;
     uint32_t cur = start;
     while (cur >= 2 && !is_eoc(ctx, cur)) {
         uint32_t next = fat_get_entry(ctx, cur);
-        fat_set_entry(ctx, cur, 0);
+        if (fat_set_entry(ctx, cur, 0) != FAT_OK) {
+            /* Flush and update what we freed so far */
+            fat_cache_flush(ctx);
+            if (ctx->free_count != 0xFFFFFFFF) {
+                ctx->free_count += freed;
+                if (ctx->free_count > ctx->total_clusters) {
+                    ctx->free_count = ctx->total_clusters;
+                }
+            }
+            return FAT_ERR_IO;
+        }
+        freed++;
         cur = next;
     }
-    if (cur >= 2) fat_set_entry(ctx, cur, 0); /* free last cluster */
+    if (cur >= 2) {
+        fat_set_entry(ctx, cur, 0); /* free last cluster */
+        freed++;
+    }
+    /* Flush batched FAT updates once */
+    fat_cache_flush(ctx);
+    /* Increment cached free count if valid */
+    if (ctx->free_count != 0xFFFFFFFF) {
+        ctx->free_count += freed;
+        if (ctx->free_count > ctx->total_clusters) {
+            ctx->free_count = ctx->total_clusters;
+        }
+    }
     return FAT_OK;
 }
 
@@ -483,9 +547,39 @@ static uint32_t fat_chain_get(fat_ctx_t *ctx, uint32_t start, uint32_t index)
     return (cur >= 2 && !is_eoc(ctx, cur)) ? cur : (index == 0 ? start : 0);
 }
 
+/* Directory scans address entries in ascending order. Cache their chain cursor
+ * to avoid walking from the first cluster for every entry in a large folder. */
+static uint32_t fat_dir_chain_get(fat_ctx_t *ctx, uint32_t start, uint32_t index)
+{
+    uint32_t cur;
+    uint32_t i;
+
+    if (ctx->dir_cursor_start == start && index >= ctx->dir_cursor_index) {
+        cur = ctx->dir_cursor_cluster;
+        i = ctx->dir_cursor_index;
+    } else {
+        cur = start;
+        i = 0;
+    }
+
+    while (i < index) {
+        if (cur < 2 || is_eoc(ctx, cur)) return 0;
+        cur = fat_get_entry(ctx, cur);
+        if (cur < 2 || is_eoc(ctx, cur)) return 0;
+        i++;
+    }
+
+    if (cur < 2 || is_eoc(ctx, cur)) return (index == 0 ? start : 0);
+    ctx->dir_cursor_start = start;
+    ctx->dir_cursor_index = index;
+    ctx->dir_cursor_cluster = cur;
+    return cur;
+}
+
 /* Zero a freshly allocated cluster on disk. Flushes and invalidates the
  * sector cache first: it shares sec_buf, so leaving its tag set would let
- * a later cached read return the zeroed scratch contents as sector data */
+ * a later cached read return the zeroed scratch contents as sector data.
+ * ONLY used for directory clusters - file clusters are never zeroed. */
 static void fat_zero_cluster(fat_ctx_t *ctx, uint32_t cluster)
 {
     fat_cache_flush(ctx);
@@ -498,15 +592,19 @@ static void fat_zero_cluster(fat_ctx_t *ctx, uint32_t cluster)
 }
 
 /* Follow the link from f->cur_cluster, allocating and linking a new
- * (zeroed) cluster when the chain ends. Returns the next cluster or 0 */
-static uint32_t fat_next_cluster(fat_ctx_t *ctx, const fat_file_t *f)
+ * cluster when the chain ends. Directory clusters are zeroed; file
+ * clusters are not (FAT semantics bound reads by file_size, so trailing
+ * garbage is never exposed). Returns the next cluster or 0 on failure */
+static uint32_t fat_next_cluster(fat_ctx_t *ctx, const fat_file_t *f, uint8_t is_dir)
 {
     uint32_t next = fat_get_entry(ctx, f->cur_cluster);
     if (next < 2 || is_eoc(ctx, next)) {
         next = fat_alloc_cluster(ctx);
         if (next == 0) return 0;
         fat_set_entry(ctx, f->cur_cluster, next);
-        fat_zero_cluster(ctx, next);
+        if (is_dir) {
+            fat_zero_cluster(ctx, next);
+        }
     }
     return next;
 }
@@ -695,7 +793,7 @@ static int fat_read_dir_entry(fat_ctx_t *ctx, uint32_t dir_cluster,
         uint32_t cluster_index = sector_in_dir / ctx->cluster_size;
         uint32_t sec_in_cluster = sector_in_dir % ctx->cluster_size;
 
-        uint32_t clust = fat_chain_get(ctx, dir_cluster, cluster_index);
+        uint32_t clust = fat_dir_chain_get(ctx, dir_cluster, cluster_index);
         if (clust == 0) {
             SGL_LOG_ERROR(FAT_FS_NAME " read_dir_entry: chain_get dir=%d idx=%d failed", (int)dir_cluster, (int)cluster_index);
             return FAT_ERR_NOT_FOUND;
@@ -784,11 +882,17 @@ static int fat_extend_directory(fat_ctx_t *ctx, uint32_t dir_cluster)
     uint32_t new_clust = fat_alloc_cluster(ctx);
     if (new_clust == 0) return FAT_ERR_NO_SPACE;
 
+    /* Zero the new directory cluster - directory clusters MUST be zeroed
+     * (unlike file clusters) because the FAT directory scan terminates on
+     * the first 0x00 entry. Flush cache first to avoid sec_buf conflicts. */
+    fat_cache_flush(ctx);
     uint32_t base = cluster_to_sector(ctx, new_clust);
     memset(ctx->sec_buf, 0, ctx->sector_size);
     for (uint8_t s = 0; s < ctx->cluster_size; s++) {
         if (fat_write_sector(ctx, base + s, ctx->sec_buf) != 0) return FAT_ERR_IO;
     }
+    ctx->sec_buf_num = 0xFFFFFFFF;
+    ctx->sec_buf_dirty = 0;
 
     uint32_t cur = dir_cluster;
     while (!is_eoc(ctx, fat_get_entry(ctx, cur))) {
@@ -798,6 +902,7 @@ static int fat_extend_directory(fat_ctx_t *ctx, uint32_t dir_cluster)
                    (ctx->fat_type == FAT_TYPE_16) ? 0xFFFF : 0x0FFFFFFF;
     fat_set_entry(ctx, cur, new_clust);
     fat_set_entry(ctx, new_clust, eoc);
+    fat_cache_flush(ctx);
     return FAT_OK;
 }
 
@@ -806,8 +911,12 @@ static int fat_find_free_entries(fat_ctx_t *ctx, uint32_t dir_cluster,
 {
     uint32_t run_start = 0;
     uint32_t run_count = 0;
+    
+    /* Start from the last known free position to avoid scanning from zero
+     * every time a file is created in a large directory. Cache is per-directory. */
+    uint32_t start_i = (dir_cluster == ctx->dir_free_hint_cluster) ? ctx->dir_free_hint : 0;
 
-    for (uint32_t i = 0; ; i++) {
+    for (uint32_t i = start_i; ; i++) {
         fat_dir_entry_t entry;
         int ret = fat_read_dir_entry(ctx, dir_cluster, i, &entry, NULL, NULL);
         if (ret != FAT_OK) {
@@ -823,6 +932,9 @@ static int fat_find_free_entries(fat_ctx_t *ctx, uint32_t dir_cluster,
             run_count++;
             if (run_count >= needed) {
                 *out_index = run_start;
+                /* Update hint to after this allocation for next search */
+                ctx->dir_free_hint = run_start + needed;
+                ctx->dir_free_hint_cluster = dir_cluster;
                 return FAT_OK;
             }
             continue;
@@ -1116,6 +1228,7 @@ static int fatfs_mount(void **fs, sgl_block_dev_t *dev,
     ctx->cluster_size = bpb[13];
     ctx->num_fats = bpb[16];
     ctx->root_entry_count = rd16(&bpb[17]);
+    ctx->fat32_fsinfo_sector = rd16(&bpb[48]);
     ctx->total_sectors = rd16(&bpb[19]);
     if (ctx->total_sectors == 0) ctx->total_sectors = rd32(&bpb[32]);
     ctx->fat_sectors = rd16(&bpb[22]);
@@ -1149,6 +1262,43 @@ static int fatfs_mount(void **fs, sgl_block_dev_t *dev,
     if (ctx->total_clusters < 4085)      ctx->fat_type = FAT_TYPE_12;
     else if (ctx->total_clusters < 65525) ctx->fat_type = FAT_TYPE_16;
     else { ctx->fat_type = FAT_TYPE_32; ctx->fat32_root_cluster = rd32(&bpb[44]); }
+
+    ctx->free_count = 0xFFFFFFFF;
+    ctx->fat32_fsinfo_valid = 0;
+    if (ctx->fat_type == FAT_TYPE_32) {
+        /* FAT32 FSInfo stores the free-cluster count at offset 488. Use it
+         * only when both signatures and the range are valid; otherwise keep
+         * the count unknown instead of doing a multi-million-entry scan. */
+        uint32_t fsinfo_sector = ctx->fat32_fsinfo_sector;
+        if (fsinfo_sector != 0 && fsinfo_sector < ctx->total_sectors &&
+            fat_read_sector(ctx, fsinfo_sector, ctx->sec_buf) == 0 &&
+            rd32(&ctx->sec_buf[0]) == 0x41615252 &&
+            rd32(&ctx->sec_buf[484]) == 0x61417272 &&
+            rd32(&ctx->sec_buf[508]) == 0xAA550000) {
+            uint32_t free = rd32(&ctx->sec_buf[488]);
+            if (free <= ctx->total_clusters) {
+                ctx->free_count = free;
+                ctx->fat32_fsinfo_valid = 1;
+            }
+        }
+        /* fat_read_sector bypasses the cache tag; invalidate it before any
+         * subsequent cached FAT/data access. */
+        ctx->sec_buf_num = 0xFFFFFFFF;
+        ctx->sec_buf_dirty = 0;
+    } else {
+        /* FAT12/16: scan once at mount to initialize the cache. */
+        uint32_t free = 0;
+        for (uint32_t c = 2; c < ctx->total_clusters + 2; c++) {
+            if (fat_get_entry(ctx, c) == 0) free++;
+        }
+        ctx->free_count = free;
+    }
+
+    /* Compute cluster_bytes_shift for fast division on hot paths */
+    uint32_t cb = (uint32_t)ctx->cluster_size * ctx->sector_size;
+    uint8_t shift = 0;
+    while ((1U << shift) < cb) shift++;
+    ctx->cluster_bytes_shift = shift;
 
     *fs = ctx;
     return FAT_OK;
@@ -1233,21 +1383,13 @@ static int fatfs_open(void *fs, const char *path, uint32_t flags)
         return FAT_ERR_NOT_FOUND;
     }
 
-    uint32_t nc = 0;
-    if (flags & (SGL_O_WRONLY | SGL_O_RDWR)) {
-        nc = fat_alloc_cluster(ctx);
-        if (nc == 0) {
-            SGL_LOG_ERROR(FAT_FS_NAME " open: alloc cluster failed for new file");
-            return FAT_ERR_NO_SPACE;
-        }
-        fat_zero_cluster(ctx, nc);
-    }
-
+    /* Create new file: start with no clusters (start_cluster = 0).
+     * Delay allocation until first write to avoid wasting space and
+     * unnecessary zero-write overhead for empty files. */
     uint32_t esec = 0; uint16_t eoff = 0;
-    ret = fat_create_entry(ctx, parent_dir, fname, FAT_ATTR_ARCHIVE, nc, 0, &esec, &eoff);
+    ret = fat_create_entry(ctx, parent_dir, fname, FAT_ATTR_ARCHIVE, 0, 0, &esec, &eoff);
     if (ret != FAT_OK) {
         SGL_LOG_ERROR(FAT_FS_NAME " open: create_entry failed, ret=%d", ret);
-        if (nc >= 2) fat_free_chain(ctx, nc);
         return ret;
     }
 
@@ -1255,7 +1397,7 @@ static int fatfs_open(void *fs, const char *path, uint32_t flags)
     memset(f, 0, sizeof(fat_file_t));
     f->used = 1; f->dir_start_cluster = parent_dir;
     f->entry_sector = esec; f->entry_offset = eoff;
-    f->start_cluster = nc; f->cur_cluster = nc;
+    f->start_cluster = 0; f->cur_cluster = 0;
     f->flags = (uint8_t)(flags & 0xFF);
     return slot;
 }
@@ -1265,7 +1407,7 @@ static int fatfs_close(void *fs, int fd)
     fat_ctx_t *ctx = (fat_ctx_t *)fs;
     if (fd < 0 || fd >= FAT_MAX_OPEN_FILES || !ctx->files[fd].used) return FAT_ERR_INVALID;
     fat_file_t *f = &ctx->files[fd];
-    if (f->dirty || (f->flags & (SGL_O_WRONLY | SGL_O_RDWR))) {
+    if (f->dirty) {
         fat_dir_entry_t entry;
         if (fat_cache_read(ctx, f->entry_sector) == FAT_OK) {
             memcpy(&entry, &ctx->sec_buf[f->entry_offset], FAT_DIR_ENTRY_SIZE);
@@ -1301,7 +1443,7 @@ static int fatfs_read(void *fs, int fd, void *buffer, uint32_t count)
     uint32_t br = 0;
     if (f->cur_cluster < 2) { f->cur_cluster = f->start_cluster; f->cluster_pos = 0; }
     while (br < count) {
-        uint32_t oc = f->cur_pos % cb;
+        uint32_t oc = f->cur_pos & ((1U << ctx->cluster_bytes_shift) - 1);
         uint32_t sector = cluster_to_sector(ctx, f->cur_cluster) + oc / ctx->sector_size;
         uint16_t os = (uint16_t)(oc % ctx->sector_size);
 
@@ -1335,7 +1477,7 @@ static int fatfs_read(void *fs, int fd, void *buffer, uint32_t count)
          * boundary, otherwise a request that ends exactly at the boundary
          * leaves cur_cluster on the old cluster and the next sequential
          * read re-serves the same cluster from its start */
-        if (f->cur_pos % cb == 0 && f->cur_pos < f->file_size) {
+        if ((f->cur_pos & ((1U << ctx->cluster_bytes_shift) - 1)) == 0 && f->cur_pos < f->file_size) {
             uint32_t next = fat_get_entry(ctx, f->cur_cluster);
             if (next < 2 || is_eoc(ctx, next)) break;
             f->cur_cluster = next;
@@ -1365,11 +1507,12 @@ static int fatfs_write(void *fs, int fd, const void *buffer, uint32_t count)
     uint32_t bw = 0;
 
     if (f->start_cluster < 2) {
+        /* Lazy allocation: first write to an empty file allocates its first cluster */
         f->start_cluster = fat_alloc_cluster(ctx);
         if (f->start_cluster == 0) return FAT_ERR_NO_SPACE;
         f->cur_cluster = f->start_cluster;
         f->cluster_pos = 0;
-        fat_zero_cluster(ctx, f->cur_cluster);
+        /* Don't zero file clusters - FAT semantics never expose uninitialized data */
     }
 
     if (f->cur_cluster < 2) {
@@ -1378,19 +1521,19 @@ static int fatfs_write(void *fs, int fd, const void *buffer, uint32_t count)
     }
 
     while (bw < count) {
-        if (f->cur_pos % cb == 0 && f->cur_pos >= f->cluster_pos + cb) {
+        if ((f->cur_pos & ((1U << ctx->cluster_bytes_shift) - 1)) == 0 && f->cur_pos >= f->cluster_pos + cb) {
             /* the position sits at the end of cur_cluster: extend the
              * chain lazily here instead of at the previous iteration's
              * end, so an append that starts exactly on a boundary (the
              * open path cannot know whether the chain continues) lands
              * on a fresh cluster instead of overwriting the old one */
-            uint32_t next = fat_next_cluster(ctx, f);
+            uint32_t next = fat_next_cluster(ctx, f, 0);
             if (next == 0) break;
             f->cur_cluster = next;
             f->cluster_pos = f->cur_pos;
         }
 
-        uint32_t oc = f->cur_pos % cb;
+        uint32_t oc = f->cur_pos & ((1U << ctx->cluster_bytes_shift) - 1);
         uint32_t sector = cluster_to_sector(ctx, f->cur_cluster) + oc / ctx->sector_size;
         uint16_t os = (uint16_t)(oc % ctx->sector_size);
 
@@ -1419,7 +1562,11 @@ static int fatfs_write(void *fs, int fd, const void *buffer, uint32_t count)
                 ctx->sec_buf_dirty = 0;
             }
             memcpy(&ctx->sec_buf[os], src + bw, tw);
-            fat_cache_dirty(ctx); fat_cache_flush(ctx);
+            /* Keep partial-sector writes in the write-back cache. The next
+             * sector access, direct multi-sector transfer, sync, or close
+             * will flush it; avoiding a device write per small write call is
+             * critical for streaming and byte-sized updates. */
+            fat_cache_dirty(ctx);
             bw += tw; f->cur_pos += tw;
         }
 
@@ -1454,36 +1601,44 @@ static int fatfs_seek(void *fs, int fd, int32_t offset, uint8_t whence)
 
     if (new_pos < 0) return FAT_ERR_INVALID;
 
+    uint32_t old_pos = f->cur_pos;
     f->cur_pos = (uint32_t)new_pos;
 
-    /* Recompute the current cluster for the new position so that
-     * subsequent read/write operations start at the right place.
-     * Walk the FAT chain from the cached cluster position when the seek
-     * is forward from it: this keeps the per-seek cost O(distance)
-     * instead of O(position), which otherwise grows as playback moves
-     * deeper into the file and progressively slows down streaming. */
+    /* Recompute the current cluster for the new position. Walk the FAT chain
+     * from the cached cluster position when the seek is forward: this keeps
+     * the per-seek cost O(distance) instead of O(position), so streaming
+     * playback does not progressively slow down as it moves into the file. */
     if (f->start_cluster < 2) {
         f->cur_cluster = f->start_cluster;
         f->cluster_pos = 0;
     } else {
         uint32_t cb = (uint32_t)ctx->cluster_size * ctx->sector_size;
-        uint32_t cluster_index = f->cur_pos / cb;
+        uint32_t target_idx = f->cur_pos >> ctx->cluster_bytes_shift;
+        uint32_t cached_idx = f->cluster_pos >> ctx->cluster_bytes_shift;
 
-        /* backward seek past the cache, or cache out of sync: restart
-         * the walk at the file head */
-        if (f->cluster_pos > f->cur_pos ||
-            (f->cluster_pos % cb) != 0 || f->cur_cluster < 2) {
-            f->cluster_pos = 0;
-            f->cur_cluster = f->start_cluster;
+        /* Fast path: already in the target cluster */
+        if (f->cur_cluster >= 2 && ((f->cluster_pos & ((1U << ctx->cluster_bytes_shift) - 1)) == 0) &&
+            target_idx == cached_idx) {
+            return (int)f->cur_pos;
         }
 
-        uint32_t idx = f->cluster_pos / cb;
-        while (idx < cluster_index) {
+        /* Backward seek or cache is stale: restart from file head */
+        if (f->cluster_pos > f->cur_pos ||
+            ((f->cluster_pos & ((1U << ctx->cluster_bytes_shift) - 1)) != 0) || f->cur_cluster < 2) {
+            f->cluster_pos = 0;
+            f->cur_cluster = f->start_cluster;
+            cached_idx = 0;
+        }
+
+        /* Forward seek: walk from current cached cluster instead of head.
+         * Short-distance seeks (common in video/audio streaming) now cost
+         * only the actual distance rather than the absolute file position. */
+        while (cached_idx < target_idx) {
             uint32_t next = fat_get_entry(ctx, f->cur_cluster);
             if (next < 2 || is_eoc(ctx, next)) break;
             f->cur_cluster = next;
             f->cluster_pos += cb;
-            idx++;
+            cached_idx++;
         }
         if (f->cur_cluster < 2) f->cur_cluster = f->start_cluster;
     }
@@ -1593,7 +1748,7 @@ static int fatfs_sync(void *fs)
     fat_cache_flush(ctx);
     for (int i = 0; i < FAT_MAX_OPEN_FILES; i++) {
         fat_file_t *f = &ctx->files[i];
-        if (f->used && (f->dirty || (f->flags & (SGL_O_WRONLY | SGL_O_RDWR)))) {
+        if (f->used && f->dirty) {
             fat_dir_entry_t entry;
             if (fat_cache_read(ctx, f->entry_sector) == FAT_OK) {
                 memcpy(&entry, &ctx->sec_buf[f->entry_offset], FAT_DIR_ENTRY_SIZE);
@@ -1638,6 +1793,13 @@ static int fatfs_format(void *fs)
     uint32_t fat_sec = ((data_sec / spc) * 2 + ctx->sector_size - 1) / ctx->sector_size;
     if (fat_sec == 0) fat_sec = 1;
     data_sec = total_sec - rsvd - 2 * fat_sec - root_sec;  /* actual data sectors */
+    /* This formatter writes a FAT12/16 layout only. Refuse a volume that
+     * would require FAT32 rather than emitting a BPB that cannot describe
+     * its FAT32 fields and root cluster correctly. */
+    if ((data_sec / spc) >= 65525U || fat_sec > 0xFFFFU) {
+        SGL_LOG_ERROR(FAT_FS_NAME " format: volume requires FAT32, unsupported by formatter");
+        return FAT_ERR_INVALID;
+    }
     wr16(&buf[22], (uint16_t)fat_sec);
     wr16(&buf[24], 63); wr16(&buf[26], 255);
     buf[510] = 0x55; buf[511] = 0xAA;
@@ -1668,9 +1830,15 @@ static int fatfs_format(void *fs)
     ctx->root_dir_start = root_start;
     ctx->data_start = root_start + root_sec;
     ctx->total_clusters = data_sec / spc;
-    ctx->fat_type = (ctx->total_clusters < 4085) ? FAT_TYPE_12 :
-                    (ctx->total_clusters < 65525) ? FAT_TYPE_16 : FAT_TYPE_32;
+    ctx->fat_type = (ctx->total_clusters < 4085) ? FAT_TYPE_12 : FAT_TYPE_16;
     ctx->fat32_root_cluster = 0;
+    ctx->fat32_fsinfo_sector = 0;
+    ctx->fat32_fsinfo_valid = 0;
+    ctx->free_hint = 2;
+    ctx->free_count = ctx->total_clusters;
+    ctx->cluster_bytes_shift = 0;
+    uint32_t cluster_bytes = (uint32_t)ctx->cluster_size * ctx->sector_size;
+    while ((1U << ctx->cluster_bytes_shift) < cluster_bytes) ctx->cluster_bytes_shift++;
 
     return FAT_OK;
 }
@@ -1860,16 +2028,15 @@ static int fatfs_statvfs(void *fs, sgl_statvfs_t *info)
     info->f_bsize = (uint32_t)ctx->cluster_size * ctx->sector_size;
     info->f_blocks = ctx->total_clusters;
 
-    /* Count free clusters by scanning the FAT */
-    uint32_t free_count = 0;
-    uint32_t bad_count = 0;
-    for (uint32_t c = 2; c < ctx->total_clusters + 2; c++) {
-        uint32_t entry = fat_get_entry(ctx, c);
-        if (entry == 0) {
-            free_count++;
-        } else if (entry == 0xFFFFFFF7 || entry == 0xFFF7) {
-            bad_count++;
+    /* Use cached free count if available (updated at mount and during alloc/free) */
+    uint32_t free_count = ctx->free_count;
+    if (free_count == 0xFFFFFFFF) {
+        /* Cache invalid: scan now (expensive, but only once) */
+        free_count = 0;
+        for (uint32_t c = 2; c < ctx->total_clusters + 2; c++) {
+            if (fat_get_entry(ctx, c) == 0) free_count++;
         }
+        ctx->free_count = free_count;
     }
 
     info->f_bfree = free_count;
