@@ -297,29 +297,28 @@ static int winfs_statvfs(void *fs, sgl_statvfs_t *info)
 }
 
 static sgl_fs_ops_t winfs_ops = {
-    winfs_mount,
-    winfs_unmount,
-    winfs_open,
-    winfs_close,
-    winfs_read,
-    winfs_write,
-    winfs_seek,
-    winfs_opendir,
-    winfs_readdir,
-    winfs_closedir,
-    winfs_sync,
-    winfs_format,
-    winfs_remove,
-    winfs_mkdir,
-    winfs_stat,
-    winfs_rename,
-    winfs_statvfs,
+    .mount    = winfs_mount,
+    .unmount  = winfs_unmount,
+    .open     = winfs_open,
+    .close    = winfs_close,
+    .read     = winfs_read,
+    .write    = winfs_write,
+    .seek     = winfs_seek,
+    .opendir  = winfs_opendir,
+    .readdir  = winfs_readdir,
+    .closedir = winfs_closedir,
+    .sync     = winfs_sync,
+    .format   = winfs_format,
+    .remove   = winfs_remove,
+    .mkdir    = winfs_mkdir,
+    .stat     = winfs_stat,
+    .rename   = winfs_rename,
+    .statvfs  = winfs_statvfs,
 };
 
 static sgl_fs_type_t winfs_type = {
-    {0, 0},
-    "winfs",
-    &winfs_ops,
+    .name = "winfs",
+    .ops  = &winfs_ops,
 };
 
 int sgl_winfs_register(void)

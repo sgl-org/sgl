@@ -279,12 +279,12 @@ static sgl_fatfs_config_t fatfs_default_cfg = {
     .opt = 1,
 };
 
-static int fat_read_sector(fat_ctx_t *ctx, uint32_t sector, uint8_t *buf)
+static inline int fat_read_sector(fat_ctx_t *ctx, uint32_t sector, uint8_t *buf)
 {
     return ctx->dev->read_sectors(ctx->dev, sector + ctx->part_offset, buf, 1);
 }
 
-static int fat_write_sector(fat_ctx_t *ctx, uint32_t sector, const uint8_t *buf)
+static inline int fat_write_sector(fat_ctx_t *ctx, uint32_t sector, const uint8_t *buf)
 {
     return ctx->dev->write_sectors(ctx->dev, sector + ctx->part_offset, buf, 1);
 }
@@ -309,7 +309,7 @@ static int fat_cache_read(fat_ctx_t *ctx, uint32_t sector)
 }
 
 /* Mark cache dirty */
-static void fat_cache_dirty(fat_ctx_t *ctx)
+static inline void fat_cache_dirty(fat_ctx_t *ctx)
 {
     ctx->sec_buf_dirty = 1;
 }
@@ -576,10 +576,12 @@ static uint32_t fat_dir_chain_get(fat_ctx_t *ctx, uint32_t start, uint32_t index
     return cur;
 }
 
-/* Zero a freshly allocated cluster on disk. Flushes and invalidates the
- * sector cache first: it shares sec_buf, so leaving its tag set would let
- * a later cached read return the zeroed scratch contents as sector data.
- * ONLY used for directory clusters - file clusters are never zeroed. */
+static inline void fat_scratch_end(fat_ctx_t *ctx)
+{
+    ctx->sec_buf_num = 0xFFFFFFFF;
+    ctx->sec_buf_dirty = 0;
+}
+
 static void fat_zero_cluster(fat_ctx_t *ctx, uint32_t cluster)
 {
     fat_cache_flush(ctx);
@@ -587,8 +589,7 @@ static void fat_zero_cluster(fat_ctx_t *ctx, uint32_t cluster)
     memset(ctx->sec_buf, 0, ctx->sector_size);
     for (uint8_t s = 0; s < ctx->cluster_size; s++)
         fat_write_sector(ctx, base + s, ctx->sec_buf);
-    ctx->sec_buf_num = 0xFFFFFFFF;
-    ctx->sec_buf_dirty = 0;
+    fat_scratch_end(ctx);
 }
 
 /* Follow the link from f->cur_cluster, allocating and linking a new
@@ -758,7 +759,7 @@ static void name_from_83(const uint8_t entry[11], char *out, uint32_t out_size)
 }
 
 /* Get root directory start cluster */
-static uint32_t root_cluster(fat_ctx_t *ctx)
+static inline uint32_t root_cluster(fat_ctx_t *ctx)
 {
     if (ctx->fat_type == FAT_TYPE_32) return ctx->fat32_root_cluster;
     return 0; /* FAT12/16: root is in fixed area */
@@ -780,12 +781,13 @@ static int fat_read_dir_entry(fat_ctx_t *ctx, uint32_t dir_cluster,
         /* FAT12/16 root directory: fixed location, limited entries */
         uint32_t max_entries = (uint32_t)ctx->root_entry_count;
         if (index >= max_entries) {
-            SGL_LOG_ERROR(FAT_FS_NAME " read_dir_entry: root index=%d >= max=%d", (int)index, (int)max_entries);
+            SGL_LOG_TRACE(FAT_FS_NAME " read_dir_entry: root index=%d >= max=%d", (int)index, (int)max_entries);
             return FAT_ERR_NOT_FOUND;
         }
+
         sector = ctx->root_dir_start + sector_in_dir;
         if (sector >= ctx->root_dir_start + ctx->root_dir_sectors) {
-            SGL_LOG_ERROR(FAT_FS_NAME " read_dir_entry: root sector=%d out of range", (int)sector);
+            SGL_LOG_TRACE(FAT_FS_NAME " read_dir_entry: root sector=%d out of range", (int)sector);
             return FAT_ERR_NOT_FOUND;
         }
     } else {
@@ -795,7 +797,8 @@ static int fat_read_dir_entry(fat_ctx_t *ctx, uint32_t dir_cluster,
 
         uint32_t clust = fat_dir_chain_get(ctx, dir_cluster, cluster_index);
         if (clust == 0) {
-            SGL_LOG_ERROR(FAT_FS_NAME " read_dir_entry: chain_get dir=%d idx=%d failed", (int)dir_cluster, (int)cluster_index);
+            /* end of the cluster chain = normal end-of-directory signal */
+            SGL_LOG_TRACE(FAT_FS_NAME " read_dir_entry: chain_get dir=%d idx=%d failed", (int)dir_cluster, (int)cluster_index);
             return FAT_ERR_NOT_FOUND;
         }
         sector = cluster_to_sector(ctx, clust) + sec_in_cluster;
@@ -813,9 +816,7 @@ static int fat_read_dir_entry(fat_ctx_t *ctx, uint32_t dir_cluster,
     return FAT_OK;
 }
 
-/* Write a directory entry at a given sector/offset */
-static int fat_write_dir_entry(fat_ctx_t *ctx, uint32_t sector, uint16_t offset,
-                               const fat_dir_entry_t *entry)
+static int fat_write_dir_entry(fat_ctx_t *ctx, uint32_t sector, uint16_t offset, const fat_dir_entry_t *entry)
 {
     if (fat_cache_read(ctx, sector) != FAT_OK) {
         SGL_LOG_ERROR(FAT_FS_NAME " write_dir_entry: cache_read sec=%d failed", (int)sector);
@@ -823,7 +824,7 @@ static int fat_write_dir_entry(fat_ctx_t *ctx, uint32_t sector, uint16_t offset,
     }
     memcpy(&ctx->sec_buf[offset], entry, FAT_DIR_ENTRY_SIZE);
     fat_cache_dirty(ctx);
-    return fat_cache_flush(ctx);
+    return FAT_OK;
 }
 
 /* Search a directory for a given name component.
@@ -880,19 +881,21 @@ static int fat_extend_directory(fat_ctx_t *ctx, uint32_t dir_cluster)
     if (dir_cluster == 0) return FAT_ERR_NO_SPACE;
 
     uint32_t new_clust = fat_alloc_cluster(ctx);
-    if (new_clust == 0) return FAT_ERR_NO_SPACE;
+    if (new_clust == 0)
+        return FAT_ERR_NO_SPACE;
 
-    /* Zero the new directory cluster - directory clusters MUST be zeroed
-     * (unlike file clusters) because the FAT directory scan terminates on
-     * the first 0x00 entry. Flush cache first to avoid sec_buf conflicts. */
-    fat_cache_flush(ctx);
+    if (fat_cache_flush(ctx) != FAT_OK)
+        return FAT_ERR_IO;
+
     uint32_t base = cluster_to_sector(ctx, new_clust);
     memset(ctx->sec_buf, 0, ctx->sector_size);
     for (uint8_t s = 0; s < ctx->cluster_size; s++) {
-        if (fat_write_sector(ctx, base + s, ctx->sec_buf) != 0) return FAT_ERR_IO;
+        if (fat_write_sector(ctx, base + s, ctx->sec_buf) != 0) {
+            fat_scratch_end(ctx);
+            return FAT_ERR_IO;
+        }
     }
-    ctx->sec_buf_num = 0xFFFFFFFF;
-    ctx->sec_buf_dirty = 0;
+    fat_scratch_end(ctx);
 
     uint32_t cur = dir_cluster;
     while (!is_eoc(ctx, fat_get_entry(ctx, cur))) {
@@ -906,8 +909,7 @@ static int fat_extend_directory(fat_ctx_t *ctx, uint32_t dir_cluster)
     return FAT_OK;
 }
 
-static int fat_find_free_entries(fat_ctx_t *ctx, uint32_t dir_cluster,
-                                 uint32_t needed, uint32_t *out_index)
+static int fat_find_free_entries(fat_ctx_t *ctx, uint32_t dir_cluster, uint32_t needed, uint32_t *out_index)
 {
     uint32_t run_start = 0;
     uint32_t run_count = 0;
@@ -972,8 +974,7 @@ static void fat_lfn_write_char(uint8_t raw[32], int index, uint16_t value)
 /* Resolve a path to its parent directory cluster and the final name component.
    Returns FAT_OK on success. *parent_cluster = 0 for FAT12/16 root.
    final_name points into the original path string. */
-static int fat_resolve_path(fat_ctx_t *ctx, const char *path,
-                            uint32_t *parent_cluster, const char **final_name)
+static int fat_resolve_path(fat_ctx_t *ctx, const char *path, uint32_t *parent_cluster, const char **final_name)
 {
     while (*path == '/') path++;
     if (*path == '\0') {
@@ -1046,10 +1047,8 @@ static int fat_dir_is_empty(fat_ctx_t *ctx, uint32_t dir_cluster)
 }
 
 /* Create a new directory entry in parent_dir. Returns sector/offset of new entry */
-static int fat_create_entry(fat_ctx_t *ctx, uint32_t parent_dir,
-                            const char *name, uint8_t attr,
-                            uint32_t start_cluster, uint32_t file_size,
-                            uint32_t *out_sector, uint16_t *out_offset)
+static int fat_create_entry(fat_ctx_t *ctx, uint32_t parent_dir, const char *name, uint8_t attr,
+                            uint32_t start_cluster, uint32_t file_size, uint32_t *out_sector, uint16_t *out_offset)
 {
     uint8_t short_name[11];
     uint32_t needed_entries = 1;
@@ -1760,6 +1759,8 @@ static int fatfs_sync(void *fs)
             f->dirty = 0;
         }
     }
+    /* fat_write_dir_entry is write-back: flush the entries dirtied above */
+    fat_cache_flush(ctx);
     sgl_block_dev_ioctl(ctx->dev, SGL_BLK_CTRL_SYNC, NULL);
     return FAT_OK;
 }
@@ -1903,10 +1904,9 @@ static int fatfs_mkdir(void *fs, const char *path)
         SGL_LOG_ERROR(FAT_FS_NAME " mkdir: alloc cluster failed");
         return FAT_ERR_NO_SPACE;
     }
+
+    fat_zero_cluster(ctx, nc);
     uint32_t base = cluster_to_sector(ctx, nc);
-    memset(ctx->sec_buf, 0, ctx->sector_size);
-    for (uint8_t s = 0; s < ctx->cluster_size; s++)
-        fat_write_sector(ctx, base + s, ctx->sec_buf);
 
     fat_dir_entry_t dot;
     memset(&dot, 0, sizeof(dot));

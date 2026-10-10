@@ -96,6 +96,9 @@
 #error "sgl_avi supports CONFIG_SGL_FBDEV_PIXEL_DEPTH 16 (RGB565) or 24 (RGB888)"
 #endif
 
+/* bytes per decoded pixel in the pixmap */
+#define AVI_OUTPUT_BPP ((MJDEC_FORMAT == 1) ? 2 : 3)
+
 /* The inlined decoder implementation is specialized for these options. */
 #if MJDEC_TBLCLIP != 1 || MJDEC_FASTDECODE != 2
 #error "sgl_avi: the inlined decoder requires MJDEC_TBLCLIP=1 and MJDEC_FASTDECODE=2"
@@ -156,6 +159,8 @@ struct MJDEC {
 #endif
     void *workbuf;                                /* Working buffer for IDCT and RGB output */
     mj_yuv_t *mcubuf;                             /* Working buffer for the MCU */
+    uint8_t *dst;                                 /* Direct output target, NULL = workbuf */
+    int32_t dst_stride;                           /* Target row stride in pixels */
     void *pool;                                   /* Pointer to available memory pool */
     void *pool_original;                          /* Pointer to original pool */
     size_t sz_pool;                               /* Size of memory pool (bytes available) */
@@ -221,6 +226,18 @@ static const uint16_t Ipsf[64] = {
 static uint8_t Clip8[1024];
 static uint8_t clip8_ready = 0;
 
+/* YCbCr -> RGB fixed point accuracy, adaptive for 16-/32-bit systems */
+#define MJDEC_CVACC ((sizeof(int) > 2) ? 1024 : 128)
+
+/* chroma contribution tables: cb/cr only have 256 possible values, so the
+ * per-pixel multiplies and divides are precomputed once. Each entry holds
+ * exactly ((int)(K * MJDEC_CVACC) * (v - 128)) / MJDEC_CVACC, the same
+ * fixed point term the pixel loop used to compute per pixel */
+static int16_t ycc_r_cr[256];
+static int16_t ycc_g_cb[256];
+static int16_t ycc_g_cr[256];
+static int16_t ycc_b_cb[256];
+
 static void mj_clip8_init(void)
 {
     unsigned int i;
@@ -236,7 +253,24 @@ static void mj_clip8_init(void)
     for (i = 512; i < 1024; i++) {
         Clip8[i] = 0; /* -512..-1 -> saturate low */
     }
+    for (i = 0; i < 256; i++) {
+        int c = (int)i - 128;
+        ycc_r_cr[i] = (int16_t)((int)(1.402 * MJDEC_CVACC) * c / (int)MJDEC_CVACC);
+        ycc_g_cb[i] = (int16_t)((int)(0.344 * MJDEC_CVACC) * c / (int)MJDEC_CVACC);
+        ycc_g_cr[i] = (int16_t)((int)(0.714 * MJDEC_CVACC) * c / (int)MJDEC_CVACC);
+        ycc_b_cb[i] = (int16_t)((int)(1.772 * MJDEC_CVACC) * c / (int)MJDEC_CVACC);
+    }
     clip8_ready = 1;
+}
+
+/* clamp a stored sample to a chroma table index. IDCT output is already
+ * saturated to 0..255, but the DC-only fast path can briefly exceed it */
+static unsigned int ycc_idx(int v)
+{
+    if ((unsigned int)v > 255u) {
+        v = (v < 0) ? 0 : 255;
+    }
+    return (unsigned int)v;
 }
 
 #else /* MJDEC_TBLCLIP */
@@ -839,10 +873,7 @@ static MJRESULT mcu_output(MJDEC *jd, /* Pointer to the decompressor object */
                            unsigned int y  /* MCU location in the image */
 )
 {
-    const int CVACC =
-        (sizeof(int) > 2) ? 1024 : 128; /* Adaptive accuracy for both 16-/32-bit systems */
     unsigned int mx, my, rx, ry;
-    int yy, cb, cr;
     MJRECT rect;
 
     mx = jd->msx * 8;
@@ -867,36 +898,90 @@ static MJRESULT mcu_output(MJDEC *jd, /* Pointer to the decompressor object */
 
     /* Convert and scale directly from YCbCr into the configured output
      * format. Chroma samples are shared by neighboring pixels in subsampled
-     * JPEGs, so average each stored chroma sample once. */
+     * JPEGs, so average each stored chroma sample once. When jd->dst is
+     * set the pixels are written straight into the target frame (with its
+     * row stride) and the workbuf round trip is skipped entirely. */
     {
-#if MJDEC_FORMAT == 1
-        uint16_t *out565 = (uint16_t *)jd->workbuf;
-#else
-        uint8_t *out888 = (uint8_t *)jd->workbuf;
-#endif
         const unsigned int factor = 1U << jd->scale;
         const unsigned int y_blocks = jd->msx * jd->msy;
         const unsigned int chroma_w = (mx == 16) ? factor >> 1 : factor;
         const unsigned int chroma_h = (my == 16) ? factor >> 1 : factor;
         const unsigned int chroma_shift = (mx == 16) + (my == 16);
         const unsigned int y_shift = jd->scale * 2;
+        const unsigned int msx64 = jd->msx * 64;
+        const unsigned int cxsub = (mx == 16); /* chroma sampled at half x rate */
+        const unsigned int cysub = (my == 16); /* chroma sampled at half y rate */
         mj_yuv_t *chroma = jd->mcubuf + y_blocks * 64;
+        uint8_t *out_base;
+        size_t out_pitch;
         unsigned int ox, oy, sx, sy;
 
-        for (oy = 0; oy < ry; oy++) {
-            const unsigned int src_y0 = oy * factor;
-            for (ox = 0; ox < rx; ox++) {
-                const unsigned int src_x0 = ox * factor;
-                const unsigned int chroma_x0 = (mx == 16) ? src_x0 >> 1 : src_x0;
-                const unsigned int chroma_y0 = (my == 16) ? src_y0 >> 1 : src_y0;
-                int sum_y = 0;
-                int sum_cb = 0, sum_cr = 0;
-                if (factor != 1) {
+        if (jd->dst != NULL) {
+            out_base = jd->dst + ((size_t)y * (size_t)jd->dst_stride + x) * AVI_OUTPUT_BPP;
+            out_pitch = (size_t)jd->dst_stride * AVI_OUTPUT_BPP;
+        } else {
+            out_base = (uint8_t *)jd->workbuf;
+            out_pitch = (size_t)rx * AVI_OUTPUT_BPP;
+        }
+
+        if (factor == 1) {
+            /* full resolution: walk the MCU blocks with running pointers,
+             * the >>3 / *64 addressing is resolved once per row and block
+             * edge instead of per pixel */
+            for (oy = 0; oy < ry; oy++) {
+                const mj_yuv_t *yp = jd->mcubuf + (oy >> 3) * msx64 + (oy & 7) * 8;
+                const mj_yuv_t *cbp = chroma + ((cysub ? (oy >> 1) : oy) << 3);
+                const mj_yuv_t *crp = cbp + 64;
+#if MJDEC_FORMAT == 1
+                uint16_t *outp = (uint16_t *)(out_base + (size_t)oy * out_pitch);
+#else
+                uint8_t *outp = out_base + (size_t)oy * out_pitch;
+#endif
+                for (ox = 0; ox < rx; ox++) {
+                    const int yy = (int)*yp++;
+                    const unsigned int ci = cxsub ? (ox >> 1) : ox;
+                    const unsigned int cri = ycc_idx((int)crp[ci]);
+                    const unsigned int cbi = ycc_idx((int)cbp[ci]);
+                    const unsigned int r = BYTECLIP(yy + ycc_r_cr[cri]);
+                    const unsigned int g =
+                        BYTECLIP(yy - ycc_g_cb[cbi] - ycc_g_cr[cri]);
+                    const unsigned int b = BYTECLIP(yy + ycc_b_cb[cbi]);
+
+                    if ((ox & 7) == 7) {
+                        yp += 56; /* hop to the next 8x8 block in this MCU row */
+                    }
+#if MJDEC_FORMAT == 1
+                    *outp++ = (uint16_t)(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3));
+#else
+                    /* SGL RGB888 memory order is B,G,R: store in surface
+                     * order so the blit is a plain memcpy */
+                    *outp++ = (uint8_t)b;
+                    *outp++ = (uint8_t)g;
+                    *outp++ = (uint8_t)r;
+#endif
+                }
+            }
+        } else {
+            for (oy = 0; oy < ry; oy++) {
+                const unsigned int src_y0 = oy * factor;
+#if MJDEC_FORMAT == 1
+                uint16_t *outp = (uint16_t *)(out_base + (size_t)oy * out_pitch);
+#else
+                uint8_t *outp = out_base + (size_t)oy * out_pitch;
+#endif
+                for (ox = 0; ox < rx; ox++) {
+                    const unsigned int src_x0 = ox * factor;
+                    const unsigned int chroma_x0 = cxsub ? src_x0 >> 1 : src_x0;
+                    const unsigned int chroma_y0 = cysub ? src_y0 >> 1 : src_y0;
                     const unsigned int cb_shift = jd->scale * 2 - chroma_shift;
+                    int sum_y = 0;
+                    int sum_cb = 0, sum_cr = 0;
+                    int yy, cb, cr;
+                    unsigned int r, g, b;
+
                     for (sy = 0; sy < factor; sy++) {
                         const unsigned int src_y = src_y0 + sy;
-                        const unsigned int y_row = (src_y >> 3) * jd->msx * 64 +
-                                                   (src_y & 7) * 8;
+                        const unsigned int y_row = (src_y >> 3) * msx64 + (src_y & 7) * 8;
                         for (sx = 0; sx < factor; sx++) {
                             const unsigned int src_x = src_x0 + sx;
                             const unsigned int y_block = (src_x >> 3) * 64;
@@ -918,34 +1003,24 @@ static MJRESULT mcu_output(MJDEC *jd, /* Pointer to the decompressor object */
                      * Avoid a target-dependent signed right-shift result. */
                     cb = div_pow2_toward_zero(sum_cb, cb_shift);
                     cr = div_pow2_toward_zero(sum_cr, cb_shift);
-                } else {
-                    const unsigned int src_x = src_x0;
-                    const unsigned int src_y = src_y0;
-                    const unsigned int y_block = (src_y >> 3) * jd->msx + (src_x >> 3);
-                    const unsigned int y_index = y_block * 64 + (src_y & 7) * 8 + (src_x & 7);
-                    const unsigned int cx = (mx == 16) ? src_x >> 1 : src_x;
-                    const unsigned int cy = (my == 16) ? src_y >> 1 : src_y;
-                    const unsigned int ci = cy * 8 + cx;
-                    yy = (int)jd->mcubuf[y_index];
-                    cb = (int)chroma[ci] - 128;
-                    cr = (int)chroma[64 + ci] - 128;
-                }
-                {
-                    unsigned int r = BYTECLIP(yy + ((int)(1.402 * CVACC) * cr) / CVACC);
-                    unsigned int g = BYTECLIP(
-                        yy - ((int)(0.344 * CVACC) * cb + (int)(0.714 * CVACC) * cr) / CVACC);
-                    unsigned int b = BYTECLIP(yy + ((int)(1.772 * CVACC) * cb) / CVACC);
+
+                    r = BYTECLIP(yy + ycc_r_cr[ycc_idx(cr + 128)]);
+                    g = BYTECLIP(yy - ycc_g_cb[ycc_idx(cb + 128)] -
+                                 ycc_g_cr[ycc_idx(cr + 128)]);
+                    b = BYTECLIP(yy + ycc_b_cb[ycc_idx(cb + 128)]);
 #if MJDEC_FORMAT == 1
-                    *out565++ = (uint16_t)(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3));
+                    *outp++ = (uint16_t)(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3));
 #else
-                    *out888++ = (uint8_t)r;
-                    *out888++ = (uint8_t)g;
-                    *out888++ = (uint8_t)b;
+                    *outp++ = (uint8_t)b;
+                    *outp++ = (uint8_t)g;
+                    *outp++ = (uint8_t)r;
 #endif
                 }
             }
         }
-        return outfunc(jd, jd->workbuf, &rect) ? MJDR_OK : MJDR_INTR;
+        /* a NULL bitmap tells the output function the pixels are already in
+         * place (direct target mode); it still votes on aborting */
+        return outfunc(jd, jd->dst != NULL ? NULL : jd->workbuf, &rect) ? MJDR_OK : MJDR_INTR;
     }
 
 }
@@ -1241,6 +1316,21 @@ typedef struct {
 } avi_audidx_t;
 
 /**
+ * @brief decoder io device shared by the RAM and streaming input paths
+ */
+typedef struct {
+    sgl_avi_t *avi;
+    const uint8_t *data; /* RAM staging buffer, NULL = streaming */
+    int32_t left;        /* bytes remaining in the staging buffer */
+    /* streaming path read-ahead: the JPEG segment parser issues 1/4-byte
+     * reads; serving them from this window keeps them off the filesystem */
+    int32_t fpos; /* current file offset of the stream */
+    int32_t cpos; /* file offset of cbuf[0] */
+    int32_t clen; /* valid bytes in cbuf */
+    uint8_t cbuf[64];
+} avi_vstream_t;
+
+/**
  * @brief avi player object
  */
 struct sgl_avi {
@@ -1270,6 +1360,7 @@ struct sgl_avi {
     int32_t vidx_step;    /* frames per index entry, 1 = dense, 0 = no index */
     int32_t vidx_total;   /* exact video entry count in idx1, including sparse tail */
     int32_t frames_total; /* frames from avih, fallback for no idx */
+    int32_t vchunk_max;   /* largest indexed video chunk, guides vbuf sizing */
 
     /* decoded pixmap */
     uint8_t *pixbuf;      /* configured RGB frame, pix_w * pix_h pixels */
@@ -1282,6 +1373,7 @@ struct sgl_avi {
     uint8_t *vbuf;     /* RAM staging buffer for one chunk */
     int32_t vbuf_size; /* staging buffer capacity */
     uint8_t *jd_pool;  /* decoder work pool */
+    avi_vstream_t vstream; /* decoder io device for both input paths */
 
     /* video cursors */
     int32_t show_frame;    /* frame in pixbuf, AVI_POS_NONE if none */
@@ -1322,14 +1414,7 @@ struct sgl_avi {
     uint32_t play_ms_accum;  /* played ms accumulated before a pause */
 };
 
-/* decoder io device shared by the RAM and streaming input paths */
-typedef struct {
-    sgl_avi_t *avi;
-    const uint8_t *data; /* RAM staging buffer, NULL = streaming */
-    int32_t left;        /* bytes remaining in the staging buffer */
-} avi_vstream_t;
-
-static avi_vstream_t g_vstream;
+/* decoder io device is per player (avi->vstream), no global state */
 static sgl_avi_audio_port_t g_audio_port;
 static uint8_t g_audio_port_ready;
 
@@ -1360,16 +1445,31 @@ static inline uint32_t avi_rd32(const uint8_t *p)
     return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
 }
 
-/* positioned read: seek then read, returns bytes read or -1 */
+/* positioned read: seek then read, returns bytes read or -1. Short
+ * reads are retried so a partial transfer is never mistaken for a
+ * complete (but corrupt) chunk; a genuine EOF still returns short */
 static int32_t avi_pread(int fd, void *buf, int32_t offset, int32_t len)
 {
+    uint8_t *p = (uint8_t *)buf;
+    int32_t done = 0;
+
     if (len <= 0) {
         return 0;
     }
     if (sgl_fs_seek(fd, offset, SGL_SEEK_SET) < 0) {
         return -1;
     }
-    return (int32_t)sgl_fs_read(fd, buf, (uint32_t)len);
+    while (done < len) {
+        int32_t got = (int32_t)sgl_fs_read(fd, p + done, (uint32_t)(len - done));
+        if (got < 0) {
+            return -1;
+        }
+        if (got == 0) {
+            break; /* end of file */
+        }
+        done += got;
+    }
+    return done;
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1503,13 +1603,13 @@ static void avi_parse_hdrl(sgl_avi_t *avi, int32_t start, int32_t end)
 static void avi_scan_idx(sgl_avi_t *avi, int32_t base)
 {
     uint8_t hdr[8];
-    uint8_t blk[512];
+    uint8_t blk[1024];
     uint32_t id, size;
     int32_t pos = avi->movi_end;
     int32_t n, i, off, remaining;
     int32_t v_count = 0, a_count = 0;
     int32_t filled = 0, aud_pos = 0;
-    int32_t aud_step = 1, aud_seen = 0;
+    int32_t aud_step = 1, aud_seen = 0, aud_cap;
     int32_t v_step = 1, v_seen = 0, v_cap;
 
     /* walk the top level chunks after movi to find idx1, skipping
@@ -1537,62 +1637,25 @@ static void avi_scan_idx(sgl_avi_t *avi, int32_t base)
 
     n = (int32_t)(size / 16);
 
-    /* pass 1: count the entries we care about */
-    off = pos + 8;
-    remaining = n;
-    while (remaining > 0) {
-        int32_t take = remaining > 32 ? 32 : remaining;
-
-        if (avi_pread(avi->fd, blk, off, take * 16) != take * 16)
-            break;
-        for (i = 0; i < take; i++) {
-            uint32_t ck = avi_rd32(blk + i * 16);
-            if (ck == avi->vflag)
-                v_count++;
-            else if (avi->aflag != 0 && ck == avi->aflag)
-                a_count++;
-        }
-        remaining -= take;
-        off += take * 16;
-    }
-    if (v_count == 0)
-        return;
-
-    /* bound the index for MCU targets: past AVI_VIDX_MAX entries the idx1
-     * is sampled evenly (vidx_step frames per entry). Sequential playback
-     * walks the movi chunks at full frame rate and does not need the index;
-     * seeking lands on the nearest sampled frame and walks the few chunks
-     * in between, so the footprint stays bounded no matter the duration */
-    v_step = (v_count + (int32_t)AVI_VIDX_MAX - 1) / (int32_t)AVI_VIDX_MAX;
-    if (v_step < 1) {
-        v_step = 1;
-    }
-    v_cap = (v_count + v_step - 1) / v_step;
+    /* allocate for the dense case up front: when the whole idx1 fits the
+     * index caps a single sequential read fills complete tables. Longer
+     * files get a second pass below that rebuilds both tables evenly
+     * sampled, so the footprint stays bounded no matter the duration */
+    v_cap = n < (int32_t)AVI_VIDX_MAX ? n : (int32_t)AVI_VIDX_MAX;
+    aud_cap = n < (int32_t)AVI_AUDIDX_MAX ? n : (int32_t)AVI_AUDIDX_MAX;
 
     avi->vidx = (avi_vidx_t *)sgl_malloc(sizeof(avi_vidx_t) * (size_t)v_cap);
     if (avi->vidx == NULL)
         return;
-
-    if (a_count > 0) {
-        /* store at most AVI_AUDIDX_MAX entries, sampled evenly over the
-         * whole stream: seeking later than the last entry then only needs
-         * a short forward walk instead of restarting at movi */
-        aud_step = (a_count + (int32_t)AVI_AUDIDX_MAX - 1) / (int32_t)AVI_AUDIDX_MAX;
-        if (aud_step < 1) {
-            aud_step = 1;
-        }
-        {
-            size_t cap = (size_t)a_count > (size_t)AVI_AUDIDX_MAX ? (size_t)AVI_AUDIDX_MAX
-                                                                  : (size_t)a_count;
-            avi->audidx = (avi_audidx_t *)sgl_malloc(sizeof(avi_audidx_t) * cap);
-        }
+    if (avi->audio) {
+        avi->audidx = (avi_audidx_t *)sgl_malloc(sizeof(avi_audidx_t) * (size_t)aud_cap);
     }
 
-    /* pass 2: fill the tables */
+    /* pass 1: fill dense tables and count the exact entry totals */
     off = pos + 8;
     remaining = n;
     while (remaining > 0) {
-        int32_t take = remaining > 32 ? 32 : remaining;
+        int32_t take = remaining > 64 ? 64 : remaining;
 
         if (avi_pread(avi->fd, blk, off, take * 16) != take * 16)
             break;
@@ -1602,31 +1665,97 @@ static void avi_scan_idx(sgl_avi_t *avi, int32_t base)
             int32_t ofs = (int32_t)avi_rd32(e + 8);
             int32_t csz = (int32_t)avi_rd32(e + 12);
 
-            if (ck == avi->vflag && v_seen < v_count) {
-                if ((v_seen % v_step) == 0 && filled < v_cap) {
+            if (ck == avi->vflag) {
+                if (filled < v_cap) {
                     avi->vidx[filled].offset = base + ofs;
                     avi->vidx[filled].size = csz;
                     filled++;
                 }
-                v_seen++;
-            } else if (avi->aflag != 0 && ck == avi->aflag) {
-                if (avi->audidx != NULL && (aud_seen % aud_step) == 0 &&
-                    avi->audidx_count < (int32_t)AVI_AUDIDX_MAX) {
-                    avi->audidx[avi->audidx_count].offset = base + ofs;
-                    avi->audidx[avi->audidx_count].cstart = aud_pos;
-                    avi->audidx_count++;
+                if (csz > avi->vchunk_max) {
+                    avi->vchunk_max = csz;
                 }
-                aud_seen++;
+                v_count++;
+            } else if (avi->aflag != 0 && ck == avi->aflag) {
+                if (avi->audidx != NULL && aud_seen < aud_cap) {
+                    avi->audidx[aud_seen].offset = base + ofs;
+                    avi->audidx[aud_seen].cstart = aud_pos;
+                    aud_seen++;
+                }
+                a_count++;
                 aud_pos += csz;
             }
         }
         remaining -= take;
         off += take * 16;
     }
+    if (v_count == 0) {
+        sgl_free(avi->vidx);
+        avi->vidx = NULL;
+        if (avi->audidx != NULL) {
+            sgl_free(avi->audidx);
+            avi->audidx = NULL;
+        }
+        return;
+    }
+
+    if (v_count > v_cap || a_count > aud_cap) {
+        /* pass 2 (long files only): rebuild both tables evenly sampled.
+         * Sequential playback walks the movi chunks at full frame rate
+         * and does not need the index; seeking lands on the nearest
+         * sampled frame and walks the few chunks in between */
+        int32_t aud_filled = 0;
+
+        v_step = (v_count + (int32_t)AVI_VIDX_MAX - 1) / (int32_t)AVI_VIDX_MAX;
+        aud_step = (a_count + (int32_t)AVI_AUDIDX_MAX - 1) / (int32_t)AVI_AUDIDX_MAX;
+        if (aud_step < 1) {
+            aud_step = 1;
+        }
+        filled = 0;
+        v_seen = 0;
+        aud_seen = 0;
+        aud_pos = 0;
+
+        off = pos + 8;
+        remaining = n;
+        while (remaining > 0) {
+            int32_t take = remaining > 64 ? 64 : remaining;
+
+            if (avi_pread(avi->fd, blk, off, take * 16) != take * 16)
+                break;
+            for (i = 0; i < take; i++) {
+                const uint8_t *e = blk + i * 16;
+                uint32_t ck = avi_rd32(e);
+                int32_t ofs = (int32_t)avi_rd32(e + 8);
+                int32_t csz = (int32_t)avi_rd32(e + 12);
+
+                if (ck == avi->vflag && v_seen < v_count) {
+                    if ((v_seen % v_step) == 0 && filled < v_cap) {
+                        avi->vidx[filled].offset = base + ofs;
+                        avi->vidx[filled].size = csz;
+                        filled++;
+                    }
+                    v_seen++;
+                } else if (avi->aflag != 0 && ck == avi->aflag) {
+                    if (avi->audidx != NULL && (aud_seen % aud_step) == 0 &&
+                        aud_filled < aud_cap) {
+                        avi->audidx[aud_filled].offset = base + ofs;
+                        avi->audidx[aud_filled].cstart = aud_pos;
+                        aud_filled++;
+                    }
+                    aud_seen++;
+                    aud_pos += csz;
+                }
+            }
+            remaining -= take;
+            off += take * 16;
+        }
+        aud_seen = aud_filled;
+    }
 
     avi->vidx_count = filled;
     avi->vidx_total = v_count;
     avi->vidx_step = (filled > 0) ? v_step : 0;
+    avi->audidx_count = aud_seen;
     avi->aud_bytes_total = aud_pos;
 }
 
@@ -1756,16 +1885,23 @@ static int avi_parse_header(sgl_avi_t *avi)
  * @brief make sure the pixmap buffer fits a w x h frame
  * @return 0 on success, -1 on allocation failure
  */
-#define AVI_OUTPUT_BPP ((MJDEC_FORMAT == 1) ? 2 : 3)
-
 static int avi_ensure_pixbuf(sgl_avi_t *avi, int32_t w, int32_t h)
 {
-    int32_t need = w * h;
+    int64_t need;
 
     if (w <= 0 || h <= 0) {
         return -1;
     }
-    if (avi->pixbuf != NULL && avi->pixbuf_size >= need) {
+    /* the pixel count rides an int64 so a corrupt SOF cannot wrap the
+     * allocation size; the budget is a hard cap because a forced
+     * decode_scale bypasses the scale picker */
+    need = (int64_t)w * h;
+    if (need * AVI_OUTPUT_BPP > (int64_t)SGL_AVI_PIXMAP_MAX) {
+        SGL_LOG_ERROR("avi: frame %dx%d over the %d byte pixmap budget", (int)w, (int)h,
+                      (int)SGL_AVI_PIXMAP_MAX);
+        return -1;
+    }
+    if (avi->pixbuf != NULL && avi->pixbuf_size >= (int32_t)need) {
         avi->pix_w = (int16_t)w;
         avi->pix_h = (int16_t)h;
         return 0;
@@ -1780,23 +1916,49 @@ static int avi_ensure_pixbuf(sgl_avi_t *avi, int32_t w, int32_t h)
         SGL_LOG_ERROR("avi: pixmap alloc failed");
         return -1;
     }
-    avi->pixbuf_size = need;
+    avi->pixbuf_size = (int32_t)need;
     avi->pix_w = (int16_t)w;
     avi->pix_h = (int16_t)h;
     return 0;
 }
 
-/*--------------------------------------------------------------------------*/
-/* Frame decoding                                                           */
-/*--------------------------------------------------------------------------*/
+/**
+ * @brief make sure the chunk staging buffer exists, sized from the
+ *        largest indexed video chunk (idx1) rounded up to 4 KiB steps.
+ *        Without an index the full SGL_AVI_VBUF_MAX budget is used;
+ *        bigger chunks always fall back to the streaming path
+ */
+static void avi_ensure_vbuf(sgl_avi_t *avi)
+{
+    int32_t need = SGL_AVI_VBUF_MAX;
+
+    if (avi->vchunk_max > 0 && avi->vchunk_max < SGL_AVI_VBUF_MAX) {
+        need = (avi->vchunk_max + 4095) & ~4095;
+    }
+    if (avi->vbuf != NULL && avi->vbuf_size == need) {
+        return;
+    }
+    if (avi->vbuf != NULL) {
+        sgl_free(avi->vbuf);
+        avi->vbuf = NULL;
+        avi->vbuf_size = 0;
+    }
+    avi->vbuf = (uint8_t *)sgl_malloc((size_t)need);
+    if (avi->vbuf != NULL) {
+        avi->vbuf_size = need;
+    }
+}
 
 /**
- * @brief output callback: copy one decoded MCU rect into the RGB565 pixmap
+ * @brief output callback: copy one decoded MCU rect into the pixmap. In
+ *        direct target mode (jd->dst set) the pixels are already in
+ *        place and bitmap is NULL, only the abort vote remains
  * @return nonzero to continue decoding; zero aborts the decode
  */
 static int avi_out_func(MJDEC *jd, void *bitmap, MJRECT *rect)
 {
-    sgl_avi_t *avi = g_vstream.avi;
+    avi_vstream_t *vs = (avi_vstream_t *)jd->device;
+    sgl_avi_t *avi = vs != NULL ? vs->avi : NULL;
     const uint8_t *src = (const uint8_t *)bitmap;
     uint8_t *dst;
     int32_t rw = (int32_t)(rect->right - rect->left + 1);
@@ -1804,6 +1966,9 @@ static int avi_out_func(MJDEC *jd, void *bitmap, MJRECT *rect)
 
     if (avi == NULL || avi->pixbuf == NULL) {
         return 0; /* abort decode on missing pixmap */
+    }
+    if (bitmap == NULL) {
+        return 1; /* direct target mode: nothing left to copy */
     }
 
     dst = avi->pixbuf + ((int32_t)rect->top * avi->pix_w + rect->left) * AVI_OUTPUT_BPP;
@@ -1842,19 +2007,64 @@ static size_t avi_vin_func(MJDEC *jd, uint8_t *buff, size_t ndata)
     return (size_t)n;
 }
 
-/* streaming input straight from the file, used for oversized chunks */
+/* streaming input straight from the file, used for oversized chunks.
+ * Small reads (the JPEG segment parser issues 1/4-byte requests) are
+ * served from a read-ahead window so they cost no filesystem call each;
+ * large reads (segment bodies, huffman refills) go straight through */
 static size_t avi_sin_func(MJDEC *jd, uint8_t *buff, size_t ndata)
 {
-    sgl_avi_t *avi = (sgl_avi_t *)jd->device;
+    avi_vstream_t *vs = (avi_vstream_t *)jd->device;
+    sgl_avi_t *avi = vs->avi;
     int32_t got;
 
     if (buff == NULL) {
-        /* forward the stream position without touching the buffer */
-        sgl_fs_seek(avi->fd, (int32_t)ndata, SGL_SEEK_CUR);
+        /* forward the stream position without touching the buffer; use an
+         * absolute target because the read-ahead window may have left the
+         * descriptor cursor ahead of the stream position */
+        if (sgl_fs_seek(avi->fd, vs->fpos + (int32_t)ndata, SGL_SEEK_SET) >= 0) {
+            vs->fpos += (int32_t)ndata;
+        }
+        vs->clen = 0;
         return ndata;
     }
+
+    if (ndata <= sizeof(vs->cbuf)) {
+        int32_t n = (int32_t)ndata;
+
+        if (vs->fpos < vs->cpos || vs->fpos + n > vs->cpos + vs->clen) {
+            /* window miss: refill it at the stream position */
+            if (sgl_fs_seek(avi->fd, vs->fpos, SGL_SEEK_SET) < 0) {
+                return 0;
+            }
+            got = (int32_t)sgl_fs_read(avi->fd, vs->cbuf, sizeof(vs->cbuf));
+            if (got <= 0) {
+                vs->clen = 0;
+                return 0;
+            }
+            vs->cpos = vs->fpos;
+            vs->clen = got;
+        }
+        if (n > vs->cpos + vs->clen - vs->fpos) {
+            n = vs->cpos + vs->clen - vs->fpos; /* short read at EOF */
+        }
+        if (n <= 0) {
+            return 0;
+        }
+        memcpy(buff, vs->cbuf + (vs->fpos - vs->cpos), (size_t)n);
+        vs->fpos += n;
+        return (size_t)n;
+    }
+
+    if (sgl_fs_seek(avi->fd, vs->fpos, SGL_SEEK_SET) < 0) {
+        return 0;
+    }
     got = (int32_t)sgl_fs_read(avi->fd, buff, (uint32_t)ndata);
-    return got > 0 ? (size_t)got : 0;
+    vs->clen = 0;
+    if (got > 0) {
+        vs->fpos += got;
+        return (size_t)got;
+    }
+    return 0;
 }
 
 /**
@@ -1881,28 +2091,34 @@ static int avi_decode_chunk(sgl_avi_t *avi, int32_t offset, int32_t size)
             return -1;
         }
     }
+    /* staging buffer, sized from the largest indexed chunk when known */
+    avi_ensure_vbuf(avi);
 
+    avi->vstream.avi = avi;
     if (avi->vbuf != NULL && size <= avi->vbuf_size) {
         /* fast path: bulk read the chunk, decode from RAM */
         read_len = avi_pread(avi->fd, avi->vbuf, offset, size);
         if (read_len <= 0) {
             return -1;
         }
-        g_vstream.avi = avi;
-        g_vstream.data = avi->vbuf;
-        g_vstream.left = read_len;
+        avi->vstream.data = avi->vbuf;
+        avi->vstream.left = read_len;
 
-        rc = mj_prepare(&jd, avi_vin_func, avi->jd_pool, SGL_AVI_JDEC_POOL_SIZE, &g_vstream);
+        rc = mj_prepare(&jd, avi_vin_func, avi->jd_pool, SGL_AVI_JDEC_POOL_SIZE,
+                        &avi->vstream);
     } else {
         /* oversized chunk: stream it straight from the file */
         if (sgl_fs_seek(avi->fd, offset, SGL_SEEK_SET) < 0) {
             return -1;
         }
-        g_vstream.avi = avi;
-        g_vstream.data = NULL;
-        g_vstream.left = 0;
+        avi->vstream.data = NULL;
+        avi->vstream.left = 0;
+        avi->vstream.fpos = offset;
+        avi->vstream.cpos = offset;
+        avi->vstream.clen = 0;
 
-        rc = mj_prepare(&jd, avi_sin_func, avi->jd_pool, SGL_AVI_JDEC_POOL_SIZE, avi);
+        rc = mj_prepare(&jd, avi_sin_func, avi->jd_pool, SGL_AVI_JDEC_POOL_SIZE,
+                        &avi->vstream);
     }
     if (rc != MJDR_OK) {
         return -1;
@@ -1924,6 +2140,11 @@ static int avi_decode_chunk(sgl_avi_t *avi, int32_t offset, int32_t size)
         }
         avi->jd_scale = scale;
     }
+
+    /* direct target: the conversion writes straight into the pixmap,
+     * skipping the workbuf -> pixmap copy of the whole frame */
+    jd.dst = avi->pixbuf;
+    jd.dst_stride = avi->pix_w;
 
     rc = mj_decomp(&jd, avi_out_func, avi->jd_scale);
     return rc == MJDR_OK ? 0 : -1;
@@ -2423,20 +2644,10 @@ static void avi_blit(sgl_avi_t *avi, sgl_surf_t *surf, sgl_area_t *clip)
             if (sx1 <= sx2) {
                 const uint8_t *src = avi->pixbuf +
                                      ((int32_t)(y - oy) * avi->pix_w + (sx1 - ox)) * AVI_OUTPUT_BPP;
-#if MJDEC_FORMAT == 1
+                /* the pixmap is stored in surface order for both depths
+                 * (RGB565 native, RGB888 as B,G,R), so blit is a memcpy */
                 memcpy(buf + (sx1 - clip->x1), src,
-                       (size_t)(sx2 - sx1 + 1) * sizeof(sgl_color_t));
-#else
-                int32_t x;
-                sgl_color_t *dst = buf + (sx1 - clip->x1);
-                for (x = sx1; x <= sx2; x++) {
-                    dst->full[0] = src[2]; /* SGL RGB888 memory order is B,G,R. */
-                    dst->full[1] = src[1];
-                    dst->full[2] = src[0];
-                    dst++;
-                    src += 3;
-                }
-#endif
+                       (size_t)(sx2 - sx1 + 1) * AVI_OUTPUT_BPP);
             }
             if (sx2 < clip->x2) {
                 sgl_color_set(buf + (sx2 - clip->x1 + 1), SGL_COLOR_BLACK,
@@ -2525,7 +2736,10 @@ static void sgl_avi_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_t *
 }
 
 /**
- * @brief close the open file and drop all parsed state
+ * @brief close the open file and drop all parsed state. The big decode
+ *        buffers (pixmap, staging, decoder pool) are released too so a
+ *        player that swaps files or sits unloaded does not keep hundreds
+ *        of KiB resident; they are reallocated lazily on the next decode
  */
 static void avi_release_file(sgl_avi_t *avi)
 {
@@ -2554,6 +2768,20 @@ static void avi_release_file(sgl_avi_t *avi)
         avi->audio_buf = NULL;
         avi->audio_buf_capacity = 0;
     }
+    if (avi->pixbuf != NULL) {
+        sgl_free(avi->pixbuf);
+        avi->pixbuf = NULL;
+        avi->pixbuf_size = 0;
+    }
+    if (avi->vbuf != NULL) {
+        sgl_free(avi->vbuf);
+        avi->vbuf = NULL;
+        avi->vbuf_size = 0;
+    }
+    if (avi->jd_pool != NULL) {
+        sgl_free(avi->jd_pool);
+        avi->jd_pool = NULL;
+    }
     avi_audio_ring_reset(avi);
     avi->vidx_count = 0;
     avi->vidx_step = 0;
@@ -2566,6 +2794,9 @@ static void avi_release_file(sgl_avi_t *avi)
     avi->movi_first = -1;
     avi->movi_end = 0;
     avi->frames_total = 0;
+    avi->vchunk_max = 0;
+    avi->pix_w = 0;
+    avi->pix_h = 0;
 }
 
 /*--------------------------------------------------------------------------*/
@@ -2709,13 +2940,8 @@ int sgl_avi_load_file(sgl_obj_t *obj, const char *path)
         }
     }
 
-    /* staging buffer for the RAM decode path */
-    if (avi->vbuf == NULL) {
-        avi->vbuf = (uint8_t *)sgl_malloc(SGL_AVI_VBUF_MAX);
-        if (avi->vbuf != NULL) {
-            avi->vbuf_size = SGL_AVI_VBUF_MAX;
-        }
-    }
+    /* staging buffer for the RAM decode path, sized from the index */
+    avi_ensure_vbuf(avi);
 
     /* saturation table for the IDCT output */
     mj_clip8_init();

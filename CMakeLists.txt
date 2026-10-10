@@ -21,17 +21,33 @@
 # SOFTWARE.
 #
 
+# SGL build script. Two usage modes:
+#   1. Standalone (CI / sdk):  cmake -B build       (this file is the top-level entry)
+#   2. Downstream project:      include(path/to/sgl/CMakeLists.txt)
+#      then link targets against sgl / sgl_object; include dirs and the generated
+#      sgl_config.h are added to the caller's directory scope automatically.
+
 cmake_minimum_required(VERSION 3.12)
-project(sgl VERSION 0.0.1 LANGUAGES C)
+
+# Only declare the project when built standalone; when included by a downstream
+# project, project() must NOT run there (it would clobber PROJECT_* variables).
+if(CMAKE_CURRENT_LIST_DIR STREQUAL CMAKE_SOURCE_DIR)
+    project(sgl VERSION 0.0.1 LANGUAGES C)
+endif()
+
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 
 include(GNUInstallDirs)
 include(CheckIncludeFile)
 
-set(SGL_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
-set(SGL_SOURCE_PATH ${PROJECT_SOURCE_DIR}/source)
+# All paths are derived from this file's location, so the script works no
+# matter how it is brought into a build (standalone or include()).
+set(SGL_ROOT_PATH ${CMAKE_CURRENT_LIST_DIR})
+set(SGL_MODULE_PATH ${SGL_ROOT_PATH}/cmake)
+set(SGL_SOURCE_PATH ${SGL_ROOT_PATH}/source)
 set(SGL_HEADER_PATH ${SGL_SOURCE_PATH}/include)
-set(SGL_GENERATED_PATH ${PROJECT_BINARY_DIR}/generated)
-set(SGL_EXPORT_PATH ${PROJECT_BINARY_DIR}/export)
+set(SGL_GENERATED_PATH ${CMAKE_BINARY_DIR}/sgl/generated)
+set(SGL_EXPORT_PATH ${CMAKE_BINARY_DIR}/sgl/export)
 
 option(SGL_COLOR16_SWAP "COLOR16_SWAP" OFF)
 option(SGL_ANIMATION "ANIMATION" ON)
@@ -74,7 +90,45 @@ set(CONFIG_SGL_QRCODE_QR_VERSION_MAX ${SGL_QRCODE_MAX_VERSION})
 set(CONFIG_SGL_QRCODE ${SGL_QRCODE})
 set(CONFIG_SGL_SOFT_TIMER ${SGL_SOFT_TIMER})
 
-include(${PROJECT_SOURCE_DIR}/build.cmake)
+file(GLOB_RECURSE SGL_HEADER
+    ${SGL_SOURCE_PATH}/*.h
+)
+
+file(GLOB_RECURSE SGL_INCLUDE_HEADER
+    ${SGL_HEADER_PATH}/*.h
+)
+
+file(GLOB_RECURSE SGL_GENERATED_HEADER
+    ${SGL_GENERATED_PATH}/*.h
+)
+
+set(SGL_INCLUDE_DIRS
+    ${SGL_GENERATED_PATH}
+    ${SGL_SOURCE_PATH}
+    ${SGL_HEADER_PATH}
+)
+
+include_directories(${SGL_INCLUDE_DIRS})
+include(${SGL_SOURCE_PATH}/build.cmake)
+
+configure_file(
+    ${SGL_MODULE_PATH}/config.h.in
+    ${SGL_GENERATED_PATH}/sgl_config.h
+)
+
+set(SGL_LIBRARY_HEADER
+    ${SGL_HEADER}
+    ${SGL_HEADER_INCLUDE}
+)
+
+set(SGL_LIBRARY_SOURCE
+    ${SGL_SOURCE}
+)
+
+set(SGL_LIBRARY
+    ${SGL_LIBRARY_HEADER}
+    ${SGL_LIBRARY_SOURCE}
+)
 
 macro(sgl_dependencies target)
     add_dependencies(

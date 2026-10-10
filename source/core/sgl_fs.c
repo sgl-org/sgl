@@ -245,11 +245,7 @@ int sgl_fs_write(int fd, const void *buffer, uint32_t count)
     }
 
     sgl_fd_ctrl_t *ctrl = &g_fd_table[table_idx];
-    return ctrl->mp->fs_type->ops->write(ctrl->mp->fs_data,
-                                          ctrl->local_fd, 
-                                          buffer, 
-                                          count
-                                        );
+    return ctrl->mp->fs_type->ops->write(ctrl->mp->fs_data, ctrl->local_fd, buffer, count);
 }
 
 /**
@@ -353,13 +349,7 @@ int sgl_fs_readdir(int dd, char *name, uint32_t name_size, uint32_t *type)
     }
 
     sgl_dd_ctrl_t *ctrl = &g_dd_table[table_idx];
-    return ctrl->mp->fs_type->ops->readdir(
-        ctrl->mp->fs_data,
-        ctrl->local_dd,
-        name,
-        name_size,
-        type
-    );
+    return ctrl->mp->fs_type->ops->readdir(ctrl->mp->fs_data, ctrl->local_dd, name, name_size, type);
 }
 
 /**
