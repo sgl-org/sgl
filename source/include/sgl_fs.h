@@ -205,6 +205,28 @@ int sgl_fs_register(sgl_fs_type_t *fs_type);
 int sgl_fs_mount(const char *mount_point, const char *fs_name, sgl_block_dev_t *dev, void *fs_config);
 
 /**
+ * @brief Count device-backed mount points (mounted with a non-NULL block
+ *        device); pseudo filesystems (dev == NULL) are skipped.
+ * @return number of device-backed mounts
+ */
+int sgl_fs_mount_count(void);
+
+/**
+ * @brief Get the index-th device-backed mount point path
+ * @param index 0 .. sgl_fs_mount_count()-1
+ * @return Mount point path (e.g. "/sd"), or NULL if out of range
+ */
+const char* sgl_fs_mount_get_path(uint32_t index);
+
+/**
+ * @brief Find a device-backed mount point by name (leading '/' optional,
+ *        so "sd" and "/sd" both match)
+ * @param name Device name / mount point
+ * @return Canonical mount point path (e.g. "/sd"), or NULL if not found
+ */
+const char* sgl_fs_mount_find(const char *name);
+
+/**
  * @brief Open a file
  * @param path Path to open
  * @param flags Open flags

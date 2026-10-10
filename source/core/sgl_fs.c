@@ -113,6 +113,60 @@ int sgl_fs_mount(const char *mount_point, const char *fs_name, sgl_block_dev_t *
 }
 
 /**
+ * @brief Count device-backed mount points (mounted with a non-NULL block
+ *        device). Pseudo filesystems mounted with dev == NULL (e.g. a host
+ *        pass-through root) are skipped, so this enumerates real disks for
+ *        UI device pickers.
+ * @return number of device-backed mounts
+ */
+int sgl_fs_mount_count(void)
+{
+    int count = 0;
+    sgl_mount_point_t *pos, *tmp;
+    sgl_list_for_each_entry_safe(pos, tmp, &g_mount_list, sgl_mount_point_t, node) {
+        if (pos->dev) count++;
+    }
+    return count;
+}
+
+/**
+ * @brief Get the index-th device-backed mount point path
+ * @param index 0 .. sgl_fs_mount_count()-1
+ * @return Mount point path (e.g. "/sd"), or NULL if out of range
+ */
+const char* sgl_fs_mount_get_path(uint32_t index)
+{
+    uint32_t i = 0;
+    sgl_mount_point_t *pos, *tmp;
+    sgl_list_for_each_entry_safe(pos, tmp, &g_mount_list, sgl_mount_point_t, node) {
+        if (pos->dev) {
+            if (i++ == index) return pos->path;
+        }
+    }
+    return NULL;
+}
+
+/**
+ * @brief Find a device-backed mount point by name
+ *        The lookup ignores a leading '/', so the bare device name ("sd")
+ *        and the full mount point ("/sd") both match the same mount.
+ * @param name Device name / mount point
+ * @return Canonical mount point path (e.g. "/sd"), or NULL if not found
+ */
+const char* sgl_fs_mount_find(const char *name)
+{
+    if (!name) return NULL;
+    const char *want = (name[0] == '/') ? name + 1 : name;
+    sgl_mount_point_t *pos, *tmp;
+    sgl_list_for_each_entry_safe(pos, tmp, &g_mount_list, sgl_mount_point_t, node) {
+        if (!pos->dev || !pos->path) continue;
+        const char *cur = (pos->path[0] == '/') ? pos->path + 1 : pos->path;
+        if (strcmp(cur, want) == 0) return pos->path;
+    }
+    return NULL;
+}
+
+/**
  * @brief Resolve a path to a mount point
  * @param path Path to resolve
  * @param rel_path Pointer to store the relative path

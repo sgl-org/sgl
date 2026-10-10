@@ -77,6 +77,7 @@
 #include "widgets/roller/sgl_roller.h"
 #include "widgets/launcher/sgl_launcher.h"
 #include "widgets/filebrowser/sgl_filebrowser.h"
+#include "widgets/filedialog/sgl_filedialog.h"
 #include "widgets/gif/sgl_gif.h"
 #include "widgets/gifdec/sgl_gifdec.h"
 #include "widgets/avi/sgl_avi.h"

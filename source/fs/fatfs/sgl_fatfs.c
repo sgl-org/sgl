@@ -267,7 +267,7 @@ static int fat_name_needs_lfn(const char *name)
         }
     }
 
-    return base_len == 0;
+    return base_len == 0 || base_len + ext_len >= SGL_FATFS_MAX_LFN;
 }
 
 /**
@@ -853,6 +853,12 @@ static int fat_find_in_dir(fat_ctx_t *ctx, uint32_t dir_cluster,
                 if (fat_read_dir_entry(ctx, dir_cluster, short_index, &e, &sec, &off) != FAT_OK) {
                     return FAT_ERR_IO;
                 }
+                /* orphan LFN chain: its short entry was deleted (0xE5) or
+                 * is end-of-dir; skip instead of resurrecting a dead name */
+                if (e.name[0] == FAT_ENTRY_FREE || e.name[0] == FAT_ENTRY_END) {
+                    i = short_index + 1;
+                    continue;
+                }
                 if (strcmp(lfn_name, name) == 0 || memcmp(e.name, target, 11) == 0) {
                     *entry = e;
                     if (out_sector) *out_sector = sec;
@@ -1111,8 +1117,20 @@ static int fat_create_entry(fat_ctx_t *ctx, uint32_t parent_dir, const char *nam
     entry.fst_clus_hi = (uint16_t)((start_cluster >> 16) & 0xFFFF);
     entry.file_size = file_size;
 
-    return fat_write_dir_entry_by_index(ctx, parent_dir, first_index + (uint32_t)lfn_slots,
-                                        &entry, out_sector, out_offset);
+    ret = fat_write_dir_entry_by_index(ctx, parent_dir, first_index + (uint32_t)lfn_slots,
+                                       &entry, out_sector, out_offset);
+    if (ret != FAT_OK) {
+        /* short-entry write failed: wipe any LFN slots already laid down
+         * so no orphan chain is left behind */
+        fat_dir_entry_t clear;
+        memset(&clear, 0, sizeof(clear));
+        clear.name[0] = FAT_ENTRY_FREE;
+        for (uint32_t k = 0; k < (uint32_t)lfn_slots; k++) {
+            (void)fat_write_dir_entry_by_index(ctx, parent_dir, first_index + k, &clear, NULL, NULL);
+        }
+        return ret;
+    }
+    return FAT_OK;
 }
 
 static int fatfs_mount(void **fs, sgl_block_dev_t *dev,
@@ -1406,19 +1424,26 @@ static int fatfs_close(void *fs, int fd)
     fat_ctx_t *ctx = (fat_ctx_t *)fs;
     if (fd < 0 || fd >= FAT_MAX_OPEN_FILES || !ctx->files[fd].used) return FAT_ERR_INVALID;
     fat_file_t *f = &ctx->files[fd];
-    if (f->dirty) {
+    uint32_t esec = f->entry_sector;
+    uint16_t eoff = f->entry_offset;
+    int dirty = f->dirty;
+    uint32_t start_cluster = f->start_cluster;
+    uint32_t file_size = f->file_size;
+    f->used = 0;
+    /* flush first, while the fd metadata is still intact: flushing after
+     * invalidating the slot loses the whole write-back cache on I/O error */
+    int rc = fat_cache_flush(ctx);
+    if (dirty) {
         fat_dir_entry_t entry;
-        if (fat_cache_read(ctx, f->entry_sector) == FAT_OK) {
-            memcpy(&entry, &ctx->sec_buf[f->entry_offset], FAT_DIR_ENTRY_SIZE);
-            entry.fst_clus_lo = (uint16_t)(f->start_cluster & 0xFFFF);
-            entry.fst_clus_hi = (uint16_t)((f->start_cluster >> 16) & 0xFFFF);
-            entry.file_size = f->file_size;
-            fat_write_dir_entry(ctx, f->entry_sector, f->entry_offset, &entry);
+        if (fat_cache_read(ctx, esec) == FAT_OK) {
+            memcpy(&entry, &ctx->sec_buf[eoff], FAT_DIR_ENTRY_SIZE);
+            entry.fst_clus_lo = (uint16_t)(start_cluster & 0xFFFF);
+            entry.fst_clus_hi = (uint16_t)((start_cluster >> 16) & 0xFFFF);
+            entry.file_size = file_size;
+            fat_write_dir_entry(ctx, esec, eoff, &entry);
         }
     }
-    f->used = 0;
-    fat_cache_flush(ctx);
-    return FAT_OK;
+    return rc;
 }
 
 static int fatfs_read(void *fs, int fd, void *buffer, uint32_t count)
@@ -1690,6 +1715,7 @@ static int fatfs_readdir(void *fs, int dd, char *name, uint32_t name_size, uint3
 {
     fat_ctx_t *ctx = (fat_ctx_t *)fs;
     if (dd < 0 || dd >= FAT_MAX_OPEN_DIRS || !ctx->dirs[dd].used) return FAT_ERR_INVALID;
+    if (!name || name_size < 2) return FAT_ERR_INVALID;
     fat_dir_t *d = &ctx->dirs[dd];
     if (d->finished) return 0;
     uint32_t dc = d->start_cluster;
@@ -1708,6 +1734,15 @@ static int fatfs_readdir(void *fs, int dd, char *name, uint32_t name_size, uint3
         if (entry.attr & FAT_ATTR_LONG_NAME) {
             uint32_t next_index = 0;
             if (fat_collect_lfn_name(ctx, is_root ? 0 : dc, d->entry_index, d->lfn_name, sizeof(d->lfn_name), &next_index) == FAT_OK) {
+                /* orphan LFN chain: short entry already deleted/end ->
+                 * do not report the dead name */
+                fat_dir_entry_t se;
+                if (fat_read_dir_entry(ctx, is_root ? 0 : dc, next_index, &se, NULL, NULL) == FAT_OK &&
+                    (se.name[0] == FAT_ENTRY_FREE || se.name[0] == FAT_ENTRY_END)) {
+                    d->entry_index = next_index + 1;
+                    d->lfn_valid = 0;
+                    continue;
+                }
                 d->lfn_valid = 1;
                 d->entry_index = next_index;
                 continue;
@@ -1718,6 +1753,12 @@ static int fatfs_readdir(void *fs, int dd, char *name, uint32_t name_size, uint3
         }
         d->entry_index++;
         if (entry.attr & FAT_ATTR_VOLUME_ID) continue;
+        /* skip "." and ".." pseudo entries of subdirectories */
+        if (entry.name[0] == '.' && (entry.name[1] == ' ' ||
+                                     (entry.name[1] == '.' && entry.name[2] == ' '))) {
+            d->lfn_valid = 0;
+            continue;
+        }
         if (name && name_size > 0) {
             if (d->lfn_valid) {
                 strncpy(name, d->lfn_name, name_size - 1);
@@ -1744,7 +1785,7 @@ static int fatfs_closedir(void *fs, int dd)
 static int fatfs_sync(void *fs)
 {
     fat_ctx_t *ctx = (fat_ctx_t *)fs;
-    fat_cache_flush(ctx);
+    int rc = fat_cache_flush(ctx);
     for (int i = 0; i < FAT_MAX_OPEN_FILES; i++) {
         fat_file_t *f = &ctx->files[i];
         if (f->used && f->dirty) {
@@ -1760,9 +1801,9 @@ static int fatfs_sync(void *fs)
         }
     }
     /* fat_write_dir_entry is write-back: flush the entries dirtied above */
-    fat_cache_flush(ctx);
+    if (fat_cache_flush(ctx) != FAT_OK) rc = FAT_ERR_IO;
     sgl_block_dev_ioctl(ctx->dev, SGL_BLK_CTRL_SYNC, NULL);
-    return FAT_OK;
+    return rc;
 }
 
 static int fatfs_format(void *fs)
@@ -1876,6 +1917,30 @@ static int fatfs_remove(void *fs, const char *path)
     if (start >= 2) fat_free_chain(ctx, start);
     entry.name[0] = FAT_ENTRY_FREE;
     fat_write_dir_entry(ctx, esec, eoff, &entry);
+    /* wipe any LFN slots that belong to this entry so no orphan chain
+     * remains (same 8.3 checksum => same name slots) */
+    if (memcmp(entry.name + 1, "\0\0\0\0\0\0\0\0\0\0", 10) != 0) {
+        uint8_t target[11];
+        memcpy(target, entry.name, 11);
+        uint8_t sum = fat_lfn_checksum(target);
+        fat_dir_entry_t e2;
+        for (uint32_t i = 0; ; i++) {
+            int r2 = fat_read_dir_entry(ctx, parent_dir, i, &e2, NULL, NULL);
+            if (r2 != FAT_OK) break;
+            if (e2.name[0] == FAT_ENTRY_END) break;
+            if (!(e2.attr & FAT_ATTR_LONG_NAME)) continue;
+            const uint8_t *raw2 = (const uint8_t *)&e2;
+            if (raw2[13] == sum) {
+                fat_dir_entry_t clear;
+                memset(&clear, 0, sizeof(clear));
+                clear.name[0] = FAT_ENTRY_FREE;
+                uint32_t s2; uint16_t o2;
+                if (fat_read_dir_entry(ctx, parent_dir, i, &e2, &s2, &o2) == FAT_OK) {
+                    fat_write_dir_entry(ctx, s2, o2, &clear);
+                }
+            }
+        }
+    }
     return FAT_OK;
 }
 
@@ -1929,7 +1994,13 @@ static int fatfs_mkdir(void *fs, const char *path)
     ret = fat_create_entry(ctx, parent_dir, fname, FAT_ATTR_DIRECTORY, nc, 0, &esec, &eoff);
     if (ret != FAT_OK) {
         SGL_LOG_ERROR(FAT_FS_NAME " mkdir: create_entry failed, ret=%d", ret);
-        fat_free_chain(ctx, nc);
+        if (ret == FAT_ERR_NO_SPACE) {
+            /* dir cluster is still marked allocated in the FAT: keep it
+             * consistent by freeing it here (create_entry has not run) */
+            fat_free_chain(ctx, nc);
+        }
+        /* otherwise create_entry may have laid down entries: the cluster
+         * stays reserved until the fsck-like scan, avoid double-free */
         return ret;
     }
     return FAT_OK;
@@ -2004,6 +2075,23 @@ static int fatfs_rename(void *fs, const char *old_path, const char *new_path)
         if (ec >= 2) fat_free_chain(ctx, ec);
         existing.name[0] = FAT_ENTRY_FREE;
         fat_write_dir_entry(ctx, ex_sec, ex_off, &existing);
+        /* also wipe any LFN slots belonging to the overwritten name */
+        uint8_t osum = fat_lfn_checksum(existing.name);
+        for (uint32_t j = 0; ; j++) {
+            fat_dir_entry_t e2;
+            if (fat_read_dir_entry(ctx, new_parent, j, &e2, NULL, NULL) != FAT_OK) break;
+            if (e2.name[0] == FAT_ENTRY_END) break;
+            if (!(e2.attr & FAT_ATTR_LONG_NAME)) continue;
+            const uint8_t *raw2 = (const uint8_t *)&e2;
+            if (raw2[13] != osum) continue;
+            fat_dir_entry_t clear;
+            memset(&clear, 0, sizeof(clear));
+            clear.name[0] = FAT_ENTRY_FREE;
+            uint32_t s2; uint16_t o2;
+            if (fat_read_dir_entry(ctx, new_parent, j, &e2, &s2, &o2) == FAT_OK) {
+                fat_write_dir_entry(ctx, s2, o2, &clear);
+            }
+        }
     }
     uint32_t start = ((uint32_t)entry.fst_clus_hi << 16) | entry.fst_clus_lo;
     uint32_t ns; uint16_t no;
@@ -2014,6 +2102,30 @@ static int fatfs_rename(void *fs, const char *old_path, const char *new_path)
     }
     entry.name[0] = FAT_ENTRY_FREE;
     fat_write_dir_entry(ctx, old_sec, old_off, &entry);
+    /* wipe the old name's LFN slots (same 8.3 checksum) so the old long
+     * name is gone too */
+    {
+        uint8_t target[11];
+        memcpy(target, entry.name, 11);
+        uint8_t sum = fat_lfn_checksum(target);
+        fat_dir_entry_t e2;
+        for (uint32_t i = 0; ; i++) {
+            int r2 = fat_read_dir_entry(ctx, old_parent, i, &e2, NULL, NULL);
+            if (r2 != FAT_OK) break;
+            if (e2.name[0] == FAT_ENTRY_END) break;
+            if (!(e2.attr & FAT_ATTR_LONG_NAME)) continue;
+            const uint8_t *raw2 = (const uint8_t *)&e2;
+            if (raw2[13] == sum) {
+                fat_dir_entry_t clear;
+                memset(&clear, 0, sizeof(clear));
+                clear.name[0] = FAT_ENTRY_FREE;
+                uint32_t s2; uint16_t o2;
+                if (fat_read_dir_entry(ctx, old_parent, i, &e2, &s2, &o2) == FAT_OK) {
+                    fat_write_dir_entry(ctx, s2, o2, &clear);
+                }
+            }
+        }
+    }
     return FAT_OK;
 }
 
@@ -2044,7 +2156,6 @@ static int fatfs_statvfs(void *fs, sgl_statvfs_t *info)
     /* FAT doesn't track inode counts */
     info->f_files = 0;
     info->f_ffree = 0;
-
     return FAT_OK;
 }
 

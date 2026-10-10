@@ -74,7 +74,7 @@
  *   sgl_obj_t *filebrowser = sgl_filebrowser_create(NULL);
  *   sgl_obj_set_pos(filebrowser, 10, 30);
  *   sgl_obj_set_size(filebrowser, 240, 240);
- *   sgl_filebrowser_set_dir(filebrowser, "/");
+ *   sgl_filebrowser_set_root(filebrowser, "/");
  *   sgl_filebrowser_set_text_font(filebrowser, &sgl_font_file);
  *   sgl_filebrowser_set_icons(filebrowser, filebrowser_icons);
  *   sgl_filebrowser_set_path_prefix(filebrowser, SGL_ICON_DISK " SD:");
@@ -157,14 +157,14 @@ typedef struct sgl_filebrowser {
  * @param parent: parent object
  * @return file browser object
  */
-sgl_obj_t*  sgl_filebrowser_create(sgl_obj_t *parent);
+sgl_obj_t* sgl_filebrowser_create(sgl_obj_t *parent);
 
 /**
  * @brief Set the file browser object path.
  * @param obj: file browser object
  * @param path: path to set
  */
-void sgl_filebrowser_set_dir(sgl_obj_t *obj, const char *path);
+void sgl_filebrowser_set_root(sgl_obj_t *obj, const char *path);
 
 /**
  * @brief Get the selected path of the file browser object.

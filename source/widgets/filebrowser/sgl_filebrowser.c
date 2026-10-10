@@ -681,18 +681,23 @@ static void sgl_filebrowser_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_e
 
         if (fb->selected != NULL &&
             strcmp(fb->selected->text, SGL_FILEBROWSER_PARENT_NAME) == 0) {
-            fb->pending_dir_index = -1;
-            char parent_path[SGL_FILEBROWSER_PATH_MAX_LEN];
-            strncpy(parent_path, fb->current_path, sizeof(parent_path) - 1);
-            parent_path[sizeof(parent_path) - 1] = '\0';
-            sgl_filebrowser_trim_trailing_slash(parent_path);
+            /* single click highlights, second click goes up to the parent */
+            if (fb->pending_dir_index == clicked_index) {
+                fb->pending_dir_index = -1;
+                char parent_path[SGL_FILEBROWSER_PATH_MAX_LEN];
+                strncpy(parent_path, fb->current_path, sizeof(parent_path) - 1);
+                parent_path[sizeof(parent_path) - 1] = '\0';
+                sgl_filebrowser_trim_trailing_slash(parent_path);
 
-            char *slash = strrchr(parent_path, '/');
-            if (slash == NULL)              strcpy(parent_path, "/");
-            else if (slash == parent_path)  parent_path[1] = '\0';
-            else                            *slash = '\0';
+                char *slash = strrchr(parent_path, '/');
+                if (slash == NULL)              strcpy(parent_path, "/");
+                else if (slash == parent_path)  parent_path[1] = '\0';
+                else                            *slash = '\0';
 
-            sgl_filebrowser_load_dir(fb, parent_path);
+                sgl_filebrowser_load_dir(fb, parent_path);
+            } else {
+                fb->pending_dir_index = clicked_index;
+            }
             sgl_obj_set_dirty(obj);
         }
         else if (fb->selected != NULL && fb->selected->type == SGL_S_IFDIR) {
@@ -799,7 +804,7 @@ sgl_obj_t* sgl_filebrowser_create(sgl_obj_t *parent)
  * @param obj: file browser object
  * @param path: path to set
  */
-void sgl_filebrowser_set_dir(sgl_obj_t *obj, const char *path)
+void sgl_filebrowser_set_root(sgl_obj_t *obj, const char *path)
 {
     sgl_filebrowser_t *fb = sgl_container_of(obj, sgl_filebrowser_t, obj);
     sgl_filebrowser_load_dir(fb, path);
