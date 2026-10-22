@@ -51,7 +51,6 @@ void sgl_roller_examples(sgl_obj_t *parent)
     sgl_obj_set_size(rl, 100, 150);
     sgl_roller_set_text_font(rl, &consolas14);
     sgl_roller_set_option_static(rl, cities);
-    sgl_roller_set_visible_rows(rl, 3);
     sgl_roller_set_selected_color(rl, sgl_rgb(46, 167, 218));
 
     /* example 2: infinite roller (continuous loop when scrolling) */
@@ -60,7 +59,6 @@ void sgl_roller_examples(sgl_obj_t *parent)
     sgl_obj_set_size(rl, 100, 150);
     sgl_roller_set_text_font(rl, &consolas14);
     sgl_roller_set_option_dynamic(rl, fruits);
-    sgl_roller_set_visible_rows(rl, 5);
     sgl_roller_set_infinite_mode(rl, true);
     sgl_roller_set_bg_color(rl, sgl_rgb(30, 40, 55));
     sgl_roller_set_text_color(rl, SGL_COLOR_YELLOW);
@@ -72,7 +70,6 @@ void sgl_roller_examples(sgl_obj_t *parent)
     sgl_obj_set_size(rl, 100, 180);
     sgl_roller_set_text_font(rl, &consolas14);
     sgl_roller_set_option_static(rl, cities);
-    sgl_roller_set_visible_rows(rl, 5);
     sgl_roller_set_radius(rl, 12);
     sgl_roller_set_border_width(rl, 2);
     sgl_roller_set_border_color(rl, SGL_COLOR_CYAN);
