@@ -53,7 +53,7 @@ void sgl_battery_examples(sgl_obj_t *parent)
     sgl_battery_show_percentage(bat, true);
     sgl_battery_set_text_color(bat, SGL_COLOR_GREEN);
     sgl_battery_set_fill_color(bat, SGL_COLOR_GREEN);
-    sgl_battery_set_border_color(bat, SGL_COLOR_WHITE);
+    sgl_battery_set_border_color(bat, SGL_COLOR_GRAY);
 
     /* example 2: vertical battery, low level (10%) — auto-red fill */
     bat = sgl_battery_create(parent);
@@ -65,6 +65,7 @@ void sgl_battery_examples(sgl_obj_t *parent)
     sgl_battery_show_percentage(bat, true);
     sgl_battery_set_font(bat, &consolas14);
     sgl_battery_set_text_color(bat, SGL_COLOR_RED);
+    sgl_battery_set_border_color(bat, SGL_COLOR_GRAY);
 
     /* example 3: horizontal battery with custom level colors */
     bat = sgl_battery_create(parent);
@@ -78,6 +79,7 @@ void sgl_battery_examples(sgl_obj_t *parent)
     sgl_battery_set_medium_color(bat, SGL_COLOR_BLUE);        /* 20-50% */
     sgl_battery_set_high_color(bat, SGL_COLOR_MAGENTA);       /* >= 50% */
     sgl_battery_set_bg_color(bat, sgl_rgb(40, 40, 50));       /* dark background */
+    sgl_battery_set_border_color(bat, SGL_COLOR_GRAY);
 
     /* example 4: horizontal battery, 75%, transparent with rounded corners */
     bat = sgl_battery_create(parent);

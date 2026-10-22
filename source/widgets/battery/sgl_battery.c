@@ -31,15 +31,19 @@
 #include <sgl_cfgfix.h>
 #include "sgl_battery.h"
 
+/* Upper bound for the segment-cell buffer (cells is clamped to this) */
+#define SGL_BATTERY_MAX_CELLS 32
+
 /**
  * @brief  get battery level color
  * @param  b: battery object pointer
  * @return color based on current level (low/medium/high)
+ * @note   thresholds follow the reference style: <=20 low, <=50 medium, else high
  */
 static sgl_color_t sgl_battery_level_color(const sgl_battery_t *b)
 {
-    if (b->level < 20)  return b->low_color;
-    if (b->level < 50)  return b->medium_color;
+    if (b->level <= 20) return b->low_color;
+    if (b->level <= 50) return b->medium_color;
     return b->high_color;
 }
 
@@ -49,174 +53,115 @@ static sgl_color_t sgl_battery_level_color(const sgl_battery_t *b)
  * @param  obj: object pointer
  * @param  evt: event pointer
  * @return none
- * @note   this function is called when the object is created or redraw
+ * @note   draws a flat, segment-cell battery: a thin rounded shell outline,
+ *         a small positive-terminal cap, evenly spaced cells (lit cells colored
+ *         by level, unlit cells faint) and an optional percentage label below.
  */
 static void sgl_battery_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_t *evt)
 {
     if (evt->type != SGL_EVENT_DRAW_MAIN) return;
 
     sgl_battery_t *b = sgl_container_of(obj, sgl_battery_t, obj);
-    const uint8_t  alpha  = b->alpha;
-    const uint8_t  border = obj->border;
-    const int16_t  r      = sgl_max(obj->radius, 1);
+    const uint8_t alpha = b->alpha;
+    const uint8_t cells = sgl_min(sgl_max(b->cells, 1), SGL_BATTERY_MAX_CELLS);
+    const bool    vert  = b->vertical;
 
-    const int16_t body_x1 = obj->coords.x1 + border;
-    const int16_t body_y1 = obj->coords.y1 + border;
-    const int16_t body_x2 = obj->coords.x2 - border;
-    const int16_t body_y2 = obj->coords.y2 - border;
-    const int16_t body_w  = body_x2 - body_x1;
-    const int16_t body_h  = body_y2 - body_y1;
-    const bool    vert    = b->vertical;
+    /* Reserve a bottom band for the percentage label so the battery sits above it */
+    const sgl_font_t *f = b->font;
+    if (f == NULL) f = sgl_get_system_font();
+    int16_t text_h = 0;
+    if (b->show_percentage && f != NULL) text_h = sgl_font_get_height(f) + 2;
 
-    /* Cap protrudes outside the body: reserve space on cap side */
-    const int16_t cap_len = vert ? sgl_max(body_h / 20, 2) : sgl_max(body_w / 20, 2);
-    const int16_t cap_thick_w = vert ? body_w / 2 : sgl_max(body_h / 3, 4);
-    const int16_t cap_thick_h = vert ? sgl_max(body_w / 3, 4) : body_h / 3;
-
-    /* body rect: shrink on cap side to make room for protruding cap */
-    sgl_area_t body;
-    if (vert) {
-        body = (sgl_area_t){ body_x1, body_y1 + cap_len, body_x2, body_y2 };
-    } else {
-        body = (sgl_area_t){ body_x1, body_y1, body_x2 - cap_len, body_y2 };
-    }
-    sgl_draw_fill_rect_border(surf, &obj->area, &body, r,
-                              b->border_color, 2, alpha);
-    sgl_draw_fill_rect(surf, &obj->area, &body, r, b->bg_color, alpha);
-
-    /* Recalculate body extents from the actual body rect */
-    const int16_t bx1 = body.x1, by1 = body.y1;
-    const int16_t bx2 = body.x2, by2 = body.y2;
+    const int16_t bx1 = obj->coords.x1;
+    const int16_t by1 = obj->coords.y1;
+    const int16_t bx2 = obj->coords.x2;
+    const int16_t by2 = obj->coords.y2 - text_h;
     const int16_t bw  = bx2 - bx1;
     const int16_t bh  = by2 - by1;
+    if (bw <= 0 || bh <= 0) return;
 
-    /* 3-D body edge: highlight and shadow adapt to orientation */
+    /* Cap protrudes on the run-axis end (right for horizontal, top for vertical) */
+    const int16_t cap_len   = vert ? sgl_max(bh / 28, 2) : sgl_max(bw / 28, 2);
+    const int16_t cap_cross = vert ? sgl_max(bw / 3, 4)  : sgl_max(bh / 3, 4);
+
+    /* Shell rect (stroke only, transparent interior), leaving room for the cap */
+    sgl_area_t shell;
+    if (vert) shell = (sgl_area_t){ bx1, by1 + cap_len, bx2, by2 };
+    else      shell = (sgl_area_t){ bx1, by1, bx2 - cap_len, by2 };
+
+    const int16_t sw = shell.x2 - shell.x1;
+    const int16_t sh = shell.y2 - shell.y1;
+    const int16_t shell_r = sgl_max(sgl_min(sw, sh) / 6, 2);
+
+    /* 1) rounded shell outline only (no interior fill) */
+    sgl_draw_fill_rect_border(surf, &obj->area, &shell, shell_r,
+                              b->border_color, 2, alpha);
+
+    /* 2) positive terminal cap: a solid rectangle (no border) in the shell's
+        border color, flush against the body so they read as one connected shape */
     if (vert) {
-        /* vertical: highlight left, shadow right */
-        sgl_area_t hl = { bx1, by1, bx1 + sgl_max(bw / 8, 1), by2 };
-        sgl_draw_fill_rect(surf, &obj->area, &hl, r,
-                           SGL_COLOR_WHITE, (uint8_t)(alpha * 80 / 255));
-        sgl_area_t sh = { bx2 - sgl_max(bw / 10, 1), by1, bx2, by2 };
-        sgl_draw_fill_rect(surf, &obj->area, &sh, 0,
-                           SGL_COLOR_BLACK, (uint8_t)(alpha * 90 / 255));
+        const int16_t cx = shell.x1 + (sw - cap_cross) / 2;
+        sgl_area_t cap = { cx, by1, cx + cap_cross, shell.y1 };
+        sgl_draw_fill_rich_rect(surf, &obj->area, &cap, 2, 2, 0, 0, b->border_color, alpha);
     } else {
-        /* horizontal: highlight top, shadow bottom */
-        sgl_area_t hl = { bx1, by1, bx2, by1 + sgl_max(bh / 8, 1) };
-        sgl_draw_fill_rect(surf, &obj->area, &hl, r,
-                           SGL_COLOR_WHITE, (uint8_t)(alpha * 80 / 255));
-        sgl_area_t sh = { bx1, by2 - sgl_max(bh / 10, 1), bx2, by2 };
-        sgl_draw_fill_rect(surf, &obj->area, &sh, 0,
-                           SGL_COLOR_BLACK, (uint8_t)(alpha * 90 / 255));
+        const int16_t cy = shell.y1 + (sh - cap_cross) / 2;
+        sgl_area_t cap = { shell.x2, cy, bx2, cy + cap_cross };
+        sgl_draw_fill_rich_rect(surf, &obj->area, &cap, 0, 2, 0, 2, b->border_color, alpha);
     }
 
-    /* fill area: inset by pad */
-    const int16_t pad = 3;
-    int16_t fill_x1 = bx1 + pad;
-    int16_t fill_y1 = by1 + pad;
-    int16_t fill_x2 = bx2 - pad;
-    int16_t fill_y2 = by2 - pad;
-    const int16_t fw = fill_x2 - fill_x1;
-    const int16_t fh = fill_y2 - fill_y1;
+    /* 3) segment cells inside the shell (inset by padding) */
+    const int16_t pad  = sgl_max(sgl_min(sw, sh) / 8, 2);
+    const int16_t ix1  = shell.x1 + pad, iy1 = shell.y1 + pad;
+    const int16_t ix2  = shell.x2 - pad, iy2 = shell.y2 - pad;
+    const int16_t inner_run   = vert ? (iy2 - iy1) : (ix2 - ix1);
+    const int16_t inner_cross = vert ? (ix2 - ix1) : (iy2 - iy1);
 
-    if (fw > 0 && fh > 0) {
-        /* Dark inner base for depth */
-        sgl_area_t fill_bg = { fill_x1, fill_y1, fill_x2, fill_y2 };
-        sgl_draw_fill_rect(surf, &obj->area, &fill_bg, r - 1,
-                           sgl_color_mixer(b->bg_color, SGL_COLOR_BLACK, 40), alpha);
+    if (inner_run > 0 && inner_cross > 0) {
+        /* Pick a gap, then split the run length evenly so every cell keeps an
+         * (almost) identical size: sgl_split_len_avg distributes the remainder
+         * via Bresenham so adjacent cells differ by at most 1px and the cells
+         * exactly fill inner_run. */
+        const int16_t gap = sgl_max(inner_run / (cells * 6), 1);
+        int16_t sizes[SGL_BATTERY_MAX_CELLS];
+        sgl_split_len_avg(inner_run, cells, gap, sizes);
 
-        /* Colored fill */
-        sgl_color_t fc = b->fill_color.full ? b->fill_color
-                                             : sgl_battery_level_color(b);
-        if (vert) {
-            /* vertical: fill grows upward from bottom */
-            const int16_t level_h = (int16_t)((int32_t)fh * sgl_min(b->level, 100) / 100);
-            if (level_h > 0) {
-                sgl_area_t fill = { fill_x1, fill_y2 - level_h, fill_x2, fill_y2 };
-                sgl_draw_fill_rect(surf, &obj->area, &fill, r - 1, fc, alpha);
-                /* 3-D highlight: left strip */
-                sgl_area_t hl = { fill_x1, fill_y2 - level_h,
-                                  fill_x1 + sgl_max(fw / 5, 2), fill_y2 };
-                sgl_draw_fill_rect(surf, &obj->area, &hl, r - 1,
-                                   SGL_COLOR_WHITE, (uint8_t)(alpha * 90 / 255));
-                /* 3-D shadow: right strip */
-                sgl_area_t sh = { fill_x2 - sgl_max(fw / 6, 1), fill_y2 - level_h,
-                                  fill_x2, fill_y2 };
-                sgl_draw_fill_rect(surf, &obj->area, &sh, 0,
-                                   SGL_COLOR_BLACK, (uint8_t)(alpha * 100 / 255));
+        const int16_t r = sgl_max(sgl_min(sizes[0], inner_cross) / 5, 1);
+
+        const uint8_t lit = (uint8_t)(((uint16_t)b->level * cells + 50) / 100);
+        const sgl_color_t fc = b->fill_color.full ? b->fill_color
+                                                   : sgl_battery_level_color(b);
+        const uint8_t unlit_alpha = (uint8_t)(alpha * 3 / 10);
+
+        int16_t pos = 0;
+        for (uint8_t i = 0; i < cells; i++) {
+            sgl_area_t c;
+            if (vert) {
+                /* fill grows upward from the bottom */
+                const int16_t y2i = iy2 - pos;
+                c = (sgl_area_t){ ix1, y2i - sizes[i], ix2, y2i };
+            } else {
+                /* fill grows rightward from the left */
+                const int16_t x1i = ix1 + pos;
+                c = (sgl_area_t){ x1i, iy1, x1i + sizes[i], iy2 };
             }
-        } else {
-            /* horizontal: fill grows rightward from left */
-            const int16_t level_w = (int16_t)((int32_t)fw * sgl_min(b->level, 100) / 100);
-            if (level_w > 0) {
-                sgl_area_t fill = { fill_x1, fill_y1, fill_x1 + level_w, fill_y2 };
-                sgl_draw_fill_rect(surf, &obj->area, &fill, r - 1, fc, alpha);
-                /* 3-D highlight: top strip */
-                sgl_area_t hl = { fill_x1, fill_y1, fill_x1 + level_w,
-                                  fill_y1 + sgl_max(fh / 5, 2) };
-                sgl_draw_fill_rect(surf, &obj->area, &hl, r - 1,
-                                   SGL_COLOR_WHITE, (uint8_t)(alpha * 90 / 255));
-                /* 3-D shadow: bottom strip */
-                sgl_area_t sh = { fill_x1, fill_y2 - sgl_max(fh / 6, 1),
-                                  fill_x1 + level_w, fill_y2 };
-                sgl_draw_fill_rect(surf, &obj->area, &sh, 0,
-                                   SGL_COLOR_BLACK, (uint8_t)(alpha * 100 / 255));
-            }
+            pos += sizes[i] + gap;
+            if (c.x1 >= c.x2 || c.y1 >= c.y2) continue;
+            if (i < lit)
+                sgl_draw_fill_rect(surf, &obj->area, &c, r, fc, alpha);
+            else
+                sgl_draw_fill_rect(surf, &obj->area, &c, r, SGL_COLOR_WHITE, unlit_alpha);
         }
     }
 
-    /* Cap (positive terminal) — protrudes outside the body */
-    if (vert) {
-        /* vertical: cap sticks up above the body top */
-        const int16_t cx = bx1 + (bw - cap_thick_w) / 2;
-        sgl_area_t cap_bg = { cx - 1, by1 - cap_len, cx + cap_thick_w + 1, by1 };
-        sgl_draw_fill_rect(surf, &obj->area, &cap_bg, 0, b->bg_color, alpha);
-        sgl_area_t cap = { cx, by1 - cap_len, cx + cap_thick_w, by1 };
-        sgl_draw_fill_rect(surf, &obj->area, &cap, 2,
-                           sgl_color_mixer(b->bg_color, b->border_color, 180), alpha);
-        /* 3-D cap: left highlight */
-        sgl_area_t cap_hl = { cx, by1 - cap_len,
-                              cx + sgl_max(cap_thick_w / 4, 1), by1 };
-        sgl_draw_fill_rect(surf, &obj->area, &cap_hl, 2,
-                           SGL_COLOR_WHITE, (uint8_t)(alpha * 70 / 255));
-        /* 3-D cap: right shadow */
-        sgl_area_t cap_sh = { cx + cap_thick_w - sgl_max(cap_thick_w / 5, 1), by1 - cap_len,
-                              cx + cap_thick_w, by1 };
-        sgl_draw_fill_rect(surf, &obj->area, &cap_sh, 0,
-                           SGL_COLOR_BLACK, (uint8_t)(alpha * 60 / 255));
-    } else {
-        /* horizontal: cap sticks out to the right of the body */
-        const int16_t cy = by1 + (bh - cap_thick_h) / 2;
-        sgl_area_t cap_bg = { bx2, cy - 1, bx2 + cap_len, cy + cap_thick_h + 1 };
-        sgl_draw_fill_rect(surf, &obj->area, &cap_bg, 0, b->bg_color, alpha);
-        sgl_area_t cap = { bx2, cy, bx2 + cap_len, cy + cap_thick_h };
-        sgl_draw_fill_rect(surf, &obj->area, &cap, 2,
-                           sgl_color_mixer(b->bg_color, b->border_color, 180), alpha);
-        /* 3-D cap: top highlight */
-        sgl_area_t cap_hl = { bx2, cy, bx2 + cap_len,
-                              cy + sgl_max(cap_thick_h / 4, 1) };
-        sgl_draw_fill_rect(surf, &obj->area, &cap_hl, 2,
-                           SGL_COLOR_WHITE, (uint8_t)(alpha * 70 / 255));
-        /* 3-D cap: bottom shadow */
-        sgl_area_t cap_sh = { bx2, cy + cap_thick_h - sgl_max(cap_thick_h / 5, 1),
-                              bx2 + cap_len, cy + cap_thick_h };
-        sgl_draw_fill_rect(surf, &obj->area, &cap_sh, 0,
-                           SGL_COLOR_BLACK, (uint8_t)(alpha * 60 / 255));
-    }
-
-    /* Percentage text */
-    if (b->show_percentage) {
+    /* 4) percentage label centered below the battery */
+    if (b->show_percentage && f != NULL) {
         char txt[8];
         sgl_sprintf(txt, "%d%%", b->level);
-        const sgl_font_t *f = b->font;
-        if (f == NULL) f = sgl_get_system_font();
-        if (f != NULL) {
-            int16_t tw = sgl_font_get_string_width(txt, f);
-            int16_t th = sgl_font_get_height(f);
-            int16_t tx = bx1 + (bw - tw) / 2;
-            int16_t ty = by1 + (bh - th) / 2;
-            sgl_area_t ta = { bx1, by1, bx2, by2 };
-            sgl_draw_string(surf, &ta, tx, ty, txt, b->text_color, SGL_ALPHA_MAX, f);
-        }
+        int16_t tw = sgl_font_get_string_width(txt, f);
+        int16_t tx = bx1 + (bw - tw) / 2;
+        int16_t ty = by2 + 2;
+        sgl_area_t ta = { bx1, by2, bx2, obj->coords.y2 };
+        sgl_draw_string(surf, &ta, tx, ty, txt, b->text_color, SGL_ALPHA_MAX, f);
     }
 }
 
@@ -240,12 +185,13 @@ sgl_obj_t* sgl_battery_create(sgl_obj_t *parent)
     b->obj.radius       = 4;
 
     b->level          = 100;
-    b->alpha          = 140;
-    b->border_color   = sgl_rgb(180, 180, 180);
-    b->fill_color     = (sgl_color_t){0};  /* auto */
-    b->low_color      = sgl_rgb(231, 76, 60);
-    b->medium_color   = sgl_rgb(243, 156, 18);
-    b->high_color     = sgl_rgb(46, 204, 113);
+    b->alpha          = 200;
+    b->cells          = 10;
+    b->border_color   = SGL_COLOR_GRAY;
+    b->fill_color     = (sgl_color_t){0};           /* auto by level */
+    b->low_color      = sgl_rgb(239, 68, 68);      /* #ef4444 */
+    b->medium_color   = sgl_rgb(245, 158, 11);     /* #f59e0b */
+    b->high_color     = sgl_rgb(34, 197, 94);      /* #22c55e */
     b->bg_color       = sgl_rgb(30, 30, 30);
     b->charging       = 0;
     b->charging_color = sgl_rgb(241, 196, 15);
@@ -435,5 +381,18 @@ void sgl_battery_set_vertical(sgl_obj_t *obj, bool vertical)
 {
     sgl_battery_t *b = sgl_container_of(obj, sgl_battery_t, obj);
     b->vertical = vertical;
+    sgl_obj_set_dirty(obj);
+}
+
+/**
+ * @brief set the number of segment cells
+ * @param  obj: battery object pointer
+ * @param  cells: number of cells (>= 1)
+ * @return none
+ */
+void sgl_battery_set_cells(sgl_obj_t *obj, uint8_t cells)
+{
+    sgl_battery_t *b = sgl_container_of(obj, sgl_battery_t, obj);
+    b->cells = cells < 1 ? 1 : cells;
     sgl_obj_set_dirty(obj);
 }

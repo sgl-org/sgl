@@ -51,6 +51,7 @@ extern "C" {
  * @text_color:   percentage text color
  * @level:        battery level (0-100)
  * @alpha:        body transparency (0=transparent, 255=opaque)
+ * @cells:        number of segment cells used to render the level
  */
 typedef struct sgl_battery {
     sgl_obj_t              obj;
@@ -65,6 +66,7 @@ typedef struct sgl_battery {
     sgl_color_t            text_color;
     uint8_t                level;
     uint8_t                alpha;
+    uint8_t                cells;
     uint8_t                charging        : 1;
     uint8_t                show_percentage : 1;
     uint8_t                vertical        : 1;
@@ -189,6 +191,14 @@ void sgl_battery_set_alpha(sgl_obj_t* obj, uint8_t alpha);
  * @return none
  */
 void sgl_battery_set_vertical(sgl_obj_t* obj, bool vertical);
+
+/**
+ * @brief set the number of segment cells
+ * @param  obj: battery object pointer
+ * @param  cells: number of cells (>= 1)
+ * @return none
+ */
+void sgl_battery_set_cells(sgl_obj_t* obj, uint8_t cells);
 
 #ifdef __cplusplus
 }
