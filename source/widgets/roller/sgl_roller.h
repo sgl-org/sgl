@@ -42,21 +42,20 @@ extern "C" {
  * @desc: vertical scroll selector with \n-separated options
  */
 typedef struct sgl_roller {
-    sgl_obj_t       obj;
+    sgl_obj_t         obj;
     const sgl_font_t *font;
-    char           *opt_text;          /**< \n-separated option string */
-    uint16_t        text_offset;       /**< byte offset of selected item */
-    sgl_color_t     bg_color;
-    sgl_color_t     text_color;
-    sgl_color_t     border_color;
-    sgl_color_t     selected_color;
-    int16_t         item_selected;     /**< index of selected item */
-    uint16_t        item_num;          /**< total number of options */
-    sgl_scroll_t    sc;                /**< shared scroll physics state (sgl_misc) */
-    uint8_t         visible_rows;      /**< number of visible rows (odd recommended) */
-    uint8_t         alpha;
-    uint8_t         dynamic_text;      /**< 1 = opt_text was malloc'd */
-    uint8_t         infinite;          /**< 1 = infinite roller, 0 = bounded roller */
+    char             *opt_text;          /**< \n-separated option string */
+    sgl_scroll_t      sc;                /**< shared scroll physics state (sgl_misc) */
+    sgl_color_t       bg_color;
+    sgl_color_t       text_color;
+    sgl_color_t       border_color;
+    sgl_color_t       selected_color;
+    uint16_t          text_offset;       /**< byte offset of selected item */
+    uint16_t          item_num;          /**< total number of options */
+    int16_t           item_selected;     /**< index of selected item, -1 = none */
+    uint8_t           alpha;
+    uint8_t           dynamic_text : 1;  /**< 1 = opt_text was malloc'd */
+    uint8_t           infinite     : 1;  /**< 1 = infinite roller, 0 = bounded roller */
 } sgl_roller_t;
 
 /**

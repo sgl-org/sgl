@@ -50,8 +50,7 @@ static int roller_wrap_index(int idx, int item_num)
 static int roller_text_offset_for_index(const sgl_roller_t *roller, int idx)
 {
     if (!roller->opt_text || roller->item_num == 0) return 0;
-    return sgl_separated_option_get_offset(roller->opt_text,
-                                        (uint16_t)roller_wrap_index(idx, roller->item_num));
+    return sgl_separated_option_get_offset(roller->opt_text, (uint16_t)roller_wrap_index(idx, roller->item_num));
 }
 
 /** Free dynamic text buffer if owned */
@@ -175,7 +174,6 @@ static void sgl_roller_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
         if (roller->infinite) {
             int idx_base = 0;
             int16_t item_draw_y = (int16_t)(band_y1 - roller->sc.offset);
-            
 
             if (item_draw_y > draw_y1) {
                 int delta = (item_draw_y - draw_y1 + item_h - 1) / item_h;
@@ -241,8 +239,7 @@ static void sgl_roller_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
     case SGL_EVENT_MOVE_DOWN:
         if (sgl_scroll_stay(&roller->sc, evt->pos.y, roller_range(roller, item_h))) {
             if (roller->infinite && roller->item_num > 0) {
-                /* keep the offset inside one period so endless rotation
-                 * never runs into the soft limits */
+                /* keep the offset inside one period so endless rotation never runs into the soft limits */
                 int32_t period = (int32_t)roller->item_num * item_h;
                 roller->sc.offset %= period;
                 if (roller->sc.offset < 0)
@@ -341,16 +338,12 @@ sgl_obj_t* sgl_roller_create(sgl_obj_t* parent)
     roller->selected_color = sgl_color_mixer(SGL_THEME_COLOR, SGL_THEME_BG_COLOR, 128);
     roller->font = sgl_get_system_font();
     roller->alpha = SGL_THEME_ALPHA;
-    roller->visible_rows = 3;
     roller->item_selected = -1;
     roller->opt_text = NULL;
     roller->dynamic_text = 0;
     roller->infinite = 0;
     sgl_scroll_reset(&roller->sc);
 
-    /* Set default size based on font */
-    const int item_h = roller_item_height(roller);
-    sgl_obj_set_size(obj, 100, (int16_t)(roller->visible_rows * item_h));
     return obj;
 }
 
@@ -460,24 +453,6 @@ bool sgl_roller_get_selected_text(sgl_obj_t *obj, char *buf, int buf_size)
 }
 
 /**
- * @brief set roller visible rows
- * @param obj roller object
- * @param rows number of visible rows
- * @return none
- */
-void sgl_roller_set_visible_rows(sgl_obj_t *obj, uint8_t rows)
-{
-    sgl_roller_t *roller = sgl_container_of(obj, sgl_roller_t, obj);
-    if (rows < 1) rows = 1;
-    if (roller->visible_rows == rows) return;
-    roller->visible_rows = rows;
-    sgl_scroll_anim_stop(&roller->sc);
-    roller->sc.offset = (roller->item_selected > 0)
-                        ? (int32_t)roller->item_selected * roller_item_height(roller) : 0;
-    sgl_obj_set_dirty(obj);
-}
-
-/**
  * @brief set roller text color
  * @param obj roller object
  * @param color text color
@@ -545,8 +520,7 @@ void sgl_roller_set_text_font(sgl_obj_t *obj, const sgl_font_t *font)
     if (roller->font == font) return;
     roller->font = font;
     sgl_scroll_anim_stop(&roller->sc);
-    roller->sc.offset = (roller->item_selected > 0)
-                        ? (int32_t)roller->item_selected * roller_item_height(roller) : 0;
+    roller->sc.offset = (roller->item_selected > 0) ? (int32_t)roller->item_selected * roller_item_height(roller) : 0;
     sgl_obj_set_dirty(obj);
 }
 
