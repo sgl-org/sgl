@@ -146,6 +146,10 @@ extern "C" {
 #   endif
 #endif
 
+#ifndef CONFIG_SGL_ANIM_TRANSITION
+#define CONFIG_SGL_ANIM_TRANSITION                                 (0)  /* Page transition effect */
+#endif
+
 #ifndef CONFIG_SGL_FONT_COMPRESSED
 #define CONFIG_SGL_FONT_COMPRESSED                                 (0)  /* Enable font compression */
 #endif

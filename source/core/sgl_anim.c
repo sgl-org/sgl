@@ -26,6 +26,7 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
+#include <string.h>
 
 /* animation context */
 static SGL_LIST_HEAD(anim_head);
@@ -908,3 +909,185 @@ void sgl_anim_setup_obj_action_loop(struct sgl_obj *obj, int16_t start, int16_t 
     sgl_anim_set_finish_cb(anim, finish_cb);
     sgl_anim_start(anim, SGL_ANIM_REPEAT_LOOP);
 }
+
+#if (CONFIG_SGL_ANIM_TRANSITION)
+/* one-row scratch, reused across bands; grows to the panel width on demand */
+static sgl_color_t *s_trans_row;
+static uint16_t     s_trans_row_w;
+
+static sgl_color_t *trans_row_scratch(uint16_t w)
+{
+    if (s_trans_row == NULL || s_trans_row_w < w) {
+        if (s_trans_row != NULL) {
+            sgl_free(s_trans_row);
+        }
+        s_trans_row = (sgl_color_t *)sgl_malloc((size_t)w * sizeof(sgl_color_t));
+        s_trans_row_w = (s_trans_row != NULL) ? w : 0;
+    }
+    return s_trans_row;
+}
+
+uint8_t sgl_anim_trans_reverse(uint8_t type)
+{
+    static const int8_t rev[SGL_ANIM_TRANS_COUNT] = {
+        SGL_ANIM_TRANS_SLIDE_R, SGL_ANIM_TRANS_SLIDE_L,
+        SGL_ANIM_TRANS_SLIDE_D, SGL_ANIM_TRANS_SLIDE_U,
+        SGL_ANIM_TRANS_COVER_D, SGL_ANIM_TRANS_COVER_U,
+        SGL_ANIM_TRANS_FADE,
+        SGL_ANIM_TRANS_GENIE_IN, SGL_ANIM_TRANS_GENIE_OUT,
+        SGL_ANIM_TRANS_S_IN, SGL_ANIM_TRANS_S_OUT,
+    };
+    if ((int8_t)type == SGL_ANIM_TRANS_NONE || type >= SGL_ANIM_TRANS_COUNT) {
+        return type;
+    }
+    return (uint8_t)rev[type];
+}
+
+/*
+ * Band-local genie / S funnel toward the bottom dock.  dst is written in
+ * place; base holds the static (destination) page for these rows and warp
+ * holds the page being sucked into / poured out of the dock.  As q grows the
+ * outgoing page is absorbed from the top (far) edge downward, and every
+ * surviving row is resampled into a span that stays full width at the
+ * receding top edge and funnels narrower down to the dock -- the classic
+ * genie silhouette.  All reads stay inside the current band, so a single
+ * band-sized scratch is enough (no cross-band fetch).
+ */
+static void trans_warp_rows(sgl_color_t *dst, const sgl_color_t *base,
+                            const sgl_color_t *warp, int y1, int bw, int bh,
+                            int H, int q, int is_s)
+{
+    sgl_color_t *rs = trans_row_scratch((uint16_t)bw);
+    const int half = bw / 2;
+    const int span = (256 - q > 0) ? (256 - q) : 1;   /* rows not yet absorbed, Q8 */
+    if (rs == NULL) {
+        return;
+    }
+    for (int r = 0; r < bh; r++) {
+        const sgl_color_t *brow = base + (size_t)r * bw;
+        const sgl_color_t *wrow = warp + (size_t)r * bw;
+        sgl_color_t *drow = dst + (size_t)r * bw;
+        int vpos = (H > 1) ? ((y1 + r) * 256 / (H - 1)) : 256;   /* 0 top .. 256 dock */
+
+        if (vpos < q) {                     /* top rows absorbed first: keep base */
+            memcpy(drow, brow, (size_t)bw * sizeof(sgl_color_t));
+            continue;
+        }
+        /* depth toward the dock: 0 at the receding top edge .. 256 at the dock */
+        int h = (int)((long)(vpos - q) * 256 / span);
+        if (h > 256) {
+            h = 256;
+        }
+        int shrink = (int)(((long)q * h * (512 - h)) >> 16);   /* concave: 0 at edge .. q at dock */
+        int hwf = 256 - shrink;                         /* width factor Q8, > 0 */
+        int halfW = (hwf > 0) ? (int)((long)half * hwf >> 8) : 0;
+        int cxi = half;
+        if (is_s) {
+            cxi += (int)(((long)(h - 128) * q * half) >> 16);   /* lateral bow toward the dock */
+        }
+        for (int x = 0; x < bw; x++) {
+            int dx = x - cxi;
+            if (hwf > 0 && dx >= -halfW && dx <= halfW) {
+                int xs = cxi + (int)(((long)dx * 256) / hwf);
+                if (xs < 0) xs = 0;
+                else if (xs >= bw) xs = bw - 1;
+                rs[x] = wrow[xs];
+            } else {
+                rs[x] = brow[x];
+            }
+        }
+        memcpy(drow, rs, (size_t)bw * sizeof(sgl_color_t));
+    }
+}
+
+void sgl_anim_tramsition(struct sgl_surf *surf, uint8_t type)
+{
+    if (sgl_system.trans_head == NULL) {
+        return;
+    }
+
+    sgl_surf_t *s = (sgl_surf_t *)surf;
+    const int bw = s->x2 - s->x1 + 1;
+    const int bh = s->y2 - s->y1 + 1;
+    if (bw <= 0 || bh <= 0) {
+        return;
+    }
+
+    const int H = sgl_system.fbdev.fbinfo.yres;
+    sgl_color_t *newp = s->buffer;              /* base page drawn by caller = destination page */
+    sgl_color_t *oldp = sgl_system.trans_buf;   /* outgoing page rendered into the scratch band  */
+    int prog = sgl_system.trans_prog;           /* 0..256 */
+    if (prog > 256) {
+        prog = 256;
+    }
+    const size_t total = (size_t)bw * bh;
+
+    switch (type) {
+    case SGL_ANIM_TRANS_FADE: {
+        uint8_t a = (uint8_t)(prog > 255 ? 255 : prog);
+        for (size_t i = 0; i < total; i++) {
+            newp[i] = sgl_color_mixer(newp[i], oldp[i], a);
+        }
+        break;
+    }
+    case SGL_ANIM_TRANS_SLIDE_L:
+    case SGL_ANIM_TRANS_SLIDE_R: {
+        sgl_color_t *rs = trans_row_scratch((uint16_t)bw);
+        if (rs == NULL) {
+            break;
+        }
+        int shift = (int)((long)prog * (bw - 1) / 256);
+        for (int r = 0; r < bh; r++) {
+            sgl_color_t *d = newp + (size_t)r * bw;
+            sgl_color_t *o = oldp + (size_t)r * bw;
+            if (type == SGL_ANIM_TRANS_SLIDE_L) {
+                for (int x = 0; x < bw; x++) {
+                    int v = x + shift;
+                    rs[x] = (v < bw) ? o[v] : d[v - bw];
+                }
+            } else {
+                for (int x = 0; x < bw; x++) {
+                    rs[x] = (x >= shift) ? o[x - shift] : d[bw - shift + x];
+                }
+            }
+            memcpy(d, rs, (size_t)bw * sizeof(sgl_color_t));
+        }
+        break;
+    }
+    case SGL_ANIM_TRANS_SLIDE_U:
+    case SGL_ANIM_TRANS_SLIDE_D:
+    case SGL_ANIM_TRANS_COVER_U:
+    case SGL_ANIM_TRANS_COVER_D: {
+        /* vertical reveal seam (band-local): rows split by a moving edge, the
+         * destination page wipes in over the static one. A fully translated
+         * vertical push needs neighbouring bands, out of scope for one band. */
+        int shift = (int)((long)prog * (H - 1) / 256);
+        int from_bottom = (type == SGL_ANIM_TRANS_SLIDE_U || type == SGL_ANIM_TRANS_COVER_U);
+        for (int r = 0; r < bh; r++) {
+            int y = s->y1 + r;
+            int shown = from_bottom ? (y >= H - 1 - shift) : (y <= shift);
+            if (!shown) {
+                sgl_color_t *d = newp + (size_t)r * bw;
+                const sgl_color_t *o = oldp + (size_t)r * bw;
+                memcpy(d, o, (size_t)bw * sizeof(sgl_color_t));
+            }
+        }
+        break;
+    }
+    case SGL_ANIM_TRANS_GENIE_OUT:
+    case SGL_ANIM_TRANS_S_OUT:
+        /* destination = new (base), outgoing = old (warped away) */
+        trans_warp_rows(newp, newp, oldp, s->y1, bw, bh, H, prog,
+                        type == SGL_ANIM_TRANS_S_OUT);
+        break;
+    case SGL_ANIM_TRANS_GENIE_IN:
+    case SGL_ANIM_TRANS_S_IN:
+        /* destination = new (warped in), base = old */
+        trans_warp_rows(newp, oldp, newp, s->y1, bw, bh, H, 256 - prog,
+                        type == SGL_ANIM_TRANS_S_IN);
+        break;
+    default:
+        break;
+    }
+}
+#endif

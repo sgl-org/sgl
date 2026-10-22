@@ -569,6 +569,14 @@ typedef struct sgl_system {
 #if (CONFIG_SGL_DEBUG)
     void               (*logdev)(const char *str);
 #endif
+#if (CONFIG_SGL_ANIM_TRANSITION)
+    sgl_color_t        *trans_buf;      /* band-sized scratch holding the outgoing page  */
+    sgl_obj_t          *trans_head;     /* outgoing page, NULL when no transition running */
+    uint8_t             trans_type;     /* active SGL_ANIM_TRANS_* effect                 */
+    uint16_t            trans_prog;     /* eased progress, Q8 0..256 (0=from,256=to)      */
+    uint32_t            trans_start;    /* start tick (ms)                                 */
+    uint32_t            trans_dur;      /* duration (ms)                                   */
+#endif
 } sgl_system_t;
 
 /**
@@ -1675,11 +1683,12 @@ static inline int16_t sgl_obj_get_radius(sgl_obj_t *obj)
 }
 
 /**
- * @brief set current object as screen object
+ * @brief set current object as screen object, optionally with a transition effect
  * @param obj object, that you want to set an object as active page
+ * @param transit one of the SGL_ANIM_TRANS_* effects, SGL_ANIM_TRANS_NONE to switch instantly
  * @return none
  */
-void sgl_screen_load(sgl_obj_t *obj);
+void sgl_screen_load(sgl_obj_t *obj, uint8_t transit);
 
 /**
  * @brief get current screen object

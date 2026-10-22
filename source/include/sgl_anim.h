@@ -39,6 +39,7 @@ extern "C" {
 struct sgl_pos;
 struct sgl_anim;
 struct sgl_obj;
+struct sgl_surf;
 
 /* Anim path callback */
 typedef void (*sgl_anim_path_cb_t)(struct sgl_anim *anim, int32_t value);
@@ -557,6 +558,44 @@ void sgl_anim_setup_obj_action(struct sgl_obj *obj, int16_t start, int16_t end, 
  * @return none
  */
 void sgl_anim_setup_obj_action_loop(struct sgl_obj *obj, int16_t start, int16_t end, uint16_t duration, sgl_anim_path_cb_t cb, sgl_anim_path_algo_t effect, sgl_anim_finish_cb_t finish_cb);
+
+#if (CONFIG_SGL_ANIM_TRANSITION)
+#define  SGL_ANIM_TRANS_NONE        (-1)  /* no animation: sgl_screen_load switches instantly */
+#define  SGL_ANIM_TRANS_SLIDE_L     (0)   /* new enters from the right, old exits left */
+#define  SGL_ANIM_TRANS_SLIDE_R     (1)   /* the reverse                               */
+#define  SGL_ANIM_TRANS_SLIDE_U     (2)   /* new enters from below, old exits up       */
+#define  SGL_ANIM_TRANS_SLIDE_D     (3)   /* the reverse                               */
+#define  SGL_ANIM_TRANS_COVER_U     (4)   /* only the new page moves, covers from below*/
+#define  SGL_ANIM_TRANS_COVER_D     (5)   /* only the new page moves, covers from above*/
+#define  SGL_ANIM_TRANS_FADE        (6)   /* fades through the background colour       */
+#define  SGL_ANIM_TRANS_GENIE_OUT   (7)   /* old page is sucked into the "dock" point  */
+#define  SGL_ANIM_TRANS_GENIE_IN    (8)   /* new page pours out of the dock point      */
+#define  SGL_ANIM_TRANS_S_OUT       (9)   /* like GENIE_OUT but to bottom-right on an S*/
+#define  SGL_ANIM_TRANS_S_IN        (10)  /* like GENIE_IN, S walked backwards         */
+#define  SGL_ANIM_TRANS_COUNT       (11)
+
+/* transition durations in ms: warp effects get a bit more time to read */
+#define  SGL_TRANSITION_MS_NORMAL   (220u)
+#define  SGL_TRANSITION_MS_GENIE    (320u)
+
+/**
+ * @brief blend the two band buffers of the running page transition
+ * @param surf  band surface whose buffer already holds the base page, result written back
+ * @param type  one of the SGL_ANIM_TRANS_* effects
+ * @return none
+ * @note reads the outgoing page from sgl_system.trans_buf and the easing progress from
+ *       sgl_system.trans_prog; operates band-locally, one full-width band per call.
+ */
+void sgl_anim_tramsition(struct sgl_surf *surf, uint8_t type);
+
+/**
+ * @brief reverse of a transition type (OUT<->IN, L<->R, U<->D), used to play it back
+ * @param type effect id
+ * @return the reverse effect id
+ */
+uint8_t sgl_anim_trans_reverse(uint8_t type);
+
+#endif
 
 #ifdef __cplusplus
 } /*extern "C"*/

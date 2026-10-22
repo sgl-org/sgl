@@ -750,6 +750,21 @@ int sgl_init(void)
     sgl_system.angle = 0;
 #endif
 #endif
+
+#if (CONFIG_SGL_ANIM_TRANSITION)
+    /* one band-sized scratch to hold the outgoing page while blending */
+    sgl_system.trans_buf = (sgl_color_t*)sgl_malloc(sgl_system.fbdev.fbinfo.buffer_size * sizeof(sgl_color_t));
+    if (sgl_system.trans_buf == NULL) {
+        SGL_LOG_ERROR("sgl_init: alloc transition buffer failed");
+        return -1;
+    }
+    sgl_system.trans_head = NULL;
+    sgl_system.trans_type = SGL_ANIM_TRANS_NONE;
+    sgl_system.trans_prog = 0;
+    sgl_system.trans_start = 0;
+    sgl_system.trans_dur = 0;
+#endif
+
     /* create event queue */
     if (sgl_event_queue_init()) {
         SGL_LOG_ERROR("sgl_init: event queue init failed");
@@ -764,18 +779,52 @@ int sgl_init(void)
 }
 
 /**
- * @brief set current object as screen object
+ * @brief set current object as screen object, optionally with a transition effect
  * @param obj object, that you want to set an object as active page
+ * @param transit one of the SGL_ANIM_TRANS_* effects, SGL_ANIM_TRANS_NONE to switch instantly
  * @return none
  */
-void sgl_screen_load(sgl_obj_t *obj)
+void sgl_screen_load(sgl_obj_t *obj, uint8_t transit)
 {
     SGL_ASSERT(obj != NULL);
+
+#if (CONFIG_SGL_ANIM_TRANSITION)
+    if ((transit == (uint8_t)SGL_ANIM_TRANS_NONE) ||
+        (obj == sgl_system.fbdev.active) ||
+        (sgl_system.trans_head != NULL)) {
+        /* instant switch: no effect, already there, or a transition is running */
+        sgl_system.fbdev.active = obj;
+        sgl_dirty_area_init();
+        sgl_obj_set_dirty(obj);
+    }
+    else {
+        /* start: keep the outgoing page for the blend, obj becomes the base page */
+        sgl_system.trans_head  = sgl_system.fbdev.active;
+        sgl_system.trans_type  = transit;
+        sgl_system.trans_prog  = 0;
+        sgl_system.trans_start = sgl_tick_get();
+        sgl_system.trans_dur   = (transit == (uint8_t)SGL_ANIM_TRANS_GENIE_OUT ||
+                                  transit == (uint8_t)SGL_ANIM_TRANS_GENIE_IN  ||
+                                  transit == (uint8_t)SGL_ANIM_TRANS_S_OUT     ||
+                                  transit == (uint8_t)SGL_ANIM_TRANS_S_IN) ?
+                                  SGL_TRANSITION_MS_GENIE : SGL_TRANSITION_MS_NORMAL;
+        sgl_system.fbdev.active = obj;
+        /* first frame: force a full redraw so the compositor blends both pages */
+        sgl_dirty_area_init();
+        sgl_system.fbdev.dirty[sgl_system.fbdev.dirty_num++] = (sgl_area_t){
+            .x1 = 0, .y1 = 0,
+            .x2 = (int16_t)(SGL_SCREEN_WIDTH - 1),
+            .y2 = (int16_t)(SGL_SCREEN_HEIGHT - 1),
+        };
+    }
+#else
+    (void)transit;
     sgl_system.fbdev.active = obj;
 
     /* initialize dirty area */
     sgl_dirty_area_init();
     sgl_obj_set_dirty(obj);
+#endif
 }
 
 #if (CONFIG_SGL_FBDEV_RUNTIME_ROTATION)
@@ -1726,6 +1775,25 @@ void sgl_obj_set_layout(sgl_obj_t *obj, sgl_layout_desc_t *desc)
 }
 
 /**
+ * @brief flush dirty area into screen
+ * @param surf surface that draw to
+ * @return none
+ */
+static inline void flush_obj_slice(sgl_surf_t *surf)
+{
+#if (CONFIG_SGL_DIRTY_AREA_TRACE)
+    if (sgl_system.fbdev.trace_flag) {
+        sgl_draw_wireframe(surf, (sgl_area_t*)surf, surf->dirty, 0, 1, SGL_DIRTY_AREA_TRACE_COLOR, SGL_ALPHA_MAX);
+    }
+#endif
+#if (CONFIG_SGL_MONITOR_TRACE)
+    sgl_monitor_trace(surf);
+#endif
+    /* flush dirty area into screen */
+    sgl_fbdev_flush_area((sgl_area_t*)surf, surf->buffer);
+}
+
+/**
  * @brief draw object slice completely
  * @param obj it should point to active root object
  * @param surf surface that draw to
@@ -1769,17 +1837,6 @@ static inline void draw_obj_slice(sgl_obj_t *obj, sgl_surf_t *surf)
             }
         }
     }
-
-#if (CONFIG_SGL_DIRTY_AREA_TRACE)
-    if (sgl_system.fbdev.trace_flag) {
-        sgl_draw_wireframe(surf, (sgl_area_t*)surf, surf->dirty, 0, 1, SGL_DIRTY_AREA_TRACE_COLOR, SGL_ALPHA_MAX);
-    }
-#endif
-#if (CONFIG_SGL_MONITOR_TRACE)
-    sgl_monitor_trace(surf);
-#endif
-    /* flush dirty area into screen */
-    sgl_fbdev_flush_area((sgl_area_t*)surf, surf->buffer);
 }
 
 /**
@@ -1913,15 +1970,70 @@ static inline void sgl_draw_task(sgl_fbdev_t *fbdev, sgl_area_t *dirty_area, uin
 
             /* draw object slice until the dirty area is finished */
             draw_obj_slice(head, surf);
+
+#if (CONFIG_SGL_ANIM_TRANSITION)
+            /* while a transition runs, render the outgoing page into the scratch
+             * band buffer, then blend base(new)+outgoing(old) back into surf->buffer */
+            if (sgl_system.trans_head != NULL && sgl_system.trans_buf != NULL) {
+                sgl_color_t *fb_old = surf->buffer;
+                surf->buffer = sgl_system.trans_buf;
+                draw_obj_slice(sgl_system.trans_head, surf);
+                surf->buffer = fb_old;
+                sgl_anim_tramsition(surf, sgl_system.trans_type);
+            }
+#endif
+
+            /* flush the buffer into screen */
+            flush_obj_slice(surf);
             surf->y1 += draw_h;
         }
 #else
         /* wait current framebuffer for ready */
         while (sgl_fbdev_flush_wait_ready(fbdev));
         draw_obj_slice(head, surf);
+        /* flush the buffer into screen */
+        flush_obj_slice(surf);
 #endif
     }
 }
+
+#if (CONFIG_SGL_ANIM_TRANSITION)
+/**
+ * @brief advance the running page transition by one frame
+ * @param none
+ * @return none
+ * @note eases trans_prog from the tick clock, forces a full-screen redraw so the
+ *       bands flow top-to-bottom (one flush per band), and clears the transition
+ *       state once the destination page is fully reached.
+ */
+static void sgl_trans_update(void)
+{
+    if (sgl_system.trans_head == NULL) {
+        return;
+    }
+
+    uint32_t el = sgl_tick_get() - sgl_system.trans_start;
+    float t = (el >= sgl_system.trans_dur) ? 1.0f : (float)el / (float)sgl_system.trans_dur;
+    /* ease out cubic: quick start, smooth settle onto the destination page */
+    float u = 1.0f - t;
+    float e = 1.0f - u * u * u;
+    sgl_system.trans_prog = (uint16_t)(e * 256.0f + 0.5f);
+
+    /* refresh the whole screen for this frame */
+    sgl_dirty_area_init();
+    sgl_system.fbdev.dirty[sgl_system.fbdev.dirty_num++] = (sgl_area_t){
+        .x1 = 0, .y1 = 0,
+        .x2 = (int16_t)(SGL_SCREEN_WIDTH - 1),
+        .y2 = (int16_t)(SGL_SCREEN_HEIGHT - 1),
+    };
+
+    if (el >= sgl_system.trans_dur) {
+        /* settled: the next frame draws only the destination page normally */
+        sgl_system.trans_head = NULL;
+        sgl_system.trans_type = (uint8_t)SGL_ANIM_TRANS_NONE;
+    }
+}
+#endif
 
 /**
  * @brief sgl task handler function with sync mode
@@ -1963,6 +2075,11 @@ void sgl_task_handler_sync(void)
 #endif
 
     /* draw all object into screen */
+#if (CONFIG_SGL_ANIM_TRANSITION)
+    /* advance + invalidate the running transition right before drawing so the
+     * whole screen is re-blended this frame (overrides any harvested dirty) */
+    sgl_trans_update();
+#endif
     sgl_draw_task(&sgl_system.fbdev, sgl_system.fbdev.dirty, sgl_system.fbdev.dirty_num);
 
     /* clear dirty area and fullscreen flag */

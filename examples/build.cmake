@@ -84,6 +84,8 @@ set(SGL_EXAMPLE_SOURCE
     ${SGL_EXAMPLE_DIR}/tabview.c            # sgl_tabview_examples
     ${SGL_EXAMPLE_DIR}/textedit.c           # sgl_textedit_examples
     ${SGL_EXAMPLE_DIR}/textlist.c           # sgl_textlist_examples
+    ${SGL_EXAMPLE_DIR}/transit.c            # sgl_transit_warp_examples
+    ${SGL_EXAMPLE_DIR}/warp_demo.c          # sgl_warp_demo
     ${SGL_EXAMPLE_DIR}/viewlist.c           # sgl_viewlist_examples
 
     # ---- composite widgets ------------------------------------------------
