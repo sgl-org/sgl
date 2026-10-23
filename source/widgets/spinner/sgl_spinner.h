@@ -42,22 +42,22 @@ extern "C" {
  * @brief spinner object, a rotating loading indicator made of dots
  * @obj: base object
  * @color: dot color
- * @alpha: alpha of the head dot (the tail fades out from it)
  * @radius_in: inner radius of the dot ring path
  * @radius_out: outer radius of the dot ring path
  * @angle: leading dot angle, deg [0, 360)
  * @period: time of one full turn, ms
  * @seg_cnt: number of dots around the ring
+ * @alpha: alpha of the head dot (the tail fades out from it)
  */
 typedef struct sgl_spinner {
     sgl_obj_t       obj;
     sgl_color_t     color;
-    uint8_t         alpha;
     int16_t         radius_in;
     int16_t         radius_out;
     int16_t         angle;
     uint16_t        period;
     uint8_t         seg_cnt;
+    uint8_t         alpha;
 } sgl_spinner_t;
 
 /**
