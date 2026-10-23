@@ -34,6 +34,7 @@ set(SGL_SOURCE
     ${CMAKE_CURRENT_LIST_DIR}/slider/sgl_slider.c
     ${CMAKE_CURRENT_LIST_DIR}/progress/sgl_progress.c
     ${CMAKE_CURRENT_LIST_DIR}/label/sgl_label.c
+    ${CMAKE_CURRENT_LIST_DIR}/slimlabel/sgl_slimlabel.c
     ${CMAKE_CURRENT_LIST_DIR}/label_ext/sgl_label_ext.c
     ${CMAKE_CURRENT_LIST_DIR}/switch/sgl_switch.c
     ${CMAKE_CURRENT_LIST_DIR}/msgbox/sgl_msgbox.c
