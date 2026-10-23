@@ -713,14 +713,14 @@ static inline void sgl_dirty_area_init(void)
 }
 
 /**
- * @brief sgl global initialization
+ * @brief (re)build the core runtime context: memory pool, screen object,
+ *        rotation buffer and event queue
  * @param none
  * @return int, 0 means success, others means failed
- * @note you should call this function before using sgl and you should call this function after register framebuffer device
  */
-int sgl_init(void)
+static int sgl_ctx_init(void)
 {
-    sgl_obj_t *obj = NULL;
+    sgl_obj_t *obj;
 
     /* init memory pool */
     sgl_mm_init(sgl_mem_pool, sizeof(sgl_mem_pool));
@@ -734,7 +734,7 @@ int sgl_init(void)
     /* create a screen object for drawing */
     obj = sgl_obj_create(NULL);
     if (obj == NULL) {
-        SGL_LOG_ERROR("sgl_init: create screen object failed");
+        SGL_LOG_ERROR("sgl_core_ctx_init: create screen object failed");
         return -1;
     }
 
@@ -742,7 +742,7 @@ int sgl_init(void)
 #if ((CONFIG_SGL_FBDEV_ROTATION != 0) || CONFIG_SGL_FBDEV_RUNTIME_ROTATION)
     sgl_system.rotation = (sgl_color_t*)sgl_malloc(sgl_system.fbdev.fbinfo.buffer_size * sizeof(sgl_color_t));
     if (sgl_system.rotation == NULL) {
-        SGL_LOG_ERROR("sgl_init: alloc rotation buffer failed");
+        SGL_LOG_ERROR("sgl_core_ctx_init: alloc rotation buffer failed");
         sgl_free(obj);
         return -1;
     }
@@ -750,10 +750,27 @@ int sgl_init(void)
     sgl_system.angle = 0;
 #endif
 #endif
+
     /* create event queue */
     if (sgl_event_queue_init()) {
-        SGL_LOG_ERROR("sgl_init: event queue init failed");
+        SGL_LOG_ERROR("sgl_core_ctx_init: event queue init failed");
         sgl_free(obj);
+        return -1;
+    }
+
+    return 0;
+}
+
+/**
+ * @brief sgl global initialization
+ * @param none
+ * @return int, 0 means success, others means failed
+ * @note you should call this function before using sgl and you should call 
+ *       this function after register framebuffer device
+ */
+int sgl_init(void)
+{
+    if (sgl_ctx_init()) {
         return -1;
     }
 
@@ -761,6 +778,20 @@ int sgl_init(void)
     sgl_boot_logo();
 #endif
     return 0;
+}
+
+/**
+ * @brief sgl global reset, restore the library to the state right after sgl_init()
+ * @param none
+ * @return int, 0 means success, others means failed
+ * @note This frees every object/widget/animation created since the last
+ *       sgl_init()/sgl_reset() by resetting the memory pool, then rebuilds the
+ *       default screen object exactly like sgl_init() does.
+ */
+int sgl_reset(void)
+{
+    sgl_anim_delete_all();
+    return sgl_ctx_init();
 }
 
 /**

@@ -89,6 +89,9 @@ static sgl_key_group_t *key_grp_active = NULL;
  * @return 0 on success, -1 on failure
  * @note !!!!!! the SGL_EVENT_QUEUE_SIZE must be power of 2 !!!!!!
  *       You must check the return value of this function.
+ *       This also drops every cached object/key-group pointer (last_click,
+ *       last_motion, key_grp_active) so it is safe to call again from
+ *       sgl_reset() after the memory pool has been wiped.
  */
 int sgl_event_queue_init(void)
 {
@@ -98,6 +101,9 @@ int sgl_event_queue_init(void)
     }
 
     evt_ctx.evtq.in = evt_ctx.evtq.out = 0;
+    evt_ctx.last_click = NULL;
+    evt_ctx.last_motion = NULL;
+    key_grp_active = NULL;
     return 0;
 }
 

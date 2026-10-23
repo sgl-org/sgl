@@ -34,35 +34,25 @@
 /* one wave cycle in ms, the animation sweeps 0..360 degrees over that period */
 #define CHARGE_ANIM_MS         (3000)
 
-/* sine ripple, the three ratios below are taken from charge.html so the widget
- * matches the reference look.
- * CHARGE_WAVE_DEG is degrees travelled across the whole cavity, so the wave
- * count is exactly this / 360: 465 deg over the 162 px cavity of the html is one
- * slow lazy swell, not choppy water.
- * NOTE: the phase must be scaled by 1/256 as well, @cfx arrives in 1/256 px.
- *       Leaving that factor out packs 256x too many periods into the column
- *       count and the result is pure aliasing, not a swell. */
+/* sine ripple, degrees travelled across the whole cavity. The three ratios
+ * below match charge.html. NOTE: the phase must be scaled by 1/256 as well,
+ * @cfx arrives in 1/256 px, leaving that factor out is pure aliasing */
 #define CHARGE_WAVE_DEG        (465)
 
-/* wave height relative to the cavity width: the html uses 4.5 px on 162 px */
+/* wave height, 1/36 of the cavity width */
 #define CHARGE_WAVE_AMP_DIV    (36)
 
-/* parabolic dip that follows the cylinder wall: the html uses 8 px on 162 px */
+/* parabolic dip that follows the cylinder wall, 1/20 of the cavity width */
 #define CHARGE_CURVE_DIV       (20)
 
-/* depth cues, without them the cavity reads flat instead of concave */
-#define CHARGE_SHADOW_DIV      (5)   /* shell shadow length, 1/5 of the fill axis */
-#define CHARGE_WALL_DIV        (12)  /* inner wall chamfer, 1/12 of the cross axis */
+/* depth cues: shell shadow and inner wall chamfer */
+#define CHARGE_SHADOW_DIV      (5)
+#define CHARGE_WALL_DIV        (12)
 
-/* anti aliasing: samples taken across one pixel column when working out how much
- * of the boundary pixel the liquid covers. One sample per column can only grey a
- * 1 px step, it cannot move it, and that is all you get on an edge that runs
- * close to vertical. Cheap: a few surface evaluations per column, no scratch
- * surface at all */
+/* anti aliasing: coverage samples taken across one pixel column */
 #define CHARGE_AA_SAMPLES      (4)
 
-/* a gradient stop, @pos is the position along the cross axis in percent.
- * Every ramp of the widget is the same cylindrical one, see charge_cyl_stops() */
+/* gradient stop count, every ramp is the cylindrical one of charge_cyl_stops() */
 #define CHARGE_STOP_NUM        (4)
 
 typedef struct charge_stop {
@@ -207,7 +197,6 @@ static void charge_layout_calc(const sgl_charge_t *ch, charge_layout_t *lay)
     int16_t text_h = ch->show_percentage ? (fh + 4) : 0;
     int16_t cap_h = 0, cap_w = 0, pad, cross, cw, a1, a2;
 
-    /* reserve room for the terminal, on the far end of the fill axis */
     if (vert) {
         cap_h = sgl_max(sgl_min(h / 22, h / 6), 2);
     } else {
@@ -222,17 +211,11 @@ static void charge_layout_calc(const sgl_charge_t *ch, charge_layout_t *lay)
     lay->body_r = lay->cav_r = 0;
     lay->cross_len = lay->along_len = 0;
 
-    /* the rectangles above the guard are only read back when both lengths are
-     * non zero, so they need no default */
     if (lay->body.x2 <= lay->body.x1 || lay->body.y2 <= lay->body.y1) return;
 
     cross = vert ? (lay->body.x2 - lay->body.x1 + 1)
                  : (lay->body.y2 - lay->body.y1 + 1);
 
-    /* The frame is as wide as the border and is painted in the body colour, the
-     * cavity is then drawn on top of it, so the shell band and the border are one
-     * and the same fill. obj->border widens the whole frame, it is not the ring
-     * width. */
     pad = sgl_max(sgl_max(cross / 40, 1), (int16_t)obj->border);
     lay->body_r = sgl_max(sgl_min(cross / 16, cross / 2), 1);
     lay->cav.x1 = lay->body.x1 + pad;
@@ -246,15 +229,10 @@ static void charge_layout_calc(const sgl_charge_t *ch, charge_layout_t *lay)
     lay->along_len = vert ? (lay->cav.y2 - lay->cav.y1 + 1)
                           : (lay->cav.x2 - lay->cav.x1 + 1);
 
-    /* the terminal is centred on the cross axis and sits at the far end of the
-     * fill axis, overlapping the shell by one pixel so no background leaks
-     * through. Its depth is negative for the vertical layout, where it grows
-     * above the shell */
     cw = cross * 31 / 100;
     a1 = vert ? (int16_t)(-cap_h) : (int16_t)(lay->body.x2 - lay->body.x1);
     a2 = vert ? 0 : (int16_t)(a1 + cap_w);
-    charge_map_rect(vert, &lay->body, (cross - cw) / 2, a1,
-                    (cross - cw) / 2 + cw - 1, a2, &lay->cap);
+    charge_map_rect(vert, &lay->body, (cross - cw) / 2, a1, (cross - cw) / 2 + cw - 1, a2, &lay->cap);
 }
 
 /**
@@ -284,18 +262,22 @@ static void charge_put(sgl_surf_t *surf, sgl_charge_t *ch, charge_layout_t *lay,
  * @param  vert: true when the charge is vertical
  * @param  base: rectangle the local coordinates are relative to
  * @param  len: gradient length along the cross axis
+ * @param  along: length along the fill axis
  * @param  r: corner radius, every strip is shortened accordingly
- * @param  v1: fill axis start
- * @param  v2: fill axis end
+ * @param  v1: lowest fill axis row that may be painted
+ * @param  v2: highest fill axis row that may be painted, plus one
  * @param  stops: stop table
  * @param  alpha: alpha of the gradient
+ * @note  @v1/@v2 are absolute bounds, the corner trim only pulls the strip in
+ *        as far as the rounded cavity allows, so a band that starts part way
+ *        down the tube is still trimmed by one radius, not by two
  */
 static void charge_fill_grad(sgl_surf_t *surf, sgl_area_t *clip, bool vert,
-                              const sgl_area_t *base, int16_t len, int16_t r,
+                              const sgl_area_t *base, int16_t len, int16_t along, int16_t r,
                               int16_t v1, int16_t v2,
                               const charge_stop_t *stops, uint8_t alpha)
 {
-    /* 1..4 px per strip: coarser than that and the ramp shows as banding */
+    /* 1..4 px per strip, coarser shows banding */
     int16_t step = sgl_min(sgl_max(len / 64, 1), 4);
     int16_t c;
 
@@ -303,8 +285,8 @@ static void charge_fill_grad(sgl_surf_t *surf, sgl_area_t *clip, bool vert,
         sgl_area_t strip;
         int16_t c2  = sgl_min(c + step, len) - 1;
         int16_t cut = charge_column_inset(c, len, r);
-        int16_t lo  = v1 + cut;
-        int16_t hi  = v2 - cut;
+        int16_t lo  = sgl_max(v1, cut);
+        int16_t hi  = sgl_min(v2, along - cut);
         uint8_t  t  = (uint8_t)(((uint16_t)c * 100) / (len > 1 ? len - 1 : 1));
 
         if (hi - lo < 1) continue;
@@ -319,8 +301,7 @@ static void charge_fill_grad(sgl_surf_t *surf, sgl_area_t *clip, bool vert,
  * @param  ch: charge object pointer
  * @param  lay: layout pointer
  * @note  the terminal gets the same cylindrical ramp as the rest of the widget,
- *        so it reads as the same turned metal instead of a flat bright tab.
- *        Only the end away from the shell is rounded, the way a real cap is.
+ *        only the end away from the shell is rounded
  */
 static void charge_draw_cap(sgl_surf_t *surf, sgl_charge_t *ch, charge_layout_t *lay)
 {
@@ -334,16 +315,11 @@ static void charge_draw_cap(sgl_surf_t *surf, sgl_charge_t *ch, charge_layout_t 
 
     if (len < 8 || depth < 6) return;
 
-    /* rounded silhouette, in the darkest tone of the ramp */
     sgl_draw_fill_rich_rect(surf, &ch->obj.area, &lay->cap, vert ? r : 0, r, 0,
                             vert ? 0 : r, charge_mix(ch->body_color, -150), SGL_ALPHA_MAX);
-
     charge_cyl_stops(stops, ch->body_color, -150, 104, -55);
-
-    /* the ramp stops one radius short of the rounded end so it never pokes out of
-     * the cap. For the vertical layout that end is the start of the fill axis */
-    charge_fill_grad(surf, &ch->obj.area, vert, &lay->cap, len, 0,
-                      vert ? r : 0, depth - r, stops, SGL_ALPHA_MAX);
+    /* the ramp stops one radius short of the rounded end */
+    charge_fill_grad(surf, &ch->obj.area, vert, &lay->cap, len, depth, 0, vert ? r : 0, depth - r, stops, SGL_ALPHA_MAX);
 }
 
 /**
@@ -351,27 +327,56 @@ static void charge_draw_cap(sgl_surf_t *surf, sgl_charge_t *ch, charge_layout_t 
  * @param  surf: surface pointer
  * @param  ch: charge object pointer
  * @param  lay: layout pointer
+ * @param  v1: first fill axis row that still needs the cavity
+ * @param  v2: last fill axis row that still needs the cavity, plus one
  * @note  the same cylindrical ramp as the liquid but much darker, so the empty
  *        part of the cavity already reads as the inside of a tube
  */
-static void charge_draw_cavity(sgl_surf_t *surf, sgl_charge_t *ch, charge_layout_t *lay)
+static void charge_draw_cavity(sgl_surf_t *surf, sgl_charge_t *ch, charge_layout_t *lay, int16_t v1, int16_t v2)
 {
     charge_stop_t stops[CHARGE_STOP_NUM];
-
     charge_cyl_stops(stops, charge_mix(ch->body_color, -120), -90, 40, -70);
-
     charge_fill_grad(surf, &ch->obj.area, ch->vertical, &lay->cav, lay->cross_len,
-                      lay->cav_r, 0, lay->along_len, stops, SGL_ALPHA_MAX);
+                      lay->along_len, lay->cav_r, v1, v2, stops, SGL_ALPHA_MAX);
+}
+
+/**
+ * @brief  fill axis rows that the liquid cannot cover this frame
+ * @param  ch: charge object pointer
+ * @param  lay: layout pointer
+ * @param  lo: out: first row that has to be drawn under the liquid
+ * @param  hi: out: last row that has to be drawn under the liquid, plus one
+ * @note  the cavity ramp and the top shadow sit under the liquid, which is
+ *        filled opaque, so only the band the surface can wander into is ever
+ *        visible. The parabolic dip reaches its maximum at the centre of the
+ *        cross axis and the ripple is bounded by its amplitude, both in 1/256 px
+ */
+static void charge_empty_band(const sgl_charge_t *ch, charge_layout_t *lay,
+                              int16_t *lo, int16_t *hi)
+{
+    int32_t len   = lay->cross_len;
+    int32_t along = lay->along_len;
+    int32_t curve = sgl_max(len / CHARGE_CURVE_DIV, 2);
+    int32_t amp   = sgl_max(len / CHARGE_WAVE_AMP_DIV, 1);
+    int32_t fill  = (along * ch->disp_level * 256) / 100;
+    int32_t margin = (curve + amp + 1) * 256;
+
+    if (ch->vertical) {   /* the liquid sits at the far end of the tube */
+        *lo = 0;
+        *hi = (int16_t)sgl_min(along, (along * 256 - fill + margin + 255) / 256);
+    } else {              /* the liquid sits at the near end */
+        int32_t start = (fill - margin) / 256;
+        *lo = (int16_t)(start < 0 ? 0 : sgl_min(start, along));
+        *hi = (int16_t)along;
+    }
 }
 
 /**
  * @brief  clamped surface position of one column, in 1/256 px
  * @param  ch: charge object pointer
  * @param  lay: layout pointer
- * @param  c: column index along the cross axis
+ * @param  cfx: cross axis position in 1/256 px
  * @return fill axis coordinate of the surface in 1/256 px, from the cavity top
- * @note  the sub pixel remainder is kept, it is what the anti aliasing in
- *        charge_draw_liquid() is built from
  */
 static int32_t charge_surface_fx(const sgl_charge_t *ch, charge_layout_t *lay, int32_t cfx)
 {
@@ -381,24 +386,28 @@ static int32_t charge_surface_fx(const sgl_charge_t *ch, charge_layout_t *lay, i
     int32_t fill  = (lay->along_len * ch->disp_level * 256) / 100;
     int32_t nx, cyl, wav, sv;
     int32_t cut;
+    int32_t tick, deg, frac, a, b;
 
-    /* parabolic dip, cross position arrives in 1/256 px */
+    /* parabolic dip */
     nx  = (cfx * 2 - len * 256) * 1000 / (len * 256);
     cyl = (1000 - nx * nx / 1000) * curve * 256 / 1000;
-    /* sine ripple, sgl_sinf keeps the sub degree resolution we need here */
-    wav = (int32_t)(sgl_sinf((float)ch->phase +
-                             (float)cfx * (float)CHARGE_WAVE_DEG /
-                             (float)(len * 256)) *
-                    (float)amp * 256.0f);
+    /* sine ripple in Q15, angle in 1/256 degree ticks interpolated between
+     * the two integer degree entries of sgl_sin() */
+    tick = (int32_t)ch->phase * 256 + cfx * CHARGE_WAVE_DEG / len;
+    tick %= 92160; /* wraps at 360 deg */
+    if (tick < 0) tick += 92160;
+    deg  = tick >> 8;
+    frac = tick & 0xFF;
+    a = sgl_sin((int16_t)deg);
+    b = sgl_sin((int16_t)(deg + 1));
+    wav = ((a + (((b - a) * frac) >> 8)) * amp) / 128; /* Q15 -> 1/256 px */
 
-    /* distance from where the liquid grows up to the surface */
     sv = fill - cyl - wav;
     if (sv < 0) sv = 0;
 
-    /* vertical grows from the bottom, horizontal from the left */
-    if (ch->vertical) sv = lay->along_len * 256 - sv;
+    if (ch->vertical) sv = lay->along_len * 256 - sv; /* vertical grows from the bottom */
 
-    /* pull it back inside the rounded cavity */
+    /* clamp to the rounded cavity */
     cut = charge_column_inset((int16_t)(cfx >> 8), len, lay->cav_r);
     sv = sgl_max(sv, cut * 256);
     sv = sgl_min(sv, (lay->along_len - cut) * 256);
@@ -409,30 +418,26 @@ static int32_t charge_surface_fx(const sgl_charge_t *ch, charge_layout_t *lay, i
 /**
  * @brief  how much of the boundary pixel one column covers with liquid
  * @param  ch: charge object pointer
- * @param  lay: layout pointer
- * @param  c: column index along the cross axis
+ * @param  sv0: surface of the column start, in 1/256 px
+ * @param  sv1: surface of the next column start, in 1/256 px
  * @param  row: the pixel the surface runs through
  * @return coverage in [0, 255]
- * @note  one sample per column can only grey a 1 px step, never move it, which
- *        reads as a staircase on the steep edge the horizontal layout puts it
- *        in. So this box filters CHARGE_AA_SAMPLES taken across the column.
- *        Averaging has to happen over the coverages and not over the sample
- *        positions: coverage is a tent function of the sub pixel phase, so
- *        averaging positions first pins every transition to full brightness and
- *        the edge breaks into dashes.
+ * @note  box filter of CHARGE_AA_SAMPLES coverages across one column. Average
+ *        the coverages, not the sample positions: position averaging pins every
+ *        transition to full brightness and breaks the edge into dashes. The
+ *        samples are interpolated from the two column heads, both surface terms
+ *        are linear over one pixel column to far under 1/256 px.
  */
-static uint8_t charge_edge_cov(const sgl_charge_t *ch, charge_layout_t *lay,
-                              int16_t c, int16_t row)
+static uint8_t charge_edge_cov(const sgl_charge_t *ch,
+                               int16_t row, int32_t sv0, int32_t sv1)
 {
     int32_t acc  = 0;
-    int32_t base = (int32_t)c * 256;
-    int32_t step = 256 / CHARGE_AA_SAMPLES;
+    int32_t slope = sv1 - sv0;
     int16_t i;
 
     for (i = 0; i < CHARGE_AA_SAMPLES; i++) {
-        /* sample at the middle of each slice of the column */
-        int32_t cfx = base + (int32_t)i * step + step / 2;
-        int32_t sv  = charge_surface_fx(ch, lay, cfx);
+        int32_t off = 256 / CHARGE_AA_SAMPLES / 2 + i * (256 / CHARGE_AA_SAMPLES);
+        int32_t sv  = sv0 + slope * off / 256;
         int32_t d   = ch->vertical ? ((int32_t)row + 1) * 256 - sv
                                    : sv - (int32_t)row * 256;
 
@@ -449,44 +454,52 @@ static uint8_t charge_edge_cov(const sgl_charge_t *ch, charge_layout_t *lay,
  * @param  surf: surface pointer
  * @param  ch: charge object pointer
  * @param  lay: layout pointer
- * @note  the sine surface is evaluated for every pixel column in 1/256 px fixed
- *        point, the fractional part says where inside a pixel the curve sits,
- *        and charge_edge_cov() box filters that into a pixel coverage.
- *
- *        The body stops one pixel short of the surface on both axes, and the one
- *        pixel meniscus is split over the boundary pixel and the first pixel the
- *        liquid covers, so that the weighted centre of the highlight lands on the
- *        surface itself. Feeding the remainder to the cavity side instead drags
- *        the line up to a pixel away from the fill, where it detaches as bright
- *        dashes floating in the empty cavity.
+ * @note  the sine surface is evaluated per pixel column in 1/256 px fixed
+ *        point and charge_edge_cov() turns it into a pixel coverage. The body
+ *        stops one pixel short of the surface, the one pixel meniscus is split
+ *        over the boundary pixel and the first covered pixel so the highlight
+ *        centre lands on the surface itself.
  */
 static void charge_draw_liquid(sgl_surf_t *surf, sgl_charge_t *ch, charge_layout_t *lay)
 {
     charge_stop_t stops[CHARGE_STOP_NUM];
-    sgl_color_t hl = charge_mix(ch->fill_color, 200);
+    sgl_color_t hl;
+    sgl_color_t cc;
     bool vert = ch->vertical;
     int16_t len = lay->cross_len;
     int16_t c;
+    int16_t row;
+    int16_t cut;
+    int16_t v_lo;
+    int16_t v_hi;
+    int16_t o;
+    int32_t sv;
+    int32_t sv1;
+    int32_t sv_next;
+    uint8_t cov;
+    uint8_t rest;
 
     if (len < 4 || ch->disp_level == 0) return;
 
+    hl = charge_mix(ch->fill_color, 200);
     charge_cyl_stops(stops, ch->fill_color, -185, 130, -95);
+    /* column heads are shared between neighbours, roll them through */
+    sv_next = charge_surface_fx(ch, lay, 0);
 
     for (c = 0; c < len; c++) {
-        int32_t  sv   = charge_surface_fx(ch, lay, (int32_t)c * 256);
-        int16_t  row  = (int16_t)(sv >> 8);
-        int16_t  cut  = charge_column_inset(c, len, lay->cav_r);
-        uint8_t  cov  = charge_edge_cov(ch, lay, c, row);
-        uint8_t  rest = (uint8_t)(SGL_ALPHA_MAX - cov);
-        /* the boundary pixel belongs to the meniscus alone, and sgl_draw_fill_rect()
-         * spans are closed: body is [row + 1 .. end] vertical, [cut .. row - 1]
-         * horizontal. Including it in the body would paint it opaque first and
-         * throw the coverage away */
-        int16_t  v_lo = vert ? (row + 1) : cut;
-        int16_t  v_hi = vert ? (lay->along_len - cut) : (row - 1);
-        sgl_color_t cc = charge_grad_at(stops, (uint8_t)(((uint16_t)c * 100) / (len - 1)));
+        sv   = sv_next;
+        sv1  = charge_surface_fx(ch, lay, (int32_t)(c + 1) * 256);
+        row  = (int16_t)(sv >> 8);
+        cut  = charge_column_inset(c, len, lay->cav_r);
+        cov  = charge_edge_cov(ch, row, sv, sv1);
+        rest = (uint8_t)(SGL_ALPHA_MAX - cov);
+        /* the boundary pixel belongs to the meniscus alone, sgl_draw_fill_rect()
+         * spans are closed */
+        v_lo = vert ? (row + 1) : cut;
+        v_hi = vert ? (lay->along_len - cut) : (row - 1);
+        cc   = charge_grad_at(stops, (uint8_t)(((uint16_t)c * 100) / (len - 1)));
+        sv_next = sv1;
 
-        /* solid part of the column, the boundary pixel is left out */
         if (v_hi >= v_lo) {
             charge_put(surf, ch, lay, c, v_lo, v_hi, cc, SGL_ALPHA_MAX);
         }
@@ -496,11 +509,9 @@ static void charge_draw_liquid(sgl_surf_t *surf, sgl_charge_t *ch, charge_layout
             charge_put(surf, ch, lay, c, row, row, hl, cov);
         }
 
-        /* the other half of the meniscus, on the liquid side of the surface. The
-         * corner trim of the column bounds it: the cavity is rounded, so a pixel
-         * outside [cut, along - cut] belongs to the frame */
+        /* meniscus remainder on the liquid side, bounded by the corner trim */
         if (rest > 0) {
-            int16_t o = vert ? (row + 1) : (row - 1);
+            o = vert ? (row + 1) : (row - 1);
             if (o >= cut && o < lay->along_len - cut) {
                 charge_put(surf, ch, lay, c, o, o, hl, rest);
             }
@@ -513,15 +524,13 @@ static void charge_draw_liquid(sgl_surf_t *surf, sgl_charge_t *ch, charge_layout
  * @param  surf: surface pointer
  * @param  ch: charge object pointer
  * @param  lay: layout pointer
- * @note  a bubble climbs between the wall the liquid grows from and the surface
- *        of its own column, inset by its radius, so it pops at the wavy line
- *        instead of floating over the empty cavity. Both ends come from
- *        charge_surface_fx(), because the surface is not the flat level line:
- *        the cylinder dip pulls it back a good few pixels in the middle.
+ * @note  a bubble climbs between the wall and the surface of its own column,
+ *        inset by its radius, both ends from charge_surface_fx()
  */
 static void charge_draw_bubbles(sgl_surf_t *surf, sgl_charge_t *ch, charge_layout_t *lay)
 {
     int16_t min_dim = sgl_min(lay->cross_len, lay->along_len);
+    sgl_area_t clip;
     uint8_t i;
 
     if (min_dim < 10 || ch->disp_level == 0) return;
@@ -532,17 +541,13 @@ static void charge_draw_bubbles(sgl_surf_t *surf, sgl_charge_t *ch, charge_layou
         int16_t c, t, from, span, pos, cx, cy;
         int32_t sv;
 
-        /* cross position, one radius away from the walls */
         c  = (int16_t)(r + (int32_t)p->x * sgl_max(lay->cross_len - 2 * r, 1) / 255);
-        /* surface of that column, in 1/256 px from the cavity start */
         sv = charge_surface_fx(ch, lay, (int32_t)c * 256);
-        /* the height is derived from the animation phase instead of accumulated
-         * per frame, so no timer is needed to keep the bubbles moving */
+        /* height derived from the animation phase, no per frame state */
         t  = (int16_t)(((ch->phase / (p->spd ? p->spd : 1)) + p->off) & 0xFF);
 
         if (ch->vertical) {
-            /* the surface is measured from the top, the liquid hangs under it,
-             * so the travel is flipped to keep climbing as the phase runs on */
+            /* flip the travel so the bubble keeps climbing as the phase runs on */
             from = (int16_t)((sv >> 8) + r);
             span = (int16_t)(lay->along_len - 1 - r - from);
             t    = (int16_t)(255 - t);
@@ -557,7 +562,16 @@ static void charge_draw_bubbles(sgl_surf_t *surf, sgl_charge_t *ch, charge_layou
         cx  = ch->vertical ? (lay->cav.x1 + c) : (lay->cav.x1 + pos);
         cy  = ch->vertical ? (lay->cav.y1 + pos) : (lay->cav.y1 + c);
 
-        sgl_draw_fill_circle(surf, &lay->cav, cx, cy, r, ch->bubble_color, SGL_ALPHA_MAX);
+        /* hand sgl_draw_fill_circle() its own bounding box: the area argument is
+         * the scan range, so passing the whole cavity makes every bubble walk
+         * every cavity pixel. The clip stays inside the cavity as before. */
+        clip.x1 = sgl_max(cx - r, lay->cav.x1);
+        clip.y1 = sgl_max(cy - r, lay->cav.y1);
+        clip.x2 = sgl_min(cx + r, lay->cav.x2);
+        clip.y2 = sgl_min(cy + r, lay->cav.y2);
+        if (clip.x2 < clip.x1 || clip.y2 < clip.y1) continue;
+
+        sgl_draw_fill_circle(surf, &clip, cx, cy, r, ch->bubble_color, SGL_ALPHA_MAX);
     }
 }
 
@@ -571,18 +585,16 @@ static void charge_draw_bubbles(sgl_surf_t *surf, sgl_charge_t *ch, charge_layou
  * @param  dir: +1 walks up from @first, -1 walks down from it
  * @param  n: number of strips
  * @param  k0: alpha of the first strip, the ramp fades to transparent
- * @note  SGL has no gradient along an arbitrary axis, so both depth cues of
- *        charge.html walk the same ramp one strip at a time: the shell shadow
- *        over the first fifth of the fill axis and the inner wall chamfer over
- *        the first and last 8% of the cross axis. The wall darkening is what
- *        sells the roundness, the liquid ramp alone still looks flat.
- *        Every strip is trimmed by the corner radius the same way the cavity ramp
- *        is, so it reaches the rounded edge. Clipping to a box instead leaves a
- *        radius wide rim of the cavity undarkened right under the frame, which
- *        reads as a bright line inside the border.
+ * @param  lo: first strip index that still needs painting
+ * @param  hi: last strip index that still needs painting, plus one
+ * @note  walks a linear alpha ramp one strip at a time, every strip trimmed by
+ *        the corner radius so it reaches the rounded edge. Strips outside
+ *        [lo, hi] keep the ramp they would have had, they are just skipped
+ *        because something opaque covers them anyway
  */
 static void charge_fade_strips(sgl_surf_t *surf, sgl_charge_t *ch, charge_layout_t *lay,
-                               bool cross, int16_t first, int8_t dir, int16_t n, uint8_t k0)
+                               bool cross, int16_t first, int8_t dir, int16_t n, uint8_t k0,
+                               int16_t lo, int16_t hi)
 {
     int16_t i;
     if (n < 1) return;
@@ -590,9 +602,12 @@ static void charge_fade_strips(sgl_surf_t *surf, sgl_charge_t *ch, charge_layout
         sgl_area_t band;
         int16_t idx = (int16_t)(first + dir * i);
         uint8_t k   = (uint8_t)(k0 - (int32_t)i * k0 / n);
-        int16_t cut = charge_column_inset(idx, cross ? lay->cross_len : lay->along_len,
-                                         lay->cav_r);
+        int16_t cut;
 
+        /* skip before the corner maths, the covered strips are the majority */
+        if (idx < lo || idx >= hi) continue;
+        cut = charge_column_inset(idx, cross ? lay->cross_len : lay->along_len,
+                                  lay->cav_r);
         if (cross) {
             charge_map_rect(ch->vertical, &lay->cav, idx, cut, idx,
                             lay->along_len - 1 - cut, &band);
@@ -618,7 +633,6 @@ static void charge_draw_readout(sgl_surf_t *surf, sgl_charge_t *ch, charge_layou
 
     if (f == NULL || !ch->show_percentage) return;
 
-    /* the readout is what is left of the object box under the shell */
     sgl_sprintf(txt, "%d%%", ch->disp_level);
     y  = (int16_t)(lay->body.y2 + 1);
     cx = (int16_t)(ch->obj.coords.x1 +
@@ -635,33 +649,32 @@ static void charge_draw_readout(sgl_surf_t *surf, sgl_charge_t *ch, charge_layou
 static void charge_draw(sgl_surf_t *surf, sgl_charge_t *ch)
 {
     charge_layout_t lay;
+    int16_t lo, hi;
 
     charge_layout_calc(ch, &lay);
     if (lay.cross_len < 4 || lay.along_len < 4) return;
 
-    /* the terminal goes first: it overlaps the shell by one pixel and the shell
-     * fill then closes its rounded corners, so no background leaks through */
+    /* rows the still moving surface can uncover, everything under the liquid
+     * body is painted over opaquely and does not need a background at all */
+    charge_empty_band(ch, &lay, &lo, &hi);
+
     charge_draw_cap(surf, ch, &lay);
-    /* the shell band is the frame: one rounded fill in the body colour, the
-     * cavity ramp drawn on top of it leaves only the border wide rim showing */
-    sgl_draw_fill_rect(surf, &ch->obj.area, &lay.body, lay.body_r,
-                       ch->body_color, SGL_ALPHA_MAX);
-    charge_draw_cavity(surf, ch, &lay);
+    sgl_draw_fill_rect(surf, &ch->obj.area, &lay.body, lay.body_r, ch->body_color, SGL_ALPHA_MAX);
+    charge_draw_cavity(surf, ch, &lay, lo, hi);
     /* the shadow goes under the liquid, the walls over it */
-    charge_fade_strips(surf, ch, &lay, false, 0, 1, lay.along_len / CHARGE_SHADOW_DIV, 217);
+    charge_fade_strips(surf, ch, &lay, false, 0, 1, lay.along_len / CHARGE_SHADOW_DIV, 217, lo, hi);
     charge_draw_liquid(surf, ch, &lay);
     charge_draw_bubbles(surf, ch, &lay);
-    charge_fade_strips(surf, ch, &lay, true, 0, 1, lay.cross_len / CHARGE_WALL_DIV, 140);
-    charge_fade_strips(surf, ch, &lay, true, lay.cross_len - 1, -1,
-                       lay.cross_len / CHARGE_WALL_DIV, 166);
+    charge_fade_strips(surf, ch, &lay, true, 0, 1, lay.cross_len / CHARGE_WALL_DIV, 140, 0, lay.cross_len);
+    charge_fade_strips(surf, ch, &lay, true, lay.cross_len - 1, -1, lay.cross_len / CHARGE_WALL_DIV, 166, 0, lay.cross_len);
     charge_draw_readout(surf, ch, &lay);
 }
 
 /**
  * @brief  seed one bubble
  * @param  p: bubble pointer
- * @note  the bubble has no runtime state besides this seed: its height comes
- *        from the animation phase, so there is nothing to update per frame
+ * @note  the bubble has no runtime state besides this seed, its height comes
+ *        from the animation phase
  */
 static void charge_bubble_seed(sgl_charge_bubble_t *p)
 {
@@ -676,8 +689,7 @@ static void charge_bubble_seed(sgl_charge_bubble_t *p)
  * @param  anim: animation pointer, its data is the charge object
  * @param  value: phase in degrees, 0..360
  * @return none
- * @note  a full 0..360 sweep loops seamlessly because sgl_sin() wraps at 360,
- *        so the wave never jumps when the animation restarts
+ * @note  the 0..360 sweep loops seamlessly because sgl_sin() wraps at 360
  */
 static void charge_anim_cb(sgl_anim_t *anim, int32_t value)
 {
@@ -699,8 +711,7 @@ static void charge_anim_cb(sgl_anim_t *anim, int32_t value)
 static void charge_start_anim(sgl_charge_t *ch)
 {
     if (sgl_anim_get_by_obj(&ch->obj) != NULL) return;
-    sgl_anim_setup_obj_action_loop(&ch->obj, 0, 360, CHARGE_ANIM_MS,
-                                  charge_anim_cb, SGL_ANIM_PATH_LINEAR, NULL);
+    sgl_anim_setup_obj_action_loop(&ch->obj, 0, 360, CHARGE_ANIM_MS, charge_anim_cb, SGL_ANIM_PATH_LINEAR, NULL);
 }
 
 /**

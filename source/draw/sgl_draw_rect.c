@@ -66,6 +66,15 @@ static inline void sgl_rect_span_set(sgl_color_t *d, int n, sgl_color_t c)
     for (; n > 0; n--, d++) *d = c;
 }
 
+static inline void sgl_rect_span_blend(sgl_color_t *d, int n, sgl_color_t c, uint8_t a)
+{
+    for (; n >= SGL_RECT_UNROLL; n -= SGL_RECT_UNROLL, d += SGL_RECT_UNROLL) {
+        int k;
+        for (k = 0; k < SGL_RECT_UNROLL; k++) d[k] = sgl_color_mixer(c, d[k], a);
+    }
+    for (; n > 0; n--, d++) *d = sgl_color_mixer(c, *d, a);
+}
+
 static inline int rect_dx_max(int lim, int dy2)
 {
     int v = lim - dy2 - 1;
@@ -160,15 +169,38 @@ static void rect_span(sgl_color_t *d, int x0, int y, int n, const rect_paint_t *
         sgl_rect_span_set(d, n, p->color);
         return;
     }
-    {
-        sgl_color_t c = p->color;
-        uint8_t a = p->alpha;
-        for (; n >= SGL_RECT_UNROLL; n -= SGL_RECT_UNROLL, d += SGL_RECT_UNROLL) {
-            int k;
-            for (k = 0; k < SGL_RECT_UNROLL; k++) d[k] = sgl_color_mixer(c, d[k], a);
+    sgl_rect_span_blend(d, n, p->color, p->alpha);
+}
+
+/* Source selection of a solid colour fill, hoisted out of the row loop: see
+ * rect_axis().  Same two streams as the RECT_SOLID arm of rect_span(), just
+ * without the call and the switch on every single scanline. */
+static void rect_axis_solid(sgl_surf_t *surf, const sgl_area_t *clip, sgl_color_t c,
+                            uint8_t alpha, int solid)
+{
+    const int stride = (int)surf->w;
+    const int n = clip->x2 - clip->x1 + 1;
+    sgl_color_t *row = sgl_surf_get_buf(surf, clip->x1 - surf->x1, clip->y1 - surf->y1);
+    int y;
+
+    /* A one pixel wide span is what a column oriented widget produces: walking
+     * the span loop for every row would add up to more work than the store. */
+    if (n == 1) {
+        if (solid) {
+            for (y = clip->y1; y <= clip->y2; y++, row += stride) *row = c;
+            return;
         }
-        for (; n > 0; n--, d++) *d = sgl_color_mixer(c, *d, a);
+        for (y = clip->y1; y <= clip->y2; y++, row += stride) *row = sgl_color_mixer(c, *row, alpha);
+        return;
     }
+
+    if (solid) {
+        for (y = clip->y1; y <= clip->y2; y++, row += stride)
+            sgl_rect_span_set(row, n, c);
+        return;
+    }
+    for (y = clip->y1; y <= clip->y2; y++, row += stride)
+        sgl_rect_span_blend(row, n, c, alpha);
 }
 
 /* Seed one corner arc.  `in_r` < 0 for a filled rectangle, >= 0 for the border
@@ -211,10 +243,10 @@ static inline void arc_walk(rect_arc_t *a, int y)
 {
     int dy2 = sgl_pow2(y - a->cy);
 
-#define ARC_STEP(dx, lim)                                     \
-    do {                                                     \
-        while (sgl_pow2((dx) + 1) + dy2 < (lim)) (dx)++;     \
-        while ((dx) >= 0 && sgl_pow2(dx) + dy2 >= (lim)) (dx)--; \
+#define ARC_STEP(dx, lim)                                         \
+    do {                                                          \
+        while (sgl_pow2((dx) + 1) + dy2 < (lim)) (dx)++;          \
+        while ((dx) >= 0 && sgl_pow2(dx) + dy2 >= (lim)) (dx)--;  \
     } while (0)
 
     ARC_STEP(a->dx_edge, a->edge_lim);
@@ -271,8 +303,8 @@ static void rect_rows(sgl_surf_t *surf, const sgl_area_t *clip, const sgl_area_t
         int lo = clip->x1, hi = clip->x2;
         int l_on = top ? (y < la->cy) : (y > la->cy);
         int r_on = top ? (y < ra->cy) : (y > ra->cy);
-        int lz_hi = rect->x1 - 1;               /* left arc zone  [rect->x1, lz_hi] */
-        int rz_lo = rect->x2 + 1;               /* right arc zone [rz_lo, rect->x2] */
+        int lz_hi = rect->x1 - 1; /* left arc zone  [rect->x1, lz_hi] */
+        int rz_lo = rect->x2 + 1; /* right arc zone [rz_lo, rect->x2] */
         int zs, ze;
 
         if (l_on) { arc_walk(la, y); lz_hi = sgl_min(la->cx - 1, mid_x); }
@@ -307,6 +339,11 @@ static void rect_axis(sgl_surf_t *surf, const sgl_area_t *clip, const rect_paint
     const int stride = (int)surf->w;
     int lo = clip->x1, n = clip->x2 - clip->x1 + 1, y;
     sgl_color_t *row = sgl_surf_get_buf(surf, clip->x1 - surf->x1, clip->y1 - surf->y1);
+
+    if (!p->ring && p->kind == RECT_SOLID) {
+        rect_axis_solid(surf, clip, p->color, p->alpha, p->solid);
+        return;
+    }
 
     if (!p->ring) {
         for (y = clip->y1; y <= clip->y2; y++, row += stride)

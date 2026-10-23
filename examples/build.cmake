@@ -78,6 +78,7 @@ set(SGL_EXAMPLE_SOURCE
     ${SGL_EXAMPLE_DIR}/scrollview.c         # sgl_scrollview_demo
     ${SGL_EXAMPLE_DIR}/slider.c             # sgl_slider_examples
     ${SGL_EXAMPLE_DIR}/span.c               # sgl_span_examples
+    ${SGL_EXAMPLE_DIR}/spinner.c            # sgl_spinner_examples
     ${SGL_EXAMPLE_DIR}/spectrum.c           # sgl_spectrum_examples
     ${SGL_EXAMPLE_DIR}/stepper.c            # sgl_stepper_examples
     ${SGL_EXAMPLE_DIR}/switch.c             # sgl_switch_examples

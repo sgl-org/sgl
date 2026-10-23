@@ -1993,10 +1993,19 @@ static inline bool sgl_obj_draw_complete(sgl_obj_t *obj, sgl_surf_t *surf, sgl_a
  * @brief sgl global initialization
  * @param none
  * @return int, 0 means success, others means failed
- * @note You should call this function before using sgl and you should call this function after register framebuffer device.
- *       This function is unsafe, you should check the return value by yourself.
+ * @note You should call this function before using sgl and you should call 
+ *       this function after register framebuffer device.
  */
 int sgl_init(void);
+
+/**
+ * @brief sgl global reset, restore the library to the state right after sgl_init()
+ * @param none
+ * @return int, 0 means success, others means failed
+ * @note This frees every object/widget/animation created since the last
+ *       sgl_init()/sgl_reset() call
+ */
+int sgl_reset(void);
 
 /**
  * @brief initialize object

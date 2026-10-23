@@ -28,6 +28,7 @@
 set(SGL_SOURCE
     ${SGL_SOURCE}
     ${CMAKE_CURRENT_LIST_DIR}/ramfs/sgl_ramfs.c
+    ${CMAKE_CURRENT_LIST_DIR}/kvfs/sgl_kvfs.c
     ${CMAKE_CURRENT_LIST_DIR}/fatfs/sgl_fatfs.c
     ${CMAKE_CURRENT_LIST_DIR}/littlefs/sgl_littlefs.c
     ${CMAKE_CURRENT_LIST_DIR}/stdiofs/sgl_stdiofs.c
