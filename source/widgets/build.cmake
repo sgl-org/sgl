@@ -38,6 +38,8 @@ set(SGL_SOURCE
     ${CMAKE_CURRENT_LIST_DIR}/label_ext/sgl_label_ext.c
     ${CMAKE_CURRENT_LIST_DIR}/switch/sgl_switch.c
     ${CMAKE_CURRENT_LIST_DIR}/msgbox/sgl_msgbox.c
+    ${CMAKE_CURRENT_LIST_DIR}/toast/sgl_toast.c
+    ${CMAKE_CURRENT_LIST_DIR}/digitalclock/sgl_digitalclock.c
     ${CMAKE_CURRENT_LIST_DIR}/textline/sgl_textline.c
     ${CMAKE_CURRENT_LIST_DIR}/textbox/sgl_textbox.c
     ${CMAKE_CURRENT_LIST_DIR}/textedit/sgl_textedit.c

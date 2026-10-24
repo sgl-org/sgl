@@ -54,6 +54,7 @@ set(SGL_EXAMPLE_SOURCE
     # ---- basic widgets ----------------------------------------------------
     ${SGL_EXAMPLE_DIR}/2dball.c             # sgl_2dball_examples
     ${SGL_EXAMPLE_DIR}/analogclock.c        # sgl_analogclock_examples
+    ${SGL_EXAMPLE_DIR}/digitalclock.c       # sgl_digitalclock_examples
     ${SGL_EXAMPLE_DIR}/arc.c                # sgl_arc_examples
     ${SGL_EXAMPLE_DIR}/bar.c                # sgl_bar_examples
     ${SGL_EXAMPLE_DIR}/battery.c            # sgl_battery_examples
@@ -83,6 +84,7 @@ set(SGL_EXAMPLE_SOURCE
     ${SGL_EXAMPLE_DIR}/stepper.c            # sgl_stepper_examples
     ${SGL_EXAMPLE_DIR}/switch.c             # sgl_switch_examples
     ${SGL_EXAMPLE_DIR}/tabview.c            # sgl_tabview_examples
+    ${SGL_EXAMPLE_DIR}/toast.c              # sgl_toast_examples
     ${SGL_EXAMPLE_DIR}/textedit.c           # sgl_textedit_examples
     ${SGL_EXAMPLE_DIR}/textlist.c           # sgl_textlist_examples
     ${SGL_EXAMPLE_DIR}/viewlist.c           # sgl_viewlist_examples

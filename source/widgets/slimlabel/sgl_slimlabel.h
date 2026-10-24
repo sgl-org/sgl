@@ -1,4 +1,4 @@
-/* source/widgets/slimlabel/sgl_slimlabel.h
+/* source/widgets/sgl_label.h
  *
  * MIT License
  *
@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#ifndef __SGL_SLIMLABEL_H__
-#define __SGL_SLIMLABEL_H__
+#ifndef __SGL_LABEL_H__
+#define __SGL_LABEL_H__
 
 #include <sgl_core.h>
 #include <sgl_draw.h>
@@ -37,24 +37,6 @@
 extern "C" {
 #endif
 
-/*
- * A RAM-lean label.
- *
- * Unlike the full `sgl_label_t`, which keeps every visual property (font,
- * colors, alpha, alignment, background flag...) as per-instance fields, the
- * slim label stores only a borrowed pointer to a `slimlabel_style_t`. The style
- * is owned by the caller and is normally a `const` object placed in flash, so
- * many labels can share a single style with zero per-instance style memory.
- *
- * The whole public surface is intentionally minimal: a single `set_style` to
- * (re)bind a style, plus the text accessors. The `text` member is also a
- * borrowed pointer: the caller must keep the string alive for the lifetime of
- * the label.
- */
-
-/**
- * @brief visual style shared by slim labels
- */
 typedef struct slimlabel_style {
     sgl_color_t color;
     sgl_color_t bg_color;
@@ -68,8 +50,7 @@ typedef struct slimlabel_style {
 /**
  * @brief sgl slimlabel object
  * @obj: sgl general object
- * @text: borrowed pointer to the displayed text
- * @style: borrowed pointer to the visual style
+ * @desc: draw task descriptor
  */
 typedef struct sgl_slimlabel {
     sgl_obj_t        obj;
@@ -85,40 +66,113 @@ typedef struct sgl_slimlabel {
 sgl_obj_t* sgl_slimlabel_create(sgl_obj_t* parent);
 
 /**
- * @brief bind a style to the slimlabel
- * @param obj pointer to the slimlabel object
- * @param style pointer to the style (borrowed, typically a const object in flash)
- * @return none
- * @note the style must stay valid for the lifetime of the label
- */
-void sgl_slimlabel_set_style(sgl_obj_t *obj, const slimlabel_style_t *style);
-
-/**
- * @brief set the text of the slimlabel
- * @param obj pointer to the slimlabel object
- * @param text pointer to the text (must stay valid, it is not copied)
+ * @brief set the text of the label
+ * @param obj pointer to the label object
+ * @param text pointer to the text
  * @return none
  */
-void sgl_slimlabel_set_text(sgl_obj_t *obj, const char *text);
+void sgl_label_set_text(sgl_obj_t *obj, const char *text);
 
 /**
- * @brief set the text buffer of the slimlabel
- * @param obj pointer to the slimlabel object
- * @param buf pointer to the text buffer (must stay valid, it is not copied)
- * @param buf_size size of the text buffer (used only to clear the buffer)
+ * @brief set the text buffer of the label
+ * @param obj pointer to the label object
+ * @param buf pointer to the text buffer
+ * @param buf_size size of the text buffer
  * @return none
  */
-void sgl_slimlabel_set_text_buffer(sgl_obj_t *obj, char *buf, uint16_t buf_size);
+void sgl_label_set_text_buffer(sgl_obj_t *obj, char *buf, uint16_t buf_size);
 
 /**
- * @brief get the text of the slimlabel
- * @param obj pointer to the slimlabel object
+ * @brief set the text of the label with format by manual memory
+ * @param obj pointer to the label object
+ * @param fmt pointer to the text
+ * @return none
+ * @note the text buffer must be set by sgl_label_set_text_buffer() before calling this function
+ */
+void sgl_label_set_text_fmt(sgl_obj_t *obj, const char *fmt, ...);
+
+/**
+ * @brief set the text of the label with format by dynamic memory
+ * @param obj pointer to the label object
+ * @param text pointer to the text
+ * @return none
+ */
+void sgl_label_set_text_fmt_dynamic(sgl_obj_t* obj, const char *fmt, ...);
+
+/**
+ * @brief get the text of the label
+ * @param obj pointer to the label object
  * @return pointer to the text
  */
-char* sgl_slimlabel_get_text(sgl_obj_t *obj);
+char* sgl_label_get_text(sgl_obj_t *obj);
+
+/**
+ * @brief set label font
+ * @param obj pointer to the label object
+ * @param font pointer to the font
+ * @return none
+ */
+void sgl_label_set_font(sgl_obj_t *obj, const sgl_font_t *font);
+
+/**
+ * @brief set label text color
+ * @param obj pointer to the label object
+ * @param color color to be set
+ * @return none
+ */
+void sgl_label_set_text_color(sgl_obj_t *obj, sgl_color_t color);
+
+/**
+ * @brief set label background color
+ * @param obj pointer to the label object
+ * @param color color to be set
+ * @return none
+ */
+void sgl_label_set_bg_color(sgl_obj_t *obj, sgl_color_t color);
+
+/**
+ * @brief set label radius
+ * @param obj pointer to the label object
+ * @param radius radius to be set
+ * @return none
+ */
+void sgl_label_set_radius(sgl_obj_t *obj, uint8_t radius);
+
+/**
+ * @brief set label text align
+ * @param obj pointer to the label object
+ * @param align align to be set
+ * @return none
+ */
+void sgl_label_set_text_align(sgl_obj_t *obj, sgl_align_type_t align);
+
+/**
+ * @brief set label alpha
+ * @param obj pointer to the label object
+ * @param alpha alpha to be set
+ * @return none
+ */
+void sgl_label_set_alpha(sgl_obj_t *obj, uint8_t alpha);
+
+/**
+ * @brief set label text offset
+ * @param obj pointer to the label object
+ * @param offset_x offset_x to be set
+ * @return none
+ */
+void sgl_label_set_text_offset(sgl_obj_t *obj, int8_t offset_x);
+
+/**
+ * @brief set label long mode
+ * @param obj pointer to the label object
+ * @param speed pixel per second
+ * @param flag flag to be set
+ * @return none
+ */
+void sgl_label_set_long_mode(sgl_obj_t *obj, uint32_t speed_ms, bool flag);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // !__SGL_SLIMLABEL_H__
+#endif // !__SGL_LABEL_H__
