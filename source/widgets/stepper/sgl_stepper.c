@@ -204,7 +204,7 @@ static void sgl_stepper_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event
     uint8_t dec_dis = sgl_stepper_dec_disabled(s);
     uint8_t inc_dis = sgl_stepper_inc_disabled(s);
     int16_t sign_half = sgl_max(h / 6, 4);
-    int16_t sign_thick = sgl_max(h / 10, 2);
+    int16_t sign_thick = sgl_max(h / 10, 2) | 1;
 
     switch (evt->type) {
     case SGL_EVENT_DRAW_MAIN: {
