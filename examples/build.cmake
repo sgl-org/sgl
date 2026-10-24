@@ -57,6 +57,7 @@ set(SGL_EXAMPLE_SOURCE
     ${SGL_EXAMPLE_DIR}/digitalclock.c       # sgl_digitalclock_examples
     ${SGL_EXAMPLE_DIR}/arc.c                # sgl_arc_examples
     ${SGL_EXAMPLE_DIR}/bar.c                # sgl_bar_examples
+    ${SGL_EXAMPLE_DIR}/barcode.c            # sgl_barcode_examples
     ${SGL_EXAMPLE_DIR}/battery.c            # sgl_battery_examples
     ${SGL_EXAMPLE_DIR}/button.c             # sgl_button_examples
     ${SGL_EXAMPLE_DIR}/calendar.c           # sgl_calendar_examples

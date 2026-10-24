@@ -74,4 +74,20 @@ set(SGL_SOURCE
     ${CMAKE_CURRENT_LIST_DIR}/coverflow/sgl_coverflow.c
     ${CMAKE_CURRENT_LIST_DIR}/calendar/sgl_calendar.c
     ${CMAKE_CURRENT_LIST_DIR}/avi/sgl_avi.c
+    ${CMAKE_CURRENT_LIST_DIR}/img/sgl_img.c
+    ${CMAKE_CURRENT_LIST_DIR}/img_ext/sgl_img_ext.c
+    ${CMAKE_CURRENT_LIST_DIR}/span/sgl_span.c
+    ${CMAKE_CURRENT_LIST_DIR}/analogclock/sgl_analogclock.c
+    ${CMAKE_CURRENT_LIST_DIR}/battery/sgl_battery.c
+    ${CMAKE_CURRENT_LIST_DIR}/charge/sgl_charge.c
+    ${CMAKE_CURRENT_LIST_DIR}/statusbar/sgl_statusbar.c
+    ${CMAKE_CURRENT_LIST_DIR}/roller/sgl_roller.c
+    ${CMAKE_CURRENT_LIST_DIR}/spinner/sgl_spinner.c
+    ${CMAKE_CURRENT_LIST_DIR}/stepper/sgl_stepper.c
+    ${CMAKE_CURRENT_LIST_DIR}/curve/sgl_curve.c
+    ${CMAKE_CURRENT_LIST_DIR}/filedialog/sgl_filedialog.c
+    ${CMAKE_CURRENT_LIST_DIR}/launcher/sgl_launcher.c
+    ${CMAKE_CURRENT_LIST_DIR}/gifdec/sgl_gifdec.c
+    ${CMAKE_CURRENT_LIST_DIR}/gif/sgl_gif.c
+    ${CMAKE_CURRENT_LIST_DIR}/barcode/sgl_barcode.c
 )
