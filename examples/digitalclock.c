@@ -88,13 +88,14 @@ void sgl_digitalclock_examples(sgl_obj_t *parent)
     /* example 1: large clock, default dark cards and white digits */
     clk = sgl_digitalclock_create(parent);
     sgl_obj_set_pos(clk, 240, 8);
-    sgl_obj_set_size(clk, 320, 68);
+    sgl_obj_set_size(clk, 300, 68);
     sgl_digitalclock_set_font(clk, &consolas32);
     sgl_digitalclock_set_flip_time(clk, 150);
     /* make the moving leaf stand out against the dark settled card */
     sgl_digitalclock_set_flip_color(clk, sgl_rgb(150, 154, 166));
     sgl_digitalclock_set_flip_text_color(clk, sgl_rgb(24, 24, 28));
     sgl_digitalclock_set_flip_contrast(clk, 255);
+    sgl_digitalclock_set_radius(clk, 8);
     g_dclocks = clk;
 
     /* first update flips every card from 00:00:00 to the current time */

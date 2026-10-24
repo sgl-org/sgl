@@ -47,7 +47,6 @@ typedef struct sgl_digitalclock {
     const sgl_font_t *font;
     sgl_color_t     card_color;
     sgl_color_t     text_color;
-    sgl_color_t     colon_color;
     sgl_color_t     flip_color;
     sgl_color_t     flip_text_color;
     uint8_t         flip_contrast;
@@ -103,13 +102,6 @@ void sgl_digitalclock_set_card_color(sgl_obj_t *obj, sgl_color_t color);
  * @param color Digit text color.
  */
 void sgl_digitalclock_set_text_color(sgl_obj_t *obj, sgl_color_t color);
-
-/**
- * @brief Set the color of the two colon separators between hour/minute/second pairs.
- * @param obj Clock object.
- * @param color Colon dot color.
- */
-void sgl_digitalclock_set_colon_color(sgl_obj_t *obj, sgl_color_t color);
 
 /**
  * @brief Set the color shown by the moving leaf while a digit flips.

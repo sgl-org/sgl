@@ -266,28 +266,34 @@ static void sgl_digitalclock_draw_card(sgl_digitalclock_t *clock, sgl_surf_t *su
 
 static void sgl_digitalclock_draw_colon(sgl_digitalclock_t *clock, sgl_surf_t *surf,
                                         const sgl_digitalclock_layout_t *layout,
-                                        int16_t x)
+                                        uint8_t index)
 {
+    sgl_area_t left;
+    sgl_area_t right;
     int16_t cx;
     int16_t cy1;
     int16_t cy2;
+    int16_t space_w;
     int16_t radius;
 
-    cx = x + layout->colon_w / 2;
-    cy1 = layout->y + layout->card_h * 35 / 100;
-    cy2 = layout->y + layout->card_h * 65 / 100;
-    radius = sgl_max(1, layout->colon_w / 9);
+    sgl_digitalclock_card_area(layout, index, &left);
+    sgl_digitalclock_card_area(layout, index + 1, &right);
+    space_w = right.x1 - left.x2 - 1;
+    cx = left.x2 + (space_w + 1) / 2;
+    radius = sgl_max(1, layout->card_h / 32);
+    radius = sgl_min(radius, (space_w - 2) / 2);
+    cy1 = layout->y + layout->card_h * 2 / 5;
+    cy2 = cy1 + layout->card_h / 5;
     sgl_draw_fill_circle(surf, &clock->obj.area, cx, cy1, radius,
-                         clock->colon_color, clock->alpha);
+                         clock->text_color, clock->alpha);
     sgl_draw_fill_circle(surf, &clock->obj.area, cx, cy2, radius,
-                         clock->colon_color, clock->alpha);
+                         clock->text_color, clock->alpha);
 }
 
 static void sgl_digitalclock_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_t *evt)
 {
     sgl_digitalclock_t *clock;
     sgl_digitalclock_layout_t layout;
-    int16_t colon_x;
     uint8_t i;
 
     clock = sgl_container_of(obj, sgl_digitalclock_t, obj);
@@ -304,13 +310,8 @@ static void sgl_digitalclock_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_
 
     for (i = 0; i < SGL_DIGITALCLOCK_DIGIT_COUNT; i++) {
         sgl_digitalclock_draw_card(clock, surf, &layout, i);
-        if (i == 1 || i == 3) {
-            colon_x = layout.x + (i + 1) * layout.card_w + i * layout.gap;
-            if (i >= 2)
-                colon_x += layout.colon_w;
-            colon_x += layout.gap;
-            sgl_digitalclock_draw_colon(clock, surf, &layout, colon_x);
-        }
+        if (i == 1 || i == 3)
+            sgl_digitalclock_draw_colon(clock, surf, &layout, i);
     }
 }
 
@@ -359,7 +360,6 @@ sgl_obj_t* sgl_digitalclock_create(sgl_obj_t *parent)
     clock->font = sgl_get_system_font();
     clock->card_color = sgl_rgb(24, 24, 26);
     clock->text_color = SGL_COLOR_WHITE;
-    clock->colon_color = SGL_COLOR_WHITE;
     clock->flip_color = sgl_rgb(136, 140, 150);
     clock->flip_text_color = sgl_rgb(28, 28, 32);
     clock->flip_contrast = SGL_DIGITALCLOCK_DEFAULT_CONTRAST;
@@ -500,21 +500,6 @@ void sgl_digitalclock_set_text_color(sgl_obj_t *obj, sgl_color_t color)
 
     clock = sgl_container_of(obj, sgl_digitalclock_t, obj);
     clock->text_color = color;
-    sgl_obj_set_dirty(obj);
-}
-
-/**
- * @brief Set the color of the two colon separators between hour/minute/second pairs.
- * @param obj Clock object.
- * @param color Colon dot color.
- * @return none
- */
-void sgl_digitalclock_set_colon_color(sgl_obj_t *obj, sgl_color_t color)
-{
-    sgl_digitalclock_t *clock;
-
-    clock = sgl_container_of(obj, sgl_digitalclock_t, obj);
-    clock->colon_color = color;
     sgl_obj_set_dirty(obj);
 }
 
