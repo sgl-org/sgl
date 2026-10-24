@@ -72,6 +72,7 @@
 #include "widgets/textlist/sgl_textlist.h"
 #include "widgets/qrcode/sgl_qrcode.h"
 #include "widgets/barcode/sgl_barcode.h"
+#include "widgets/table/sgl_table.h"
 #include "widgets/spectrum/sgl_spectrum.h"
 #include "widgets/battery/sgl_battery.h"
 #include "widgets/charge/sgl_charge.h"

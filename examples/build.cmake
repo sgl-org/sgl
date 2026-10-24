@@ -88,6 +88,7 @@ set(SGL_EXAMPLE_SOURCE
     ${SGL_EXAMPLE_DIR}/toast.c              # sgl_toast_examples
     ${SGL_EXAMPLE_DIR}/textedit.c           # sgl_textedit_examples
     ${SGL_EXAMPLE_DIR}/textlist.c           # sgl_textlist_examples
+    ${SGL_EXAMPLE_DIR}/table.c              # sgl_table_examples
     ${SGL_EXAMPLE_DIR}/viewlist.c           # sgl_viewlist_examples
 
     # ---- composite widgets ------------------------------------------------

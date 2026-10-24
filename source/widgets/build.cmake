@@ -90,4 +90,5 @@ set(SGL_SOURCE
     ${CMAKE_CURRENT_LIST_DIR}/gifdec/sgl_gifdec.c
     ${CMAKE_CURRENT_LIST_DIR}/gif/sgl_gif.c
     ${CMAKE_CURRENT_LIST_DIR}/barcode/sgl_barcode.c
+    ${CMAKE_CURRENT_LIST_DIR}/table/sgl_table.c
 )

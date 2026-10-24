@@ -348,8 +348,12 @@ void sgl_barcode_set_text(sgl_obj_t *obj, const char *text)
         bc->text[0] = '\0';
     }
     else {
-        strncpy(bc->text, text, SGL_BARCODE_TEXT_MAX_LEN);
-        bc->text[SGL_BARCODE_TEXT_MAX_LEN] = '\0';
+        size_t len = strlen(text);
+        if (len > SGL_BARCODE_TEXT_MAX_LEN) {
+            len = SGL_BARCODE_TEXT_MAX_LEN;
+        }
+        memcpy(bc->text, text, len);
+        bc->text[len] = '\0';
     }
 
     barcode_encode(bc);
