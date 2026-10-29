@@ -133,8 +133,8 @@ typedef struct sgl_img {
     uint8_t         remainder;
     uint8_t         pix_alpha;
     uint8_t         *flash_buffer;
-    uint16_t        buffer_lines;   /* Number of lines the flash_buffer can hold */
-    uint16_t        buffer_line;    /* Current starting line in flash_buffer */
+    uint16_t        buffer_lines;      /* Non-RLE: lines flash_buffer holds; RLE: bytes in the current cache block */
+    uint16_t        buffer_line;       /* Non-RLE: current start line; RLE: read offset within the cache block */
     uint32_t        *qoi_line_offsets; /* QOI per-line offset table (allocated on demand) */
 } sgl_img_t;
 

@@ -547,3 +547,5 @@ uint16_t sgl_barcode_get_modules(sgl_obj_t *obj)
 
     return bc->modules;
 }
+
+8808422

@@ -32,7 +32,6 @@
 #include <string.h>
 #include "sgl_img.h"
 
-/* ==================== QOI-RGB565 decoder ==================== */
 /* Line-based block decoder, decoded output is RGB565 (little-endian) */
 #define QOI_OP_RUN                   0xC0
 #define QOI_OP_DIFF                  0x40
@@ -194,85 +193,112 @@ static inline void img_rle_init(sgl_img_t *img)
     img->remainder = 0;
 }
 
+/**
+ * @brief number of compressed bytes prefetched per flash access for RLE.
+ *        One block covers SGL_IMG_BUFFER_SIZE lines worth of worst-case encoded
+ *        pixels: (value bytes per pixel + 1 run header) * width * lines.
+ *        Clamped into uint16 range so it fits the reused buffer counters.
+ */
+static inline uint16_t rle_cache_capacity(const sgl_img_t *img)
+{
+    const sgl_pixmap_t *pm = &img->pixmap[img->pixmap_idx];
+    uint32_t pix_byte = sgl_pixmal_get_pixel_bytes(pm);
+    uint32_t lines = SGL_IMG_BUFFER_SIZE;
+    uint32_t cap;
+
+    if (lines == 0) {
+        lines = pm->height;
+    }
+    cap = (pix_byte + 1u) * pm->width * lines;
+    if (cap < 8u)     cap = 8u;
+    if (cap > 0xFFFFu) cap = 0xFFFFu;
+    return (uint16_t)cap;
+}
+
+/**
+ * @brief fetch one byte of the RLE compressed stream at img->index, advancing
+ *        the cursor. When an external read op is present, bytes are served from
+ *        a block cache in flash_buffer (reusing buffer_lines / buffer_line as the
+ *        fill size / read offset) so the flash is touched only once per cache
+ *        block instead of once per token.
+ */
+static inline uint8_t rle_stream_fetch(sgl_img_t *img, uintptr_t start_addr)
+{
+    if (img->read == NULL) {
+        /* memory-mapped source: read straight from the array */
+        return ((const uint8_t*)img->pixmap[img->pixmap_idx].bitmap.array)[img->index++];
+    }
+    if (img->flash_buffer == NULL) {
+        /* cache unavailable: fall back to a single-byte read */
+        uint8_t b = 0;
+        img->read(start_addr + img->index, &b, 1);
+        img->index++;
+        return b;
+    }
+    if (img->buffer_line >= img->buffer_lines) {
+        /* cache exhausted: prefetch a fresh block at the current stream position */
+        uint16_t cap = rle_cache_capacity(img);
+        img->read(start_addr + img->index, img->flash_buffer, cap);
+        img->buffer_line = 0;
+        img->buffer_lines = cap;
+    }
+    img->index++;
+    return img->flash_buffer[img->buffer_line++];
+}
+
 static inline void rle_decompress_line(sgl_img_t *img, sgl_area_t *coords, sgl_area_t *area, sgl_color_t *out)
 {
-    uint8_t tmp_buf[8];
-    uint8_t* read_ptr = NULL;
-    uint8_t* start_ptr = (uint8_t*)img->pixmap[img->pixmap_idx].bitmap.array;
     uintptr_t start_addr = img->pixmap[img->pixmap_idx].bitmap.addr;
     uint8_t format = img->pixmap->format;
     uint32_t pix_value;
-    uint8_t read_len;
+    uint8_t v0, v1, v2, v3;
 
     for (int i = coords->x1; i <= coords->x2; i++) {
         if (img->remainder == 0) {
-            if (img->read != NULL) {
-                /* Read only the bytes we actually need for this RLE segment */
-                switch (format) {
-                case SGL_PIXMAP_FMT_RLE_RGB332:
-                case SGL_PIXMAP_FMT_RLE_ARGB2222:
-                    read_len = 2;
-                    break;
-                case SGL_PIXMAP_FMT_RLE_RGB565:
-                case SGL_PIXMAP_FMT_RLE_ARGB4444:
-                    read_len = 3;
-                    break;
-                case SGL_PIXMAP_FMT_RLE_RGB888:
-                    read_len = 4;
-                    break;
-                case SGL_PIXMAP_FMT_RLE_ARGB8888:
-                    read_len = 5;
-                    break;
-                default:
-                    read_len = 2;
-                    break;
-                }
-                read_ptr = tmp_buf;
-                img->read(start_addr + img->index, tmp_buf, read_len);
-            }
-            else {
-                read_ptr = start_ptr + img->index;
-            }
-
-            img->index ++;
-            img->remainder = read_ptr[0];
+            /* first byte of a token is the run-length header */
+            img->remainder = rle_stream_fetch(img, start_addr);
 
             switch (format) {
             case SGL_PIXMAP_FMT_RLE_RGB332:
-                pix_value = read_ptr[1];
+                pix_value = rle_stream_fetch(img, start_addr);
                 img->color = sgl_rgb332_to_color(pix_value);
                 img->pix_alpha = SGL_ALPHA_MAX;
-                img->index ++;
                 break;
             case SGL_PIXMAP_FMT_RLE_ARGB2222:
-                pix_value = read_ptr[1];
+                pix_value = rle_stream_fetch(img, start_addr);
                 img->color = sgl_rgb222_to_color(pix_value);
                 img->pix_alpha = sgl_opa2_table[pix_value >> 6];
-                img->index ++;
                 break;
             case SGL_PIXMAP_FMT_RLE_RGB565:
-                pix_value = read_ptr[1] | (read_ptr[2] << 8);
+                v0 = rle_stream_fetch(img, start_addr);
+                v1 = rle_stream_fetch(img, start_addr);
+                pix_value = v0 | (v1 << 8);
                 img->color = sgl_rgb565_to_color(pix_value);
                 img->pix_alpha = SGL_ALPHA_MAX;
-                img->index += 2;
                 break;
             case SGL_PIXMAP_FMT_RLE_ARGB4444:
-                pix_value = read_ptr[1] | (read_ptr[2] << 8);
+                v0 = rle_stream_fetch(img, start_addr);
+                v1 = rle_stream_fetch(img, start_addr);
+                pix_value = v0 | (v1 << 8);
                 img->color = sgl_rgb444_to_color(pix_value);
                 img->pix_alpha = sgl_opa4_table[pix_value >> 12];
-                img->index += 2;
                 break;
             case SGL_PIXMAP_FMT_RLE_RGB888:
-                pix_value = read_ptr[1] | (read_ptr[2] << 8) | (read_ptr[3] << 16);
+                v0 = rle_stream_fetch(img, start_addr);
+                v1 = rle_stream_fetch(img, start_addr);
+                v2 = rle_stream_fetch(img, start_addr);
+                pix_value = v0 | (v1 << 8) | (v2 << 16);
                 img->color = sgl_rgb888_to_color(pix_value);
                 img->pix_alpha = SGL_ALPHA_MAX;
-                img->index += 3;
                 break;
             case SGL_PIXMAP_FMT_RLE_ARGB8888:
-                pix_value = read_ptr[1] | (read_ptr[2] << 8) | (read_ptr[3] << 16);
+                v0 = rle_stream_fetch(img, start_addr);
+                v1 = rle_stream_fetch(img, start_addr);
+                v2 = rle_stream_fetch(img, start_addr);
+                v3 = rle_stream_fetch(img, start_addr);
+                pix_value = v0 | (v1 << 8) | (v2 << 16);
                 img->color = sgl_rgb888_to_color(pix_value);
-                img->pix_alpha = read_ptr[4];
-                img->index += 4;
+                img->pix_alpha = v3;
                 break;
             default:
                 break;
@@ -346,7 +372,7 @@ static void sgl_img_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *
             }
         }
 
-        if (img->read != NULL) {
+        if (format < SGL_PIXMAP_FMT_RLE_RGB332 && img->read != NULL) {
             /* Calculate buffer lines: 0 means use full clip height, otherwise use configured value capped at clip height */
             uint16_t buf_lines = SGL_IMG_BUFFER_SIZE;
             if (buf_lines == 0) {
@@ -365,7 +391,7 @@ static void sgl_img_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *
             }
             pixmap_buf = img->flash_buffer;
         }
-        else {
+        else if (format < SGL_PIXMAP_FMT_RLE_RGB332) {
             /* No external read: use 1-line buffer mode, read directly from memory */
             img->buffer_lines = 1;
         }
@@ -513,10 +539,20 @@ static void sgl_img_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *
 qoi_draw_done: ;
         }
         else {
-            /* RLE pixmap support */
+            /* RLE pixmap support: prefetch cache reuses flash_buffer plus the
+             * buffer_lines / buffer_line counters (fill size / read offset). */
+            if (img->read != NULL && img->flash_buffer == NULL) {
+                img->flash_buffer = (uint8_t*)sgl_malloc(rle_cache_capacity(img));
+                if (img->flash_buffer == NULL) {
+                    return;
+                }
+            }
+
             if (clip.y1 == surf->dirty->y1 || clip.y1 == obj->area.y1) {
                 img->index = 0;
                 img->remainder = 0;
+                img->buffer_line = 0;   /* mark cache empty: force refetch from stream start */
+                img->buffer_lines = 0;
                 for (int y = area.y1; y < clip.y1; y++) {
                     rle_decompress_line(img, &area, &clip, NULL);
                 }
