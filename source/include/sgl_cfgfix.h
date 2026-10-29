@@ -146,6 +146,10 @@ extern "C" {
 #   endif
 #endif
 
+#ifndef CONFIG_SGL_THEME_DEFAULT
+#define CONFIG_SGL_THEME_DEFAULT                                   (1)  /* Default theme */
+#endif
+
 #ifndef CONFIG_SGL_FONT_COMPRESSED
 #define CONFIG_SGL_FONT_COMPRESSED                                 (0)  /* Enable font compression */
 #endif
