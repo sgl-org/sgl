@@ -1514,6 +1514,8 @@ void sgl_obj_set_pos_align(sgl_obj_t *obj, sgl_align_type_t type);
  * @param ref The reference object, it should be the sibling object.
  * @param obj The object to set the alignment position.
  * @param type The alignment type.
+ * @param x_ofs Horizontal offset (px) added to the aligned position.
+ * @param y_ofs Vertical offset (px) added to the aligned position.
  * @return none
  * @note type should be one of the sgl_align_type_t values:
  *       - SGL_ALIGN_VERT_LEFT  : Align the object at the left side of the reference object.
@@ -1525,7 +1527,7 @@ void sgl_obj_set_pos_align(sgl_obj_t *obj, sgl_align_type_t type);
  * 
  * @warning You must set the size of object before calling this function.
  */
-void sgl_obj_set_pos_align_ref(sgl_obj_t *ref, sgl_obj_t *obj, sgl_align_type_t type);
+void sgl_obj_set_pos_align_ref(sgl_obj_t *ref, sgl_obj_t *obj, sgl_align_type_t type, int16_t x_ofs, int16_t y_ofs);
 
 /**
  * @brief Set the layout of the object.

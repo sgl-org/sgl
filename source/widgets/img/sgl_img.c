@@ -425,8 +425,18 @@ static void sgl_img_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *
                 goto qoi_draw_done;
             }
 
-/* Y-loop header: refill buffer, compute blend/offset for current row.
- * Usage: DRAW_Y_HEAD() followed by a for(x...) pixel loop, then DRAW_Y_TAIL() */
+            if (img->read == NULL && img->alpha == SGL_ALPHA_MAX &&
+                ((CONFIG_SGL_FBDEV_PIXEL_DEPTH == SGL_COLOR_RGB332 && pixmap->format == SGL_PIXMAP_FMT_RGB332) ||
+                 (CONFIG_SGL_FBDEV_PIXEL_DEPTH == SGL_COLOR_RGB565 && pixmap->format == SGL_PIXMAP_FMT_RGB565) ||
+                 (CONFIG_SGL_FBDEV_PIXEL_DEPTH == SGL_COLOR_RGB888 && pixmap->format == SGL_PIXMAP_FMT_RGB888))) {
+                const uint8_t *src = (const uint8_t*)pixmap->bitmap.array;
+                for (int y = clip.y1; y <= clip.y2; y++) {
+                    memcpy(buf, src + (((size_t)(y - area.y1) * pixmap->width + (clip.x1 - area.x1)) * pix_byte), row_width_bytes);
+                    buf += surf->w;
+                }
+                goto qoi_draw_done;
+            }
+
 #define DRAW_Y_HEAD()                                                        \
             for (int y = clip.y1; y <= clip.y2; y++) {                       \
                 if (lines_in_buf == 0) {                                     \
@@ -465,15 +475,6 @@ static void sgl_img_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *
                 DRAW_Y_TAIL();
                 break;
             case SGL_PIXMAP_FMT_RGB565:
-                if (img->alpha == SGL_ALPHA_MAX && img->read == NULL) {
-                    /* Fast path: direct line copy from internal RAM */
-                    const uint8_t *src = (const uint8_t*)pixmap->bitmap.array;
-                    for (int y = clip.y1; y <= clip.y2; y++) {
-                        memcpy(buf, src + ((y - area.y1) * pixmap->width + (clip.x1 - area.x1)) * 2, row_width_bytes);
-                        buf += surf->w;
-                    }
-                    break;
-                }
                 DRAW_Y_HEAD();
                     for (int x = clip.x1; x <= clip.x2; x++) {
                         tmp_color = sgl_rgb565_to_color(pixmap_buf[offset] | (pixmap_buf[offset + 1] << 8));

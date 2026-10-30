@@ -111,7 +111,6 @@ extern "C" {
  *          sgl_img_set_read_ops(img, flash_port_read_data_from_flash);
  */
 
- /* TODO: add ext img buffer size config */
 #define SGL_IMG_BUFFER_SIZE   (CONFIG_SGL_IMG_BUFFER_LINES)
 
 /**
@@ -123,7 +122,6 @@ typedef struct sgl_img {
     sgl_obj_t       obj;
     const sgl_pixmap_t *pixmap;
     void            (*read)(const size_t addr, uint8_t *buf, uint32_t len_bytes);
-    /* RLE compress context */
     uint32_t        index;
     sgl_color_t     color;
     uint8_t         alpha;

@@ -243,9 +243,9 @@ static const uint8_t *sgl_font_get_glyph_bitmap(const sgl_font_t *font, uint32_t
 void sgl_draw_character(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, uint32_t ch_index, sgl_color_t color, uint8_t alpha, const sgl_font_t *font)
 {
 #if (CONFIG_SGL_FLASH_FONT)
-    uint8_t glyph_buf[CONFIG_SGL_FLASH_FONT_GLYPH_BUF_SIZE];
+    static uint8_t glyph_buf[CONFIG_SGL_FLASH_FONT_GLYPH_BUF_SIZE];
     const sgl_font_table_t *dsc = sgl_font_glyph_dsc(font, ch_index);
-    const uint8_t *dot = sgl_font_get_glyph_bitmap(font, ch_index, glyph_buf, sizeof(glyph_buf));
+    const uint8_t *dot = NULL;
 #else
     const sgl_font_table_t *dsc = &font->table[ch_index];
     const uint8_t *dot = &font->bitmap[font->table[ch_index].bitmap_index];

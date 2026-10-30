@@ -198,7 +198,7 @@ extern "C" {
  * @brief Run once function
  * @note you must sure the statement is thread safe
  */
-#define  SGL_RUN_ONCE(statement)                do { \
+#define  SGL_RUN_ONCE(statement)                do {                                        \
                                                     static bool _run_once_flag = false;     \
                                                     if (unlikely(_run_once_flag == false)){ \
                                                         statement;                          \
@@ -238,8 +238,8 @@ extern "C" {
                                                                .ch.green   = ((rgb888) >> 8),                         \
                                                                .ch.red     = ((rgb888) >> 16),}
 
-#define sgl_rgb8565_to_color(rgb8565)           (sgl_color_t){ .ch.blue    = ((((rgb8565) >> 0) & 0x1F) << 3),          \
-                                                               .ch.green   = ((((rgb8565) >> 5) & 0x3F) << 2),          \
+#define sgl_rgb8565_to_color(rgb8565)           (sgl_color_t){ .ch.blue    = ((((rgb8565) >> 0) & 0x1F) << 3),        \
+                                                               .ch.green   = ((((rgb8565) >> 5) & 0x3F) << 2),        \
                                                                .ch.red     = ((((rgb8565) >> 11) & 0x1F) << 3),}
 
 #elif (CONFIG_SGL_FBDEV_PIXEL_DEPTH == SGL_COLOR_RGB565)
@@ -273,8 +273,8 @@ extern "C" {
                                                                .ch.green   = (((rgb888) >> 8) >> 2),                  \
                                                                .ch.red     = (((rgb888) >> 16) >> 3),}
 
-#define sgl_rgb8565_to_color(rgb8565)           (sgl_color_t){ .ch.blue    = ((((rgb8565) >> 0) & 0x1F) >> 0),          \
-                                                               .ch.green   = ((((rgb8565) >> 5) & 0x3F) >> 0),          \
+#define sgl_rgb8565_to_color(rgb8565)           (sgl_color_t){ .ch.blue    = ((((rgb8565) >> 0) & 0x1F) >> 0),        \
+                                                               .ch.green   = ((((rgb8565) >> 5) & 0x3F) >> 0),        \
                                                                .ch.red     = ((((rgb8565) >> 11) & 0x1F) >> 0),}
 
 #elif (CONFIG_SGL_FBDEV_PIXEL_DEPTH == SGL_COLOR_RGB332)
@@ -308,8 +308,8 @@ extern "C" {
                                                                .ch.green   = (((rgb888) >> 8) >> 5),                  \
                                                                .ch.red     = (((rgb888) >> 16) >> 6),}
 
-#define sgl_rgb8565_to_color(rgb8565)           (sgl_color_t){ .ch.blue    = ((((rgb8565) >> 0) & 0x1F) >> 3),          \
-                                                               .ch.green   = ((((rgb8565) >> 5) & 0x3F) >> 3),          \
+#define sgl_rgb8565_to_color(rgb8565)           (sgl_color_t){ .ch.blue    = ((((rgb8565) >> 0) & 0x1F) >> 3),        \
+                                                               .ch.green   = ((((rgb8565) >> 5) & 0x3F) >> 3),        \
                                                                .ch.red     = ((((rgb8565) >> 11) & 0x1F) >> 3),}
 
 #endif
