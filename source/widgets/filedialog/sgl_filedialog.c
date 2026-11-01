@@ -137,13 +137,6 @@ static const char *sgl_filedialog_match_icon(const sgl_filedialog_t *fd,
     return default_icon;
 }
 
-/* Font used to render the list icons: a dedicated icon font when one is set
- * (sgl_filedialog_set_icon_font), otherwise the widget text font. */
-static inline const sgl_font_t *sgl_filedialog_icon_font(const sgl_filedialog_t *fd)
-{
-    return fd->icon_font != NULL ? fd->icon_font : fd->font;
-}
-
 /* Decode the leading UTF-8 codepoint of an icon string. Icons are single
  * characters (e.g. the SGL_ICON_* font glyphs), so only the first one matters. */
 static uint32_t sgl_filedialog_icon_unicode(const char *icon)
@@ -168,7 +161,7 @@ static void sgl_filedialog_draw_icon(sgl_filedialog_t *fd, sgl_surf_t *surf,
                                      int16_t card_y1, int16_t card_h,
                                      const char *icon)
 {
-    const sgl_font_t *ifont = sgl_filedialog_icon_font(fd);
+    const sgl_font_t *ifont = fd->font;
     int16_t y = (int16_t)(card_y1 + (card_h - sgl_font_get_height(ifont)) / 2);
 
     if (ifont->table != NULL) {
@@ -189,24 +182,23 @@ static void sgl_filedialog_resolve_item_icon(sgl_filedialog_t *fd,
 {
     item->icon   = sgl_filedialog_match_icon(fd, item);
     item->icon_w = (item->icon != NULL)
-                   ? (int16_t)sgl_font_get_string_width(item->icon,
-                                                        sgl_filedialog_icon_font(fd))
+                   ? (int16_t)sgl_font_get_string_width(item->icon, fd->font)
                    : (int16_t)0;
 }
 
-/* Recompute the cached icon widths, e.g. after the text or icon font changed */
+/* Recompute the cached icon widths, e.g. after the text font changed */
 static void sgl_filedialog_refresh_icon_widths(sgl_filedialog_t *fd)
 {
-    const sgl_font_t *ifont = sgl_filedialog_icon_font(fd);
+    const sgl_font_t *font = fd->font;
 
     for (uint16_t i = 0; i < fd->cache_count; ++i) {
         sgl_filebrowser_item_t *it = &fd->cache_items[i];
         if (it->icon != NULL)
-            it->icon_w = (int16_t)sgl_font_get_string_width(it->icon, ifont);
+            it->icon_w = (int16_t)sgl_font_get_string_width(it->icon, font);
     }
     if (fd->selected_item.icon != NULL)
         fd->selected_item.icon_w =
-            (int16_t)sgl_font_get_string_width(fd->selected_item.icon, ifont);
+            (int16_t)sgl_font_get_string_width(fd->selected_item.icon, font);
 }
 
 /* Format a byte count into a compact human string, e.g. 10485760 -> "10.0M",
@@ -1080,7 +1072,6 @@ static sgl_obj_t *sgl_filedialog_create(sgl_obj_t *parent, const char *dev_name,
     fd->selected            = &fd->selected_item;
     sgl_snprintf(fd->root_text, sizeof(fd->root_text), "%s", SGL_FILEDIALOG_ROOT_TEXT);
     fd->font                = sgl_get_system_font();
-    fd->icon_font           = NULL;   /* NULL = draw icons with the text font */
     fd->alpha               = SGL_THEME_ALPHA;
     fd->bg_color            = SGL_THEME_COLOR;
     fd->item_selected_color = sgl_color_mixer(SGL_THEME_COLOR, SGL_THEME_BORDER_COLOR, 128);
@@ -1171,23 +1162,6 @@ void sgl_filedialog_set_text_font(sgl_obj_t *obj, const sgl_font_t *font)
     sgl_filedialog_t *fd = sgl_container_of(obj, sgl_filedialog_t, obj);
     fd->font = font;
     /* Icon widths depend on the font actually used to draw them. */
-    sgl_filedialog_refresh_icon_widths(fd);
-    sgl_obj_set_dirty(obj);
-}
-
-/**
- * @brief Set the icon font of the dialog
- * @param obj: file dialog object
- * @param font: font used to draw the list icons, NULL = use the text font
- * @note the icon glyphs must live in @font, e.g. the FontAwesome icon font
- *       sgl_icon_fontawesome14; icons are vertically centered in the row card
- */
-void sgl_filedialog_set_icon_font(sgl_obj_t *obj, const sgl_font_t *font)
-{
-    sgl_filedialog_t *fd = sgl_container_of(obj, sgl_filedialog_t, obj);
-    if (fd->icon_font == font) return;
-
-    fd->icon_font = font;
     sgl_filedialog_refresh_icon_widths(fd);
     sgl_obj_set_dirty(obj);
 }

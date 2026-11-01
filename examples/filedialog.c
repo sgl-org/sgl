@@ -73,8 +73,7 @@ static void sgl_filedialog_example_confirm(sgl_obj_t *dialog, const char *path, 
 
 /* Row icons: the pattern -> glyph pairs, using the SGL_ICON_* strings that the
  * file browser / file dialog headers provide (FontAwesome codepoints). The
- * glyphs come from the icon font sgl_icon_fontawesome14, generated from
- * fonts/FontAwesome.otf with the sgl_font_conv tool. */
+ * glyphs are drawn with the text font, so that font must contain them. */
 static const sgl_filebrowser_icon_t g_filedialog_icons[] = {
     { "*",     SGL_ICON_NORMAL_FILE },
     { "..",    SGL_ICON_RETURN_FILE },
@@ -107,11 +106,10 @@ static const sgl_filebrowser_icon_t g_filedialog_icons[] = {
     { NULL,    NULL },
 };
 
-/* Text font + FontAwesome icon font + icon table for a freshly opened dialog */
+/* Text font (also used for the icons) + icon table for a freshly opened dialog */
 static void sgl_filedialog_example_setup(sgl_obj_t *dlg)
 {
     sgl_filedialog_set_text_font(dlg, &consolas14);
-    sgl_filedialog_set_icon_font(dlg, &sgl_icon_fontawesome14);
     sgl_filedialog_set_icons(dlg, g_filedialog_icons);
     sgl_filedialog_set_confirm_cb(dlg, sgl_filedialog_example_confirm, NULL);
 

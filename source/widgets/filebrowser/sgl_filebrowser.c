@@ -138,13 +138,6 @@ static const char *sgl_filebrowser_match_icon(const sgl_filebrowser_t *fb, const
     return default_icon;
 }
 
-/* Font used to render the list icons: a dedicated icon font when one is set
- * (sgl_filebrowser_set_icon_font), otherwise the widget text font. */
-static inline const sgl_font_t *sgl_filebrowser_icon_font(const sgl_filebrowser_t *fb)
-{
-    return fb->icon_font != NULL ? fb->icon_font : fb->font;
-}
-
 /* Decode the leading UTF-8 codepoint of an icon string. Icons are single
  * characters (e.g. the SGL_ICON_* font glyphs), so only the first one matters. */
 static uint32_t sgl_filebrowser_icon_unicode(const char *icon)
@@ -169,7 +162,7 @@ static void sgl_filebrowser_draw_icon(sgl_filebrowser_t *fb, sgl_surf_t *surf,
                                       int16_t card_y1, int16_t card_h,
                                       const char *icon)
 {
-    const sgl_font_t *ifont = sgl_filebrowser_icon_font(fb);
+    const sgl_font_t *ifont = fb->font;
     int16_t y = (int16_t)(card_y1 + (card_h - sgl_font_get_height(ifont)) / 2);
 
     if (ifont->table != NULL) {
@@ -190,23 +183,23 @@ static void sgl_filebrowser_resolve_item_icon(sgl_filebrowser_t *fb,
 {
     item->icon   = sgl_filebrowser_match_icon(fb, item);
     item->icon_w = (item->icon != NULL)
-                   ? (int16_t)sgl_font_get_string_width(item->icon, sgl_filebrowser_icon_font(fb))
+                   ? (int16_t)sgl_font_get_string_width(item->icon, fb->font)
                    : (int16_t)0;
 }
 
-/* Recompute the cached icon widths, e.g. after the text or icon font changed */
+/* Recompute the cached icon widths, e.g. after the text font changed */
 static void sgl_filebrowser_refresh_icon_widths(sgl_filebrowser_t *fb)
 {
-    const sgl_font_t *ifont = sgl_filebrowser_icon_font(fb);
+    const sgl_font_t *font = fb->font;
 
     for (uint16_t i = 0; i < fb->cache_count; ++i) {
         sgl_filebrowser_item_t *it = &fb->cache_items[i];
         if (it->icon != NULL)
-            it->icon_w = (int16_t)sgl_font_get_string_width(it->icon, ifont);
+            it->icon_w = (int16_t)sgl_font_get_string_width(it->icon, font);
     }
     if (fb->selected_item.icon != NULL)
         fb->selected_item.icon_w =
-            (int16_t)sgl_font_get_string_width(fb->selected_item.icon, ifont);
+            (int16_t)sgl_font_get_string_width(fb->selected_item.icon, font);
 }
 
 static void sgl_filebrowser_close_dir(sgl_filebrowser_t *fb)
@@ -970,7 +963,6 @@ sgl_obj_t* sgl_filebrowser_create(sgl_obj_t *parent)
 
     fb->selected             = &fb->selected_item;
     fb->font                 = sgl_get_system_font();
-    fb->icon_font            = NULL;   /* NULL = draw icons with the text font */
     fb->alpha                = SGL_THEME_ALPHA;
     fb->bg_color             = SGL_THEME_COLOR;
     fb->item_selected_color  = sgl_color_mixer(SGL_THEME_COLOR, SGL_THEME_BORDER_COLOR, 128);
@@ -1232,24 +1224,6 @@ void sgl_filebrowser_set_text_font(sgl_obj_t *obj, const sgl_font_t *font)
     sgl_filebrowser_t *fb = sgl_container_of(obj, sgl_filebrowser_t, obj);
     fb->font = font;
     /* Icon widths depend on the font actually used to draw them. */
-    sgl_filebrowser_refresh_icon_widths(fb);
-    sgl_obj_set_dirty(obj);
-}
-
-/**
- * @brief Set the icon font of the file browser object.
- * @param obj: file browser object
- * @param font: font used to draw the list icons, NULL = use the text font
- * @return none
- * @note the icon glyphs must live in @font, e.g. the FontAwesome icon font
- *       sgl_icon_fontawesome14; icons are vertically centered in the row card
- */
-void sgl_filebrowser_set_icon_font(sgl_obj_t *obj, const sgl_font_t *font)
-{
-    sgl_filebrowser_t *fb = sgl_container_of(obj, sgl_filebrowser_t, obj);
-    if (fb->icon_font == font) return;
-
-    fb->icon_font = font;
     sgl_filebrowser_refresh_icon_widths(fb);
     sgl_obj_set_dirty(obj);
 }

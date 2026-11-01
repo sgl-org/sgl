@@ -25,7 +25,7 @@
 /**
  *   For example, to create a file browser control with icons for different
  *   file types. The SGL_ICON_* strings below are predefined by this header
- *   (FontAwesome codepoints, drawn with the icon font), so there is no need
+ *   (FontAwesome codepoints, drawn with the text font), so there is no need
  *   to define them again:
  *
  *   static sgl_filebrowser_icon_t filebrowser_icons[] = {
@@ -63,7 +63,6 @@
  *   sgl_obj_set_pos(filebrowser, 10, 30);
  *   sgl_obj_set_size(filebrowser, 240, 240);
  *   sgl_filebrowser_set_text_font(filebrowser, &consolas14);
- *   sgl_filebrowser_set_icon_font(filebrowser, &sgl_icon_fontawesome14);
  *   sgl_filebrowser_set_icons(filebrowser, filebrowser_icons);
  *
  *   The browser opens at the virtual "/" root, which lists every mounted
@@ -111,10 +110,9 @@ typedef struct sgl_filebrowser_icon {
 
 /* Ready-made icon strings for the list rows: FontAwesome free-solid codepoints
  * (UTF-8 byte escapes, no escape sequences are interpreted by the compiler).
- * They are meant to be drawn with an icon font such as sgl_icon_fontawesome14,
- * generated from fonts/FontAwesome.otf - see the generator tool
- * sgl_font_conv_cli. Using another icon font? Redefine them before including
- * this header (each one is guarded by #ifndef). */
+ * They are drawn with the widget text font, so that font must contain these
+ * glyphs - see the generator tool sgl_font_conv_cli. Using another icon set?
+ * Redefine them before including this header (each one is guarded by #ifndef). */
 #ifndef SGL_ICON_NORMAL_FILE
 #define SGL_ICON_NORMAL_FILE   "\xef\x80\x96"   /* U+F016 file            */
 #endif
@@ -198,7 +196,6 @@ typedef struct sgl_filebrowser {
     uint16_t item_num;
     int16_t  pending_dir_index;
     const sgl_font_t   *font;
-    const sgl_font_t   *icon_font;   /* NULL = draw icons with @font */
     sgl_color_t item_text_color;
     sgl_color_t item_selected_color;
     sgl_color_t card_color;        /* idle row card background        */
@@ -348,7 +345,8 @@ void sgl_filebrowser_set_path_color(sgl_obj_t *obj, sgl_color_t color);
 /**
  * @brief Set the text font of the file browser object.
  * @param obj: file browser object
- * @param font: font to set
+ * @param font: font to set; it also draws the list icons, so it must contain
+ *              the icon glyphs
  * @return none
  */
 void sgl_filebrowser_set_text_font(sgl_obj_t *obj, const sgl_font_t *font);
@@ -360,16 +358,6 @@ void sgl_filebrowser_set_text_font(sgl_obj_t *obj, const sgl_font_t *font);
  * @return none
  */
 void sgl_filebrowser_set_icons(sgl_obj_t *obj, const sgl_filebrowser_icon_t *icons);
-
-/**
- * @brief Set the font used to draw the list icons of the file browser object.
- * @param obj: file browser object
- * @param font: icon font (must contain the icon glyphs), NULL = text font
- * @return none
- * @note icons are vertically centered in the row card, so the icon font may
- *       have a different height than the text font. See sgl_icon_fontawesome14.
- */
-void sgl_filebrowser_set_icon_font(sgl_obj_t *obj, const sgl_font_t *font);
 
 /**
  * @brief Set the icon width of the file browser object.

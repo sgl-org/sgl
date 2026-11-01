@@ -55,8 +55,8 @@ static void seed_demo_content(void)
 }
 
 /* Row icons: pattern -> glyph, using the SGL_ICON_* strings provided by the
- * file browser header (FontAwesome codepoints rendered by sgl_icon_fontawesome14,
- * generated from fonts/FontAwesome.otf with the sgl_font_conv tool). */
+ * file browser header (FontAwesome codepoints drawn with the text font, which
+ * therefore must contain the icon glyphs). */
 static const sgl_filebrowser_icon_t g_filebrowser_icons[] = {
     { "*",     SGL_ICON_NORMAL_FILE },
     { "..",    SGL_ICON_RETURN_FILE },
@@ -109,7 +109,6 @@ void sgl_filebrowser_examples(sgl_obj_t *parent)
     sgl_obj_set_pos(fb, 380, 20);
     sgl_obj_set_size(fb, 405, 260);
     sgl_filebrowser_set_text_font(fb, &consolas14);
-    sgl_filebrowser_set_icon_font(fb, &sgl_icon_fontawesome14);
     sgl_filebrowser_set_icons(fb, g_filebrowser_icons);
     sgl_filebrowser_set_root_text(fb, "Devices");
 
