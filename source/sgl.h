@@ -68,6 +68,7 @@
 #include "widgets/canvas/sgl_canvas.h"
 #include "widgets/bar/sgl_bar.h"
 #include "widgets/win/sgl_win.h"
+#include "widgets/winslate/sgl_winslate.h"
 #include "widgets/chart/sgl_chart.h"
 #include "widgets/textlist/sgl_textlist.h"
 #include "widgets/qrcode/sgl_qrcode.h"

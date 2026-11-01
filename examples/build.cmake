@@ -96,6 +96,7 @@ set(SGL_EXAMPLE_SOURCE
     ${SGL_EXAMPLE_DIR}/filedialog.c         # sgl_filedialog_examples
     ${SGL_EXAMPLE_DIR}/qrcode.c             # sgl_qrcode_examples
     ${SGL_EXAMPLE_DIR}/win.c                # sgl_win_examples
+    ${SGL_EXAMPLE_DIR}/winslate.c           # sgl_winslate_examples
     ${SGL_EXAMPLE_DIR}/charge.c             # sgl_charge_examples
 
     # ---- examples with external assets (see SGL_EXAMPLE_EXTRA_SOURCE) ------

@@ -689,6 +689,142 @@ void sgl_draw_bezier_cubic(sgl_surf_t *surf, sgl_area_t *area,
                            int16_t thickness, sgl_color_t color, uint8_t alpha,
                            sgl_bezier_mask_t *mask);
 
+/**
+ * @brief caption button glyph
+ * @SGL_SLATE_BTN_MIN: minimize, a horizontal bar near the bottom
+ * @SGL_SLATE_BTN_MAX: maximize, a single square outline
+ * @SGL_SLATE_BTN_RESTORE: restore, two overlapping squares
+ * @SGL_SLATE_BTN_CLOSE: close, an X
+ * @SGL_SLATE_GLYPH_MAX: number of glyphs
+ */
+typedef enum {
+    SGL_SLATE_BTN_MIN = 0,
+    SGL_SLATE_BTN_MAX,
+    SGL_SLATE_BTN_RESTORE,
+    SGL_SLATE_BTN_CLOSE,
+    SGL_SLATE_GLYPH_MAX
+} sgl_slate_glyph_t;
+
+/**
+ * @brief caption button visual state
+ * @SGL_SLATE_STATE_NORMAL: idle, glyph only, no background
+ * @SGL_SLATE_STATE_HOVER: flat highlight rectangle
+ * @SGL_SLATE_STATE_PRESSED: darker flat rectangle
+ * @SGL_SLATE_STATE_MAX: number of states
+ */
+typedef enum {
+    SGL_SLATE_STATE_NORMAL = 0,
+    SGL_SLATE_STATE_HOVER,
+    SGL_SLATE_STATE_PRESSED,
+    SGL_SLATE_STATE_MAX
+} sgl_slate_state_t;
+
+/**
+ * @brief window chrome description
+ * @title_color: solid caption bar colour
+ * @body_color: client area fill colour
+ * @border_color: window outline colour
+ * @title_h: caption bar height
+ * @border_width: outline width, typically 1
+ * @alpha: global alpha of the whole chrome
+ * @note Slate has no corner radius: every edge is a straight line.
+ */
+typedef struct sgl_draw_slate_window {
+    sgl_color_t title_color;
+    sgl_color_t body_color;
+    sgl_color_t border_color;
+    int16_t     title_h;
+    uint8_t     border_width;
+    uint8_t     alpha;
+} sgl_draw_slate_window_t;
+
+/**
+ * @brief draw a flat Slate window chrome (caption + body + outline)
+ * @param surf point to surface
+ * @param area area of rectangle that you want to draw
+ * @param rect point to rectangle that you want to draw
+ * @param desc window chrome description
+ * @return none
+ * @note title text and caption buttons are NOT drawn here.
+ */
+void sgl_draw_slate_window(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, const sgl_draw_slate_window_t *desc);
+
+/**
+ * @brief draw a flat Slate caption button (background + glyph)
+ * @param surf point to surface
+ * @param area area of rectangle that you want to draw
+ * @param rect button bounding box
+ * @param glyph glyph to stamp (min / max / restore / close)
+ * @param state visual state (normal / hover / pressed)
+ * @param alpha alpha of the button
+ * @return none
+ * @note normal draws only the glyph; hover / press fill a solid square.
+ */
+void sgl_draw_slate_caption_btn(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, sgl_slate_glyph_t glyph, sgl_slate_state_t state, uint8_t alpha);
+
+/**
+ * @brief scrollbar orientation
+ * @SGL_SLATE_SCROLLBAR_VERTICAL: thumb slides top <-> bottom
+ * @SGL_SLATE_SCROLLBAR_HORIZONTAL: thumb slides left <-> right
+ * @SGL_SLATE_SCROLLBAR_DIR_MAX: number of orientations
+ */
+typedef enum {
+    SGL_SLATE_SCROLLBAR_VERTICAL = 0,
+    SGL_SLATE_SCROLLBAR_HORIZONTAL,
+    SGL_SLATE_SCROLLBAR_DIR_MAX
+} sgl_slate_scrollbar_dir_t;
+
+/**
+ * @brief scrollbar thumb visual state
+ * @SGL_SLATE_SCROLLBAR_NORMAL: idle thumb
+ * @SGL_SLATE_SCROLLBAR_HOVER: pointer over the thumb
+ * @SGL_SLATE_SCROLLBAR_PRESSED: thumb being dragged
+ * @SGL_SLATE_SCROLLBAR_STATE_MAX: number of states
+ */
+typedef enum {
+    SGL_SLATE_SCROLLBAR_NORMAL = 0,
+    SGL_SLATE_SCROLLBAR_HOVER,
+    SGL_SLATE_SCROLLBAR_PRESSED,
+    SGL_SLATE_SCROLLBAR_STATE_MAX
+} sgl_slate_scrollbar_state_t;
+
+/**
+ * @brief scrollbar description
+ * @dir: orientation of the bar
+ * @state: thumb visual state (hover / press darken the thumb)
+ * @total: total content length in scroll units
+ * @visible: viewport length in the same units (thumb size = visible / total)
+ * @pos: current scroll offset, clamped to [0, total - visible]
+ * @show_arrows: when non-zero reserve a square arrow button at each end
+ * @track_color: background groove colour
+ * @thumb_color: idle thumb colour (darkened automatically on hover / press)
+ * @arrow_color: colour of the end arrow glyphs
+ * @alpha: global alpha of the whole bar
+ */
+typedef struct sgl_draw_slate_scrollbar {
+    sgl_slate_scrollbar_dir_t   dir;
+    sgl_slate_scrollbar_state_t state;
+    int32_t     total;
+    int32_t     visible;
+    int32_t     pos;
+    uint8_t     show_arrows;
+    sgl_color_t track_color;
+    sgl_color_t thumb_color;
+    sgl_color_t arrow_color;
+    uint8_t     alpha;
+} sgl_draw_slate_scrollbar_t;
+
+/**
+ * @brief draw a flat Slate scrollbar (track + thumb + optional arrows)
+ * @param surf point to surface
+ * @param area area of rectangle that you want to draw
+ * @param rect scrollbar bounding box (cross axis = bar thickness)
+ * @param desc scrollbar description
+ * @return none
+ * @note pure pixels: hit testing is left to the caller.
+ */
+void sgl_draw_slate_scrollbar(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, const sgl_draw_slate_scrollbar_t *desc);
+
 #ifdef __cplusplus
 } /*extern "C"*/
 #endif

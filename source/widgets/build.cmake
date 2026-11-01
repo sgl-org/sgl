@@ -62,6 +62,7 @@ set(SGL_SOURCE
     ${CMAKE_CURRENT_LIST_DIR}/chart/linechart/sgl_linechart.c
     ${CMAKE_CURRENT_LIST_DIR}/chart/barchart/sgl_barchart.c
     ${CMAKE_CURRENT_LIST_DIR}/win/sgl_win.c
+    ${CMAKE_CURRENT_LIST_DIR}/winslate/sgl_winslate.c
     ${CMAKE_CURRENT_LIST_DIR}/textlist/sgl_textlist.c
     ${CMAKE_CURRENT_LIST_DIR}/viewlist/sgl_viewlist.c
     ${CMAKE_CURRENT_LIST_DIR}/qrcode/qrcode.c
