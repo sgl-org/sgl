@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include "sgl_stepper.h"
 
@@ -323,14 +322,14 @@ sgl_obj_t* sgl_stepper_create(sgl_obj_t *parent)
     s->wrap           = 0;
     s->buf[0]         = '\0';
 
-    s->bg_color         = sgl_rgb(46, 52, 64);
-    s->btn_color        = sgl_rgb(58, 66, 82);
-    s->btn_press_color  = sgl_rgb(64, 152, 231);
-    s->text_color       = sgl_rgb(229, 233, 240);
-    s->sign_color       = sgl_rgb(210, 218, 232);
-    s->sign_press_color = sgl_rgb(255, 255, 255);
-    s->sign_dis_color   = sgl_rgb(90, 98, 114);
-    s->border_color     = SGL_THEME_BORDER_COLOR;
+    s->bg_color         = SGL_STEPPER_BG_COLOR;
+    s->btn_color        = SGL_STEPPER_BTN_COLOR;
+    s->btn_press_color  = SGL_STEPPER_BTN_PRESS_COLOR;
+    s->text_color       = SGL_STEPPER_TEXT_COLOR;
+    s->sign_color       = SGL_STEPPER_SIGN_COLOR;
+    s->sign_press_color = SGL_STEPPER_SIGN_PRESS_COLOR;
+    s->sign_dis_color   = SGL_STEPPER_SIGN_DIS_COLOR;
+    s->border_color     = SGL_STEPPER_BORDER_COLOR;
 
     return &s->obj;
 }

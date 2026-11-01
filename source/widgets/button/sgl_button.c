@@ -28,7 +28,6 @@
 #include <sgl_log.h>
 #include <sgl_mm.h>
 #include <sgl_cfgfix.h>
-#include <sgl_theme.h>
 #include <string.h>
 #include "sgl_button.h"
 
@@ -109,18 +108,18 @@ sgl_obj_t* sgl_button_create(sgl_obj_t* parent)
     sgl_obj_init(&button->obj, parent);
     sgl_obj_set_clickable(obj);
     sgl_obj_set_flexible(obj);
-    sgl_obj_set_border_width(obj, SGL_THEME_BORDER_WIDTH);
-    sgl_obj_set_radius(obj, SGL_THEME_RADIUS);
+    sgl_obj_set_border_width(obj, SGL_BUTTON_BORDER_WIDTH);
+    sgl_obj_set_radius(obj, SGL_BUTTON_RADIUS);
 
     obj->construct_fn = sgl_button_construct_cb;
 
-    button->alpha = SGL_THEME_ALPHA;
-    button->color = SGL_THEME_COLOR;
-    button->border_color = SGL_THEME_BORDER_COLOR;
+    button->alpha = SGL_BUTTON_ALPHA;
+    button->color = SGL_BUTTON_COLOR;
+    button->border_color = SGL_BUTTON_BORDER_COLOR;
     button->pixmap = NULL;
 
     button->text = NULL;
-    button->text_color = SGL_THEME_TEXT_COLOR;
+    button->text_color = SGL_BUTTON_TEXT_COLOR;
     button->font = sgl_get_system_font();
     button->align = SGL_ALIGN_CENTER;
 

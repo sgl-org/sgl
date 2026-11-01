@@ -38,6 +38,9 @@
 extern "C" {
 #endif
 
+#define  SGL_SPINNER_COLOR       sgl_rgb(255, 255, 255)
+#define  SGL_SPINNER_ALPHA       255
+
 /**
  * @brief spinner object, a rotating loading indicator made of dots
  * @obj: base object

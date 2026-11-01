@@ -22,7 +22,6 @@
  * SOFTWARE.
  */
 
-#include <sgl_theme.h>
 #include "sgl_tabview.h"
 
 /**
@@ -228,28 +227,28 @@ sgl_obj_t* sgl_tabview_create(sgl_obj_t *parent)
     sgl_obj_t *obj = &tv->obj;
     sgl_obj_init(obj, parent);
     obj->construct_fn = sgl_tabview_construct_cb;
-    sgl_obj_set_border_width(obj, SGL_THEME_BORDER_WIDTH);
-    sgl_obj_set_radius(obj, SGL_THEME_RADIUS);
+    sgl_obj_set_border_width(obj, SGL_TABVIEW_BORDER_WIDTH);
+    sgl_obj_set_radius(obj, SGL_TABVIEW_RADIUS);
     sgl_obj_set_clickable(obj);
 
-    tv->bg.alpha = SGL_THEME_ALPHA;
-    tv->bg.color = SGL_THEME_COLOR;
-    tv->bg.border = SGL_THEME_BORDER_WIDTH;
-    tv->bg.border_alpha = SGL_THEME_ALPHA;
-    tv->bg.border_color = SGL_THEME_BORDER_COLOR;
-    tv->bg.radius = SGL_THEME_RADIUS;
+    tv->bg.alpha = SGL_TABVIEW_ALPHA;
+    tv->bg.color = SGL_TABVIEW_COLOR;
+    tv->bg.border = SGL_TABVIEW_BORDER_WIDTH;
+    tv->bg.border_alpha = SGL_TABVIEW_ALPHA;
+    tv->bg.border_color = SGL_TABVIEW_BORDER_COLOR;
+    tv->bg.radius = SGL_TABVIEW_RADIUS;
     tv->bg.pixmap = NULL;
 
-    tv->bar.alpha = SGL_THEME_ALPHA;
-    tv->bar.color = sgl_color_mixer(SGL_THEME_TEXT_COLOR, SGL_THEME_COLOR, 24);
-    tv->bar.border_color = SGL_THEME_BORDER_COLOR;
+    tv->bar.alpha = SGL_TABVIEW_ALPHA;
+    tv->bar.color = sgl_color_mixer(SGL_TABVIEW_TEXT_COLOR, SGL_TABVIEW_COLOR, 24);
+    tv->bar.border_color = SGL_TABVIEW_BORDER_COLOR;
     tv->bar.pixmap = NULL;
 
     tv->font = sgl_get_system_font();
     tv->tab_color = tv->bar.color;
-    tv->tab_active_color = SGL_THEME_COLOR;
-    tv->text_color = SGL_THEME_TEXT_COLOR;
-    tv->text_active_color = SGL_THEME_TEXT_COLOR;
+    tv->tab_active_color = SGL_TABVIEW_COLOR;
+    tv->text_color = SGL_TABVIEW_TEXT_COLOR;
+    tv->text_active_color = SGL_TABVIEW_TEXT_COLOR;
 
     tv->bar_height = 0;
     tv->tab_count = 0;

@@ -22,7 +22,6 @@
  * SOFTWARE.
  */
 
-#include <sgl_theme.h>
 #include <string.h>
 #include "sgl_winslate.h"
 
@@ -191,8 +190,8 @@ sgl_obj_t* sgl_winslate_create(sgl_obj_t* parent)
     sgl_obj_set_movable(obj);
 
     ws->chrome.title_color  = SGL_COLOR_WHITE;
-    ws->chrome.body_color   = sgl_rgb(0xF2, 0xF2, 0xF2);
-    ws->chrome.border_color = sgl_rgb(0xCC, 0xCC, 0xCC);
+    ws->chrome.body_color   = SGL_WINSLATE_BODY_COLOR;
+    ws->chrome.border_color = SGL_WINSLATE_BORDER_COLOR;
     ws->chrome.title_h      = 20;
     ws->chrome.border_width = 1;
     ws->chrome.alpha        = SGL_ALPHA_MAX;
@@ -200,7 +199,7 @@ sgl_obj_t* sgl_winslate_create(sgl_obj_t* parent)
 
     ws->title_text       = "Window";
     ws->title_font       = sgl_get_system_font();
-    ws->title_text_color = sgl_rgb(0x1A, 0x1A, 0x1A);
+    ws->title_text_color = SGL_WINSLATE_TITLE_TEXT_COLOR;
 
     winslate_sync_btn_metrics(ws);
 

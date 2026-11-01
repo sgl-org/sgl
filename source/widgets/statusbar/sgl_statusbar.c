@@ -118,7 +118,7 @@ sgl_obj_t* sgl_statusbar_create(sgl_obj_t *parent)
     obj->construct_fn = sgl_statusbar_construct_cb;
 
     bar->bg_alpha = SGL_ALPHA_MAX / 2;
-    bar->bg_color = sgl_rgb(20, 20, 20);
+    bar->bg_color = SGL_STATUSBAR_BG_COLOR;
     bar->left_margin = 5;
     bar->right_margin = 5;
     bar->slot_space = 4;

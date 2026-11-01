@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_arc_label.h"
@@ -219,7 +218,7 @@ sgl_obj_t* sgl_arc_label_create(sgl_obj_t* parent)
 
     label->alpha = SGL_ALPHA_MAX;
     label->bg_flag = 0;
-    label->color = SGL_THEME_TEXT_COLOR;
+    label->color = SGL_ARC_LABEL_TEXT_COLOR;
     label->text = "";
     label->transform.rotation = 0;
     label->rota = 0;

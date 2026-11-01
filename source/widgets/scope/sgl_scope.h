@@ -36,6 +36,8 @@
 extern "C" {
 #endif
 
+#define  SGL_SCOPE_BORDER_COLOR     sgl_rgb(0, 0, 0)
+
 /* max number of waveform channels */
 #define SGL_SCOPE_MAX_CHANNELS      (4)
 

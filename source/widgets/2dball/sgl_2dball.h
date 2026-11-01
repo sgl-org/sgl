@@ -37,6 +37,9 @@
 extern "C" {
 #endif
 
+#define  SGL_2DBALL_COLOR      sgl_rgb(255, 255, 255)
+#define  SGL_2DBALL_BG_COLOR   sgl_rgb(0, 0, 0)
+
 /**
  * @brief sgl 2dball struct
  * @obj: sgl general object

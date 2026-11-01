@@ -38,6 +38,9 @@
 extern "C" {
 #endif
 
+#define  SGL_RING_COLOR        sgl_rgb(255, 255, 255)
+#define  SGL_RING_ALPHA        255
+
 /**
  * @brief sgl ring
  * @obj: sgl general object

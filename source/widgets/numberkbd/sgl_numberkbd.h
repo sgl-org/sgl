@@ -37,6 +37,13 @@
 extern "C" {
 #endif
 
+#define  SGL_NUMBERKBD_COLOR            sgl_rgb(255, 255, 255)
+#define  SGL_NUMBERKBD_BORDER_COLOR     sgl_rgb(0, 0, 0)
+#define  SGL_NUMBERKBD_BORDER_WIDTH     2
+#define  SGL_NUMBERKBD_ALPHA            255
+#define  SGL_NUMBERKBD_TEXT_COLOR       sgl_rgb(0, 0, 0)
+#define  SGL_NUMBERKBD_RADIUS           0
+
 /**
  * @brief sgl number keyboard struct
  * @obj: sgl general object

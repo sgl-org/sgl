@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_table.h"
@@ -481,14 +480,14 @@ sgl_obj_t* sgl_table_create(sgl_obj_t* parent)
     sgl_obj_set_border_width(obj, 1);
 
     tbl->font = sgl_get_system_font();
-    tbl->alpha = SGL_THEME_ALPHA;
-    tbl->bg_color = SGL_THEME_COLOR;
-    tbl->header_color = sgl_color_mixer(SGL_THEME_BORDER_COLOR, SGL_THEME_COLOR, 48);
-    tbl->line_color = sgl_color_mixer(SGL_THEME_BORDER_COLOR, SGL_THEME_COLOR, 128);
-    tbl->border_color = SGL_THEME_BORDER_COLOR;
-    tbl->text_color = SGL_THEME_TEXT_COLOR;
-    tbl->sel_color = sgl_color_mixer(SGL_THEME_COLOR, SGL_THEME_BORDER_COLOR, 128);
-    tbl->sel_text_color = sgl_color_invert(SGL_THEME_TEXT_COLOR);
+    tbl->alpha = SGL_TABLE_ALPHA;
+    tbl->bg_color = SGL_TABLE_COLOR;
+    tbl->header_color = sgl_color_mixer(SGL_TABLE_BORDER_COLOR, SGL_TABLE_COLOR, 48);
+    tbl->line_color = sgl_color_mixer(SGL_TABLE_BORDER_COLOR, SGL_TABLE_COLOR, 128);
+    tbl->border_color = SGL_TABLE_BORDER_COLOR;
+    tbl->text_color = SGL_TABLE_TEXT_COLOR;
+    tbl->sel_color = sgl_color_mixer(SGL_TABLE_COLOR, SGL_TABLE_BORDER_COLOR, 128);
+    tbl->sel_text_color = sgl_color_invert(SGL_TABLE_TEXT_COLOR);
     tbl->pad = SGL_TABLE_CELL_PAD;
     tbl->line_w = 1;
     tbl->sel_row = -1;

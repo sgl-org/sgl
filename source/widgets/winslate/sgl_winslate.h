@@ -36,10 +36,14 @@
 extern "C" {
 #endif
 
+#define  SGL_WINSLATE_BODY_COLOR        sgl_rgb(0xF2, 0xF2, 0xF2)
+#define  SGL_WINSLATE_BORDER_COLOR      sgl_rgb(0xCC, 0xCC, 0xCC)
+#define  SGL_WINSLATE_TITLE_TEXT_COLOR  sgl_rgb(0x1A, 0x1A, 0x1A)
+
 /* caption button ids, used for the pressed / hover feedback */
-#define SGL_WINSLATE_BTN_NONE       (0)
-#define SGL_WINSLATE_BTN_MAXIMIZE   (1)
-#define SGL_WINSLATE_BTN_CLOSE      (2)
+#define  SGL_WINSLATE_BTN_NONE          (0)
+#define  SGL_WINSLATE_BTN_MAXIMIZE      (1)
+#define  SGL_WINSLATE_BTN_CLOSE         (2)
 
 /**
  * @brief sgl Slate (flat "Modern UI") window widget

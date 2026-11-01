@@ -37,6 +37,10 @@
 extern "C" {
 #endif
 
+#define  SGL_CIRCLE_COLOR            sgl_rgb(255, 255, 255)
+#define  SGL_CIRCLE_BORDER_COLOR     sgl_rgb(0, 0, 0)
+#define  SGL_CIRCLE_BORDER_WIDTH     2
+
 /**
  * @brief draw a circle
  * @obj:  sgl general object

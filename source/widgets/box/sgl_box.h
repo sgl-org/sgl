@@ -42,6 +42,12 @@
 extern "C" {
 #endif
 
+#define  SGL_BOX_COLOR                    sgl_rgb(255, 255, 255)
+#define  SGL_BOX_BORDER_COLOR             sgl_rgb(0, 0, 0)
+#define  SGL_BOX_BORDER_WIDTH             2
+#define  SGL_BOX_ALPHA                    255
+#define  SGL_BOX_SCROLL_FG_COLOR          sgl_rgb(200, 200, 200)
+
 /**
  * @brief sgl box struct
  * @desc: Container for scrolling child widgets

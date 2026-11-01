@@ -23,7 +23,6 @@
  */
 
 #include "sgl_msgbox.h"
-#include <sgl_theme.h>
 
 static void msgbox_draw_text(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *coords, const char *text, const sgl_font_t *font, sgl_color_t color, uint8_t alpha, uint8_t y_offset)
 {
@@ -210,28 +209,28 @@ sgl_obj_t* sgl_msgbox_create(sgl_obj_t* parent)
     sgl_obj_t *obj = &msgbox->obj;
     sgl_obj_init(&msgbox->obj, parent);
     obj->construct_fn = sgl_msgbox_construct_cb;
-    sgl_obj_set_border_width(obj, SGL_THEME_BORDER_WIDTH);
-    sgl_obj_set_radius(obj, SGL_THEME_RADIUS);
+    sgl_obj_set_border_width(obj, SGL_MSGBOX_BORDER_WIDTH);
+    sgl_obj_set_radius(obj, SGL_MSGBOX_RADIUS);
     sgl_obj_set_editable(obj);
 
-    msgbox->alpha = SGL_THEME_ALPHA;
-    msgbox->color = SGL_THEME_COLOR;
-    msgbox->border_alpha = SGL_THEME_ALPHA;
-    msgbox->border_color = SGL_THEME_BORDER_COLOR;
+    msgbox->alpha = SGL_MSGBOX_ALPHA;
+    msgbox->color = SGL_MSGBOX_COLOR;
+    msgbox->border_alpha = SGL_MSGBOX_ALPHA;
+    msgbox->border_color = SGL_MSGBOX_BORDER_COLOR;
     msgbox->pixmap = NULL;
 
     msgbox->font = sgl_get_system_font();
-    msgbox->msg_color = SGL_THEME_TEXT_COLOR;
+    msgbox->msg_color = SGL_MSGBOX_TEXT_COLOR;
     msgbox->title_text = "Message Box";
     msgbox->msg_line_margin = 1;
     msgbox->msg_text = "NULL";
 
-    msgbox->lbtn_color = sgl_color_mixer(SGL_THEME_COLOR, SGL_THEME_TEXT_COLOR, 200);
-    msgbox->rbtn_color = sgl_color_mixer(SGL_THEME_COLOR, SGL_THEME_TEXT_COLOR, 200);
+    msgbox->lbtn_color = sgl_color_mixer(SGL_MSGBOX_COLOR, SGL_MSGBOX_TEXT_COLOR, 200);
+    msgbox->rbtn_color = sgl_color_mixer(SGL_MSGBOX_COLOR, SGL_MSGBOX_TEXT_COLOR, 200);
     msgbox->lbtn_text = "YES";
     msgbox->rbtn_text = "NO";
-    msgbox->lbtn_text_color = SGL_THEME_TEXT_COLOR;
-    msgbox->rbtn_text_color = SGL_THEME_TEXT_COLOR;
+    msgbox->lbtn_text_color = SGL_MSGBOX_TEXT_COLOR;
+    msgbox->rbtn_text_color = SGL_MSGBOX_TEXT_COLOR;
 
     msgbox->status = SGL_MSGBOX_STATUS_NORMAL;
     msgbox->title_height = 0;

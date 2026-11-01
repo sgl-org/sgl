@@ -58,6 +58,8 @@
 extern "C" {
 #endif
 
+#define  SGL_CURVE_COLOR        sgl_rgb(255, 255, 255)
+
 /* Maximum number of normalized control points.
  * Chained cubics need 3*n+1 points, 25 = up to 8 cubic segments. */
 #define SGL_CURVE_MAX_POINTS    25

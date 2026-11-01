@@ -28,7 +28,6 @@
 #include <sgl_log.h>
 #include <sgl_mm.h>
 #include <sgl_cfgfix.h>
-#include <sgl_theme.h>
 #include "sgl_scope.h"
 
 /* alpha used for the quarter grid lines */
@@ -322,7 +321,7 @@ sgl_obj_t* sgl_scope_create(sgl_obj_t* parent)
 
     scope->bg_color = SGL_COLOR_BLACK;
     scope->grid_color = SGL_COLOR_GRAY;
-    scope->border_color = SGL_THEME_BORDER_COLOR;
+    scope->border_color = SGL_SCOPE_BORDER_COLOR;
     scope->grid_dashed = 0;             /* solid grid by default */
     sgl_obj_set_border_width(obj, 1);
     scope->alpha = 255;

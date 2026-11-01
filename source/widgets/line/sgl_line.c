@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_line.h"
@@ -152,7 +151,7 @@ sgl_obj_t* sgl_line_create(sgl_obj_t* parent)
     sgl_obj_init(&line->obj, parent);
     obj->construct_fn = sgl_line_construct_cb;
 
-    line->color = SGL_THEME_BG_COLOR;
+    line->color = SGL_LINE_BG_COLOR;
     line->alpha = SGL_ALPHA_MAX;
     obj->border = 1;
 

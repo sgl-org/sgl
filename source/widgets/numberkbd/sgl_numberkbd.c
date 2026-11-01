@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <sgl_draw.h>
 #include <string.h>
@@ -240,24 +239,24 @@ sgl_obj_t* sgl_numberkbd_create(sgl_obj_t* parent)
     sgl_obj_t *obj = &numberkbd->obj;
     sgl_obj_init(&numberkbd->obj, parent);
     obj->construct_fn = sgl_numberkbd_construct_cb;
-    sgl_obj_set_border_width(obj, SGL_THEME_BORDER_WIDTH);
+    sgl_obj_set_border_width(obj, SGL_NUMBERKBD_BORDER_WIDTH);
 
     obj->clickable = 1;
 
-    numberkbd->body_desc.alpha = SGL_THEME_ALPHA;
-    numberkbd->body_desc.color = SGL_THEME_COLOR;
-    numberkbd->body_desc.radius = SGL_THEME_RADIUS;
-    numberkbd->body_desc.border = SGL_THEME_BORDER_WIDTH;
-    numberkbd->body_desc.border_color = SGL_THEME_BORDER_COLOR;
+    numberkbd->body_desc.alpha = SGL_NUMBERKBD_ALPHA;
+    numberkbd->body_desc.color = SGL_NUMBERKBD_COLOR;
+    numberkbd->body_desc.radius = SGL_NUMBERKBD_RADIUS;
+    numberkbd->body_desc.border = SGL_NUMBERKBD_BORDER_WIDTH;
+    numberkbd->body_desc.border_color = SGL_NUMBERKBD_BORDER_COLOR;
     numberkbd->body_desc.pixmap = NULL;
     numberkbd->margin = 5;
-    numberkbd->text_color = SGL_THEME_TEXT_COLOR;
+    numberkbd->text_color = SGL_NUMBERKBD_TEXT_COLOR;
 
-    numberkbd->btn_desc.alpha = SGL_THEME_ALPHA;
-    numberkbd->btn_desc.color = SGL_THEME_COLOR;
-    numberkbd->btn_desc.radius = SGL_THEME_RADIUS;
+    numberkbd->btn_desc.alpha = SGL_NUMBERKBD_ALPHA;
+    numberkbd->btn_desc.color = SGL_NUMBERKBD_COLOR;
+    numberkbd->btn_desc.radius = SGL_NUMBERKBD_RADIUS;
     numberkbd->btn_desc.border = 1;
-    numberkbd->btn_desc.border_color = SGL_THEME_BORDER_COLOR;
+    numberkbd->btn_desc.border_color = SGL_NUMBERKBD_BORDER_COLOR;
     numberkbd->btn_desc.pixmap = NULL;
 
     numberkbd->font = sgl_get_system_font();

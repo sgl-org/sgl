@@ -22,7 +22,6 @@
  * SOFTWARE.
  */
 
-#include <sgl_theme.h>
 #include <string.h>
 #include "../rect/sgl_rect.h"
 #include "../label/sgl_label.h"

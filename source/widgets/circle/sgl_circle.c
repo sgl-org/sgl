@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_circle.h"
@@ -82,13 +81,13 @@ sgl_obj_t* sgl_circle_create(sgl_obj_t* parent)
     sgl_obj_t *obj = &circle->obj;
     sgl_obj_init(&circle->obj, parent);
     obj->construct_fn = sgl_circle_construct_cb;
-    sgl_obj_set_border_width(obj, SGL_THEME_BORDER_WIDTH);
+    sgl_obj_set_border_width(obj, SGL_CIRCLE_BORDER_WIDTH);
 
     circle->alpha = SGL_ALPHA_MAX;
-    circle->color = SGL_THEME_COLOR;
+    circle->color = SGL_CIRCLE_COLOR;
     circle->pixmap = NULL;
-    obj->border = SGL_THEME_BORDER_WIDTH;
-    circle->border_color = SGL_THEME_BORDER_COLOR;
+    obj->border = SGL_CIRCLE_BORDER_WIDTH;
+    circle->border_color = SGL_CIRCLE_BORDER_COLOR;
 
     return obj;
 }

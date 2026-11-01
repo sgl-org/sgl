@@ -22,7 +22,6 @@
  * SOFTWARE.
  */
 
-#include <sgl_theme.h>
 #include "sgl_3dvortex.h"
 
 #define VORTEX_HEIGHT   25.0f

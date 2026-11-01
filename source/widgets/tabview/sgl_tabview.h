@@ -37,6 +37,13 @@
 extern "C" {
 #endif
 
+#define  SGL_TABVIEW_COLOR            sgl_rgb(255, 255, 255)
+#define  SGL_TABVIEW_BORDER_COLOR     sgl_rgb(0, 0, 0)
+#define  SGL_TABVIEW_BORDER_WIDTH     2
+#define  SGL_TABVIEW_ALPHA            255
+#define  SGL_TABVIEW_TEXT_COLOR       sgl_rgb(0, 0, 0)
+#define  SGL_TABVIEW_RADIUS           0
+
 /**
  * @file sgl_tabview.h
  * A tab container widget: a tab bar on top plus one content page per tab.

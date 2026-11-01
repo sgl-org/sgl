@@ -83,24 +83,29 @@
 extern "C" {
 #endif
 
-#define SGL_FILEBROWSER_PATH_MAX_LEN  (128)
-#define SGL_FILEBROWSER_NAME_MAX_LEN  (64)
+#define  SGL_FILEBROWSER_ICON_COLOR         sgl_rgb(121, 177, 254)
+#define  SGL_FILEBROWSER_COLOR              sgl_rgb(255, 255, 255)
+#define  SGL_FILEBROWSER_BORDER_COLOR       sgl_rgb(0, 0, 0)
+#define  SGL_FILEBROWSER_ALPHA              255
+#define  SGL_FILEBROWSER_TEXT_COLOR         sgl_rgb(0, 0, 0)
+#define  SGL_FILEBROWSER_PATH_MAX_LEN       (128)
+#define  SGL_FILEBROWSER_NAME_MAX_LEN       (64)
 
 /* Title bar label shown on the virtual "/" root, where the real path would
  * read as a bare "/" (see sgl_filebrowser_set_root_text) */
-#define SGL_FILEBROWSER_ROOT_TEXT_MAX_LEN (32)
+#define SGL_FILEBROWSER_ROOT_TEXT_MAX_LEN   (32)
 
 /* Cache size = visible_rows * SGL_FILEBROWSER_CACHE_MULT.
  * 2 = one screen ahead + one screen buffer (recommended).
  * 1 = tightest memory, more re-fills when scrolling.
  * 3 = fewer re-fills, more RAM. */
 #ifndef SGL_FILEBROWSER_CACHE_MULT
-#define SGL_FILEBROWSER_CACHE_MULT    (2)
+#define SGL_FILEBROWSER_CACHE_MULT          (2)
 #endif
 
 /* Absolute floor for cache slots (must be >= visible + a few). */
 #ifndef SGL_FILEBROWSER_CACHE_MIN
-#define SGL_FILEBROWSER_CACHE_MIN     (8)
+#define SGL_FILEBROWSER_CACHE_MIN           (8)
 #endif
 
 typedef struct sgl_filebrowser_icon {

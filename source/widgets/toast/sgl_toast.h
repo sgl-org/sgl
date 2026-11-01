@@ -37,6 +37,10 @@
 extern "C" {
 #endif
 
+#define  SGL_TOAST_COLOR          sgl_rgb(255, 255, 255)
+#define  SGL_TOAST_ALPHA          255
+#define  SGL_TOAST_TEXT_COLOR     sgl_rgb(0, 0, 0)
+
 /**
  * @brief toast object, a non-interactive transient notification
  * @obj: base object

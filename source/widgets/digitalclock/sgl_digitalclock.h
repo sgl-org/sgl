@@ -36,6 +36,12 @@
 extern "C" {
 #endif
 
+#define  SGL_DIGITALCLOCK_CARD_COLOR       sgl_rgb(24, 24, 26)
+#define  SGL_DIGITALCLOCK_FLIP_COLOR       sgl_rgb(136, 140, 150)
+#define  SGL_DIGITALCLOCK_FLIP_TEXT_COLOR  sgl_rgb(28, 28, 32)
+#define  SGL_DIGITALCLOCK_SEAM_COLOR       sgl_rgb(72, 72, 74)
+#define  SGL_DIGITALCLOCK_ALPHA            255
+
 /* radius value that restores the size-dependent default */
 #define SGL_DIGITALCLOCK_RADIUS_AUTO       (-1)
 

@@ -37,6 +37,9 @@
 extern "C" {
 #endif
 
+#define  SGL_CHECKBOX_BOX_COLOR   sgl_rgb(33, 150, 243)
+#define  SGL_CHECKBOX_TEXT_COLOR  sgl_rgb(0, 0, 0)
+
 typedef struct sgl_checkbox {
     sgl_obj_t          obj;
     const char         *text;

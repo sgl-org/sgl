@@ -22,7 +22,6 @@
  * SOFTWARE.
  */
 
-#include <sgl_theme.h>
 #include <string.h>
 #include "sgl_analogclock.h"
 
@@ -263,13 +262,13 @@ sgl_obj_t* sgl_analogclock_create(sgl_obj_t* parent)
     obj->construct_fn = sgl_analogclock_construct_cb;
     sgl_obj_set_border_width(obj, 0);
 
-    clock->alpha = SGL_THEME_ALPHA;
-    clock->bg_color = SGL_THEME_BG_COLOR;
-    clock->scale_color = SGL_THEME_COLOR;
-    clock->text_color = SGL_THEME_COLOR;
-    clock->border_color = SGL_THEME_COLOR;
-    clock->hour_ptr_color = SGL_THEME_COLOR;
-    clock->min_ptr_color = SGL_THEME_COLOR;
+    clock->alpha = SGL_ANALOGCLOCK_ALPHA;
+    clock->bg_color = SGL_ANALOGCLOCK_BG_COLOR;
+    clock->scale_color = SGL_ANALOGCLOCK_COLOR;
+    clock->text_color = SGL_ANALOGCLOCK_COLOR;
+    clock->border_color = SGL_ANALOGCLOCK_COLOR;
+    clock->hour_ptr_color = SGL_ANALOGCLOCK_COLOR;
+    clock->min_ptr_color = SGL_ANALOGCLOCK_COLOR;
     clock->sec_ptr_color = SGL_COLOR_RED;
 
     /* Fix 7 - with thickness 1 the SDF core (inner_limit = (t-1)<<8) is empty,

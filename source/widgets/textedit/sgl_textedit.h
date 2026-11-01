@@ -38,9 +38,15 @@
 extern "C" {
 #endif
 
+#define  SGL_TEXTEDIT_COLOR           sgl_rgb(255, 255, 255)
+#define  SGL_TEXTEDIT_BORDER_COLOR    sgl_rgb(0, 0, 0)
+#define  SGL_TEXTEDIT_BORDER_WIDTH    2
+#define  SGL_TEXTEDIT_ALPHA           255
+#define  SGL_TEXTEDIT_TEXT_COLOR      sgl_rgb(0, 0, 0)
+
 /* textedit mode */
-#define SGL_TEXTEDIT_SINGLE_LINE    0
-#define SGL_TEXTEDIT_MULTI_LINE     1
+#define SGL_TEXTEDIT_SINGLE_LINE      0
+#define SGL_TEXTEDIT_MULTI_LINE       1
 
 /* cursor blink period in ms */
 #define SGL_TEXTEDIT_CURSOR_BLINK_MS  500

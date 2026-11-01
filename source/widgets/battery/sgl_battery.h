@@ -37,6 +37,13 @@
 extern "C" {
 #endif
 
+#define  SGL_BATTERY_LOW_COLOR       sgl_rgb(239, 68, 68)
+#define  SGL_BATTERY_MEDIUM_COLOR    sgl_rgb(245, 158, 11)
+#define  SGL_BATTERY_HIGH_COLOR      sgl_rgb(34, 197, 94)
+#define  SGL_BATTERY_BG_COLOR        sgl_rgb(30, 30, 30)
+#define  SGL_BATTERY_CHARGING_COLOR  sgl_rgb(241, 196, 15)
+#define  SGL_BATTERY_TEXT_COLOR      sgl_rgb(255, 255, 255)
+
 /**
  * @brief battery widget structure — semi-transparent 3D battery indicator
  * @obj:          sgl general object

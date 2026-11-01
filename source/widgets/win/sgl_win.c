@@ -22,7 +22,6 @@
  * SOFTWARE.
  */
 
-#include <sgl_theme.h>
 #include <string.h>
 #include "sgl_win.h"
 
@@ -96,17 +95,17 @@ sgl_obj_t* sgl_win_create(sgl_obj_t* parent)
     obj->construct_fn = sgl_win_construct_cb;
     sgl_obj_set_clickable(obj);
 
-    win->bg.alpha = SGL_THEME_ALPHA;
-    win->bg.color = SGL_THEME_COLOR;
-    win->bg.radius = SGL_THEME_RADIUS;
+    win->bg.alpha = SGL_WIN_ALPHA;
+    win->bg.color = SGL_WIN_COLOR;
+    win->bg.radius = SGL_WIN_RADIUS;
     win->bg.border = 0;
-    win->bg.border_color = SGL_THEME_BORDER_COLOR;
-    win->bg.border_alpha = SGL_THEME_ALPHA;
+    win->bg.border_color = SGL_WIN_BORDER_COLOR;
+    win->bg.border_alpha = SGL_WIN_ALPHA;
 
     win->title_align = SGL_ALIGN_LEFT_MID;
-    win->title_bg_color = sgl_color_mixer(SGL_THEME_COLOR, SGL_THEME_BG_COLOR, 128);
+    win->title_bg_color = sgl_color_mixer(SGL_WIN_COLOR, SGL_WIN_BG_COLOR, 128);
     win->title_font = sgl_get_system_font();
-    win->close_color = sgl_rgb(255, 90, 80);
+    win->close_color = SGL_WIN_CLOSE_COLOR;
 
     return obj;
 }

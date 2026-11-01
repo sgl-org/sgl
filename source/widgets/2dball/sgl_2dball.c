@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_2dball.h"
@@ -106,8 +105,8 @@ sgl_obj_t* sgl_2dball_create(sgl_obj_t* parent)
     obj->construct_fn = sgl_2dball_construct_cb;
 
     ball->alpha = SGL_ALPHA_MAX;
-    ball->color = SGL_THEME_COLOR;
-    ball->bg_color = SGL_THEME_BG_COLOR;
+    ball->color = SGL_2DBALL_COLOR;
+    ball->bg_color = SGL_2DBALL_BG_COLOR;
 
     return obj;
 }

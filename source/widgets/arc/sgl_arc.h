@@ -37,6 +37,10 @@
 extern "C" {
 #endif
 
+#define  SGL_ARC_COLOR        sgl_rgb(255, 255, 255)
+#define  SGL_ARC_BG_COLOR     sgl_rgb(0, 0, 0)
+#define  SGL_ARC_ALPHA        255
+
 typedef struct sgl_arc {
     sgl_obj_t       obj;
     sgl_draw_arc_t  desc;

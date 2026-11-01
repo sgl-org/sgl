@@ -30,7 +30,9 @@
 #include <string.h>
 #include <sgl_draw.h>
 #include <sgl_font.h>
-#include <sgl_theme.h>
+
+/* desktop (page) background color */
+#define  SGL_DESKTOP_COLOR   sgl_rgb(255, 255, 255)
 
 /* current sgl system variable, do not used it */
 sgl_system_t sgl_system;
@@ -631,7 +633,7 @@ static sgl_page_t* sgl_page_create(void)
         return NULL;
     }
 
-    page->color = SGL_THEME_DESKTOP;
+    page->color = SGL_DESKTOP_COLOR;
     page->alpha = SGL_ALPHA_MAX;
 
     obj->parent = obj;

@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_scrollview.h"
@@ -172,11 +171,11 @@ sgl_obj_t* sgl_scrollview_create(sgl_obj_t* parent)
     sgl_obj_set_clickable(obj);
     sgl_obj_set_movable(obj);
 
-    sv->bg.alpha = SGL_THEME_ALPHA;
-    sv->bg.color = SGL_THEME_COLOR;
+    sv->bg.alpha = SGL_SCROLLVIEW_ALPHA;
+    sv->bg.color = SGL_SCROLLVIEW_COLOR;
     sv->bg.border = 1;
-    sv->bg.border_alpha = SGL_THEME_ALPHA;
-    sv->bg.border_color = SGL_THEME_BORDER_COLOR;
+    sv->bg.border_alpha = SGL_SCROLLVIEW_ALPHA;
+    sv->bg.border_color = SGL_SCROLLVIEW_BORDER_COLOR;
     sv->bg.radius = 0;
     sv->bg.pixmap = NULL;
     sv->content_h = 0;

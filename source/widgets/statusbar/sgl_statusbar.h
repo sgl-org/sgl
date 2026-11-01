@@ -35,6 +35,7 @@
 extern "C" {
 #endif
 
+#define  SGL_STATUSBAR_BG_COLOR           sgl_rgb(20, 20, 20)
 #define SGL_STATUSBAR_LEFT_MAX            (4)
 #define SGL_STATUSBAR_RIGHT_MAX           (8)
 

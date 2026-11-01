@@ -43,6 +43,13 @@
 extern "C" {
 #endif
 
+#define  SGL_MSGBOX_COLOR                       sgl_rgb(255, 255, 255)
+#define  SGL_MSGBOX_BORDER_COLOR                sgl_rgb(0, 0, 0)
+#define  SGL_MSGBOX_BORDER_WIDTH                2
+#define  SGL_MSGBOX_ALPHA                       255
+#define  SGL_MSGBOX_TEXT_COLOR                  sgl_rgb(0, 0, 0)
+#define  SGL_MSGBOX_RADIUS                      0
+
 /**
  * @brief sgl message box struct
  * @obj: sgl general object

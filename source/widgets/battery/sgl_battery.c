@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include "sgl_battery.h"
 
@@ -189,15 +188,15 @@ sgl_obj_t* sgl_battery_create(sgl_obj_t *parent)
     b->cells          = 10;
     b->border_color   = SGL_COLOR_GRAY;
     b->fill_color     = (sgl_color_t){0};           /* auto by level */
-    b->low_color      = sgl_rgb(239, 68, 68);      /* #ef4444 */
-    b->medium_color   = sgl_rgb(245, 158, 11);     /* #f59e0b */
-    b->high_color     = sgl_rgb(34, 197, 94);      /* #22c55e */
-    b->bg_color       = sgl_rgb(30, 30, 30);
+    b->low_color      = SGL_BATTERY_LOW_COLOR;      /* #ef4444 */
+    b->medium_color   = SGL_BATTERY_MEDIUM_COLOR;   /* #f59e0b */
+    b->high_color     = SGL_BATTERY_HIGH_COLOR;     /* #22c55e */
+    b->bg_color       = SGL_BATTERY_BG_COLOR;
     b->charging       = 0;
-    b->charging_color = sgl_rgb(241, 196, 15);
+    b->charging_color = SGL_BATTERY_CHARGING_COLOR;
     b->show_percentage = 0;
     b->font           = NULL;
-    b->text_color     = sgl_rgb(255, 255, 255);
+    b->text_color     = SGL_BATTERY_TEXT_COLOR;
 
     return &b->obj;
 }

@@ -37,6 +37,12 @@
 extern "C" {
 #endif
 
+#define  SGL_BAR_COLOR            sgl_rgb(255, 255, 255)
+#define  SGL_BAR_BG_COLOR         sgl_rgb(0, 0, 0)
+#define  SGL_BAR_BORDER_COLOR     sgl_rgb(0, 0, 0)
+#define  SGL_BAR_BORDER_WIDTH     2
+#define  SGL_BAR_ALPHA            255
+
 /**
  * @brief sgl bar struct
  * @obj: sgl general object

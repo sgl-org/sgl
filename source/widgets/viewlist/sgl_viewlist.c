@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_viewlist.h"
@@ -423,12 +422,12 @@ sgl_obj_t* sgl_viewlist_create(sgl_obj_t* parent)
     sgl_obj_set_clickable(obj);
     sgl_obj_set_movable(obj);
 
-    viewlist->alpha          = SGL_THEME_ALPHA;
-    viewlist->bg_color       = SGL_THEME_COLOR;
-    viewlist->border_color   = SGL_THEME_BORDER_COLOR;
-    viewlist->text_color     = SGL_THEME_TEXT_COLOR;
-    viewlist->subtext_color  = sgl_color_mixer(SGL_THEME_TEXT_COLOR, SGL_THEME_COLOR, 128);
-    viewlist->selected_color = sgl_color_mixer(SGL_THEME_COLOR, SGL_THEME_BORDER_COLOR, 128);
+    viewlist->alpha          = SGL_VIEWLIST_ALPHA;
+    viewlist->bg_color       = SGL_VIEWLIST_COLOR;
+    viewlist->border_color   = SGL_VIEWLIST_BORDER_COLOR;
+    viewlist->text_color     = SGL_VIEWLIST_TEXT_COLOR;
+    viewlist->subtext_color  = sgl_color_mixer(SGL_VIEWLIST_TEXT_COLOR, SGL_VIEWLIST_COLOR, 128);
+    viewlist->selected_color = sgl_color_mixer(SGL_VIEWLIST_COLOR, SGL_VIEWLIST_BORDER_COLOR, 128);
     viewlist->font           = sgl_get_system_font();
     viewlist->margin_x       = 2;
     viewlist->margin_y       = 2;

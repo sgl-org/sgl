@@ -282,14 +282,14 @@ sgl_obj_t* sgl_polygon_create(sgl_obj_t* parent)
     
     // Set default values
     polygon->vertex_count = 0;
-    polygon->fill_color = sgl_rgb(127, 127, 127);
-    polygon->border_color = sgl_rgb(0, 0, 0);
+    polygon->fill_color = SGL_POLYGON_FILL_COLOR;
+    polygon->border_color = SGL_POLYGON_BORDER_COLOR;
     polygon->border_width = 1;
     polygon->alpha = SGL_ALPHA_MAX;
     polygon->pixmap = NULL;
     polygon->text = NULL;
     polygon->font = NULL;
-    polygon->text_color = sgl_rgb(0, 0, 0);
+    polygon->text_color = SGL_POLYGON_TEXT_COLOR;
     sgl_area_init(&obj->area);
     
     return obj;

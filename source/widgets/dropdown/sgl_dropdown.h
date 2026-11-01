@@ -38,6 +38,12 @@
 extern "C" {
 #endif
 
+#define  SGL_DROPDOWN_COLOR         sgl_rgb(255, 255, 255)
+#define  SGL_DROPDOWN_BG_COLOR      sgl_rgb(0, 0, 0)
+#define  SGL_DROPDOWN_BORDER_COLOR  sgl_rgb(0, 0, 0)
+#define  SGL_DROPDOWN_ALPHA         255
+#define  SGL_DROPDOWN_TEXT_COLOR    sgl_rgb(0, 0, 0)
+
 /**
  * @brief sgl dropdown struct
  * @desc: text description

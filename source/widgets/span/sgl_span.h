@@ -37,6 +37,8 @@
 extern "C" {
 #endif
 
+#define  SGL_SPAN_COLOR         sgl_rgb(255, 255, 255)
+
 /**
  * @brief Maximum number of spans in a span widget
  */

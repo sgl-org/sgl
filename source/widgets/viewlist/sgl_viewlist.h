@@ -38,6 +38,11 @@
 extern "C" {
 #endif
 
+#define  SGL_VIEWLIST_COLOR           sgl_rgb(255, 255, 255)
+#define  SGL_VIEWLIST_BORDER_COLOR    sgl_rgb(0, 0, 0)
+#define  SGL_VIEWLIST_ALPHA           255
+#define  SGL_VIEWLIST_TEXT_COLOR      sgl_rgb(0, 0, 0)
+
 /**
  * @file sgl_viewlist.h
  * Virtual list widget (LVGL lv_table style): the list only keeps a small

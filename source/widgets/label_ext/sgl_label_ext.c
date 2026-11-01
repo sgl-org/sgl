@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include <stdarg.h>
@@ -476,7 +475,7 @@ sgl_obj_t* sgl_label_ext_create(sgl_obj_t* parent)
 
     label_ext->alpha = SGL_ALPHA_MAX;
     label_ext->bg_flag = 0;
-    label_ext->color = SGL_THEME_TEXT_COLOR;
+    label_ext->color = SGL_LABEL_EXT_TEXT_COLOR;
     label_ext->text = "";
     label_ext->rotation = 0;
     label_ext->rotated = 0;

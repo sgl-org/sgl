@@ -767,9 +767,9 @@ sgl_obj_t* sgl_charge_create(sgl_obj_t *parent)
     ch->obj.radius       = 4;
     ch->level            = 60;
     ch->disp_level       = 60;
-    ch->body_color       = sgl_rgb(30, 38, 48);
-    ch->fill_color       = sgl_rgb(0, 200, 110);
-    ch->bubble_color     = sgl_rgb(190, 255, 225);
+    ch->body_color       = SGL_CHARGE_BODY_COLOR;
+    ch->fill_color       = SGL_CHARGE_FILL_COLOR;
+    ch->bubble_color     = SGL_CHARGE_BUBBLE_COLOR;
     ch->show_percentage  = 1;
     ch->animated         = 1;
 

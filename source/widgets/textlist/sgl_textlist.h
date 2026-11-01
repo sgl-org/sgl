@@ -38,6 +38,11 @@
 extern "C" {
 #endif
 
+#define  SGL_TEXTLIST_COLOR           sgl_rgb(255, 255, 255)
+#define  SGL_TEXTLIST_BORDER_COLOR    sgl_rgb(0, 0, 0)
+#define  SGL_TEXTLIST_ALPHA           255
+#define  SGL_TEXTLIST_TEXT_COLOR      sgl_rgb(0, 0, 0)
+
 /**
  * NOTE: can use this callback function to handle the click event of the textlist
  * 

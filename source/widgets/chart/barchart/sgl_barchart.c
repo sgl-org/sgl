@@ -9,7 +9,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_barchart.h"
@@ -55,12 +54,12 @@ sgl_obj_t *sgl_barchart_create(sgl_obj_t *parent)
     sgl_obj_t *obj = &chart->obj;
     sgl_obj_init(obj, parent);
     obj->construct_fn = sgl_barchart_construct_cb;
-    sgl_obj_set_border_width(obj, SGL_THEME_BORDER_WIDTH);
+    sgl_obj_set_border_width(obj, SGL_BARCHART_BORDER_WIDTH);
 
     chart->alpha = SGL_ALPHA_MAX;
-    chart->bg_color = SGL_THEME_BG_COLOR;
-    chart->bg_alpha = SGL_THEME_ALPHA;
-    chart->border_color = SGL_THEME_BORDER_COLOR;
+    chart->bg_color = SGL_BARCHART_BG_COLOR;
+    chart->bg_alpha = SGL_BARCHART_ALPHA;
+    chart->border_color = SGL_BARCHART_BORDER_COLOR;
 
     chart->x_axis.min = 0;
     chart->x_axis.max = 5;
@@ -70,10 +69,10 @@ sgl_obj_t *sgl_barchart_create(sgl_obj_t *parent)
     chart->x_axis.flag_bits.grid_dashed = 1U;
     chart->x_axis.flag_bits.show_labels = 1U;
     chart->x_axis.auto_divisions = SGL_BARCHART_DEFAULT_DIVISIONS;
-    chart->x_axis.grid_color = sgl_rgb(60, 60, 60);
+    chart->x_axis.grid_color = SGL_BARCHART_GRID_COLOR;
     chart->x_axis.grid_alpha = 80;
     chart->x_axis.label_font = sgl_get_system_font();
-    chart->x_axis.label_color = SGL_THEME_TEXT_COLOR;
+    chart->x_axis.label_color = SGL_BARCHART_TEXT_COLOR;
     chart->x_axis.label_alpha = SGL_ALPHA_MAX;
     chart->x_axis.flag_bits.show_ticks = 1U;
 
@@ -85,10 +84,10 @@ sgl_obj_t *sgl_barchart_create(sgl_obj_t *parent)
     chart->y_axis.flag_bits.grid_dashed = 1U;
     chart->y_axis.flag_bits.show_labels = 1U;
     chart->y_axis.auto_divisions = SGL_BARCHART_DEFAULT_DIVISIONS;
-    chart->y_axis.grid_color = sgl_rgb(60, 60, 60);
+    chart->y_axis.grid_color = SGL_BARCHART_GRID_COLOR;
     chart->y_axis.grid_alpha = 80;
     chart->y_axis.label_font = sgl_get_system_font();
-    chart->y_axis.label_color = SGL_THEME_TEXT_COLOR;
+    chart->y_axis.label_color = SGL_BARCHART_TEXT_COLOR;
     chart->y_axis.label_alpha = SGL_ALPHA_MAX;
     chart->y_axis.flag_bits.show_ticks = 1U;
 
@@ -129,7 +128,7 @@ void sgl_barchart_set_series_count(sgl_obj_t *obj, uint8_t count)
 
     memset(chart->series, 0, sizeof(sgl_barchart_series_t) * count);
     for (uint8_t i = 0; i < count; i++) {
-        chart->series[i].color = SGL_THEME_COLOR;
+        chart->series[i].color = SGL_BARCHART_COLOR;
         chart->series[i].alpha = SGL_ALPHA_MAX;
     }
 

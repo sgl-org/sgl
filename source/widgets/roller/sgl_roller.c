@@ -22,7 +22,6 @@
  * SOFTWARE.
  */
 
-#include <sgl_theme.h>
 #include <string.h>
 #include "sgl_roller.h"
 
@@ -332,12 +331,12 @@ sgl_obj_t* sgl_roller_create(sgl_obj_t* parent)
     sgl_obj_set_movable(obj);
     sgl_obj_set_border_width(obj, 1);
 
-    roller->bg_color = SGL_THEME_COLOR;
-    roller->border_color = SGL_THEME_BORDER_COLOR;
-    roller->text_color = SGL_THEME_TEXT_COLOR;
-    roller->selected_color = sgl_color_mixer(SGL_THEME_COLOR, SGL_THEME_BG_COLOR, 128);
+    roller->bg_color = SGL_ROLLER_COLOR;
+    roller->border_color = SGL_ROLLER_BORDER_COLOR;
+    roller->text_color = SGL_ROLLER_TEXT_COLOR;
+    roller->selected_color = sgl_color_mixer(SGL_ROLLER_COLOR, SGL_ROLLER_BG_COLOR, 128);
     roller->font = sgl_get_system_font();
-    roller->alpha = SGL_THEME_ALPHA;
+    roller->alpha = SGL_ROLLER_ALPHA;
     roller->item_selected = -1;
     roller->opt_text = NULL;
     roller->dynamic_text = 0;

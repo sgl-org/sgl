@@ -37,6 +37,9 @@
 extern "C" {
 #endif
 
+#define  SGL_LED_COLOR        sgl_rgb(255, 255, 255)
+#define  SGL_LED_BG_COLOR     sgl_rgb(0, 0, 0)
+
 /**
  * @brief sgl led struct
  * @obj: sgl general object

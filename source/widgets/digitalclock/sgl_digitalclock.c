@@ -22,7 +22,6 @@
  * SOFTWARE.
  */
 
-#include <sgl_theme.h>
 #include <string.h>
 #include "sgl_digitalclock.h"
 
@@ -259,7 +258,7 @@ static void sgl_digitalclock_draw_card(sgl_digitalclock_t *clock, sgl_surf_t *su
         }
     }
 
-    seam_color = sgl_color_mixer(sgl_rgb(72, 72, 74), clock->card_color, 112);
+    seam_color = sgl_color_mixer(SGL_DIGITALCLOCK_SEAM_COLOR, clock->card_color, 112);
     sgl_draw_fill_hline(surf, &clock->obj.area, split - 1,
                         card.x1 + 1, card.x2 - 1, 1, seam_color, clock->alpha);
 }
@@ -358,14 +357,14 @@ sgl_obj_t* sgl_digitalclock_create(sgl_obj_t *parent)
     obj->construct_fn = sgl_digitalclock_construct_cb;
     obj->clickable = 0;
     clock->font = sgl_get_system_font();
-    clock->card_color = sgl_rgb(24, 24, 26);
+    clock->card_color = SGL_DIGITALCLOCK_CARD_COLOR;
     clock->text_color = SGL_COLOR_WHITE;
-    clock->flip_color = sgl_rgb(136, 140, 150);
-    clock->flip_text_color = sgl_rgb(28, 28, 32);
+    clock->flip_color = SGL_DIGITALCLOCK_FLIP_COLOR;
+    clock->flip_text_color = SGL_DIGITALCLOCK_FLIP_TEXT_COLOR;
     clock->flip_contrast = SGL_DIGITALCLOCK_DEFAULT_CONTRAST;
     clock->radius = SGL_DIGITALCLOCK_RADIUS_AUTO;
     clock->flip_ms = SGL_DIGITALCLOCK_DEFAULT_FLIP_MS;
-    clock->alpha = SGL_THEME_ALPHA;
+    clock->alpha = SGL_DIGITALCLOCK_ALPHA;
     clock->progress = SGL_DIGITALCLOCK_PROGRESS_MAX;
 
     return obj;

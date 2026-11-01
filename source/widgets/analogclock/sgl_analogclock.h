@@ -36,6 +36,10 @@
 extern "C" {
 #endif
 
+#define  SGL_ANALOGCLOCK_COLOR     sgl_rgb(255, 255, 255)
+#define  SGL_ANALOGCLOCK_BG_COLOR  sgl_rgb(0, 0, 0)
+#define  SGL_ANALOGCLOCK_ALPHA     255
+
 /**
  * @brief sgl analogclock widget
  */

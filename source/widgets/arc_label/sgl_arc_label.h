@@ -37,6 +37,8 @@
 extern "C" {
 #endif
 
+#define  SGL_ARC_LABEL_TEXT_COLOR   sgl_rgb(0, 0, 0)
+
 /**
  * @brief sgl arc label object
  * 

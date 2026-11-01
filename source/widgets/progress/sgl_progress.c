@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_progress.h"
@@ -86,13 +85,13 @@ sgl_obj_t* sgl_progress_create(sgl_obj_t* parent)
     sgl_obj_init(&progress->obj, parent);
     obj->construct_fn = sgl_progress_construct_cb;
 
-    progress->body.alpha = SGL_THEME_ALPHA;
-    progress->body.color = SGL_THEME_BG_COLOR;
-    progress->body.border_alpha = SGL_THEME_ALPHA;
-    progress->body.border_color = SGL_THEME_BORDER_COLOR;
+    progress->body.alpha = SGL_PROGRESS_ALPHA;
+    progress->body.color = SGL_PROGRESS_BG_COLOR;
+    progress->body.border_alpha = SGL_PROGRESS_ALPHA;
+    progress->body.border_color = SGL_PROGRESS_BORDER_COLOR;
 
-    progress->color = SGL_THEME_COLOR;
-    progress->alpha = SGL_THEME_ALPHA;
+    progress->color = SGL_PROGRESS_COLOR;
+    progress->alpha = SGL_PROGRESS_ALPHA;
     progress->knob_width = 4;
     progress->interval = 4;
     progress->value = 50;

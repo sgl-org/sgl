@@ -1,4 +1,4 @@
-﻿/* source/widgets/avi/sgl_avi.c
+/* source/widgets/avi/sgl_avi.c
  *
  * MIT License
  *
@@ -22,7 +22,6 @@
  * SOFTWARE.
  */
 #include <sgl_cfgfix.h>
-#include <sgl_theme.h>
 #include <sgl_draw.h>
 #include "sgl_avi.h"
 

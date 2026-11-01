@@ -37,6 +37,15 @@
 extern "C" {
 #endif
 
+#define  SGL_STEPPER_BG_COLOR             sgl_rgb(46, 52, 64)
+#define  SGL_STEPPER_BTN_COLOR            sgl_rgb(58, 66, 82)
+#define  SGL_STEPPER_BTN_PRESS_COLOR      sgl_rgb(64, 152, 231)
+#define  SGL_STEPPER_TEXT_COLOR           sgl_rgb(229, 233, 240)
+#define  SGL_STEPPER_SIGN_COLOR           sgl_rgb(210, 218, 232)
+#define  SGL_STEPPER_SIGN_PRESS_COLOR     sgl_rgb(255, 255, 255)
+#define  SGL_STEPPER_SIGN_DIS_COLOR       sgl_rgb(90, 98, 114)
+#define  SGL_STEPPER_BORDER_COLOR         sgl_rgb(0, 0, 0)
+
 /**
  * @brief stepper widget structure — left [-] / center value / right [+]
  * @obj:            sgl general object

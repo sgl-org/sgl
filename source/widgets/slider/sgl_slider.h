@@ -37,6 +37,10 @@
 extern "C" {
 #endif
 
+#define  SGL_SLIDER_COLOR           sgl_rgb(255, 255, 255)
+#define  SGL_SLIDER_BG_COLOR        sgl_rgb(0, 0, 0)
+#define  SGL_SLIDER_BORDER_WIDTH    2
+
 /**
  * @brief sgl slider struct
  * @obj: sgl general object

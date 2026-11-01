@@ -28,7 +28,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_piechart.h"
@@ -80,9 +79,9 @@ sgl_obj_t* sgl_piechart_create(sgl_obj_t *parent)
     pie->legend_area_size  = SGL_PIECHART_DEFAULT_LEGEND_SIZE;
     pie->layout_bits.legend_pos = SGL_PIECHART_LEGEND_POS_RIGHT;
     pie->legend_font       = sgl_get_system_font();
-    pie->legend_text_color = SGL_THEME_TEXT_COLOR;
-    pie->legend_bg_color   = SGL_THEME_BG_COLOR;
-    pie->legend_border_color = SGL_THEME_BORDER_COLOR;
+    pie->legend_text_color = SGL_PIECHART_TEXT_COLOR;
+    pie->legend_bg_color   = SGL_PIECHART_BG_COLOR;
+    pie->legend_border_color = SGL_PIECHART_BORDER_COLOR;
     pie->legend_alpha      = SGL_ALPHA_MAX;
     pie->slices            = NULL;
     pie->total_value       = 0;
@@ -127,7 +126,7 @@ void sgl_piechart_set_slice_count(sgl_obj_t *obj, uint8_t count)
 
     for (uint8_t i = 0; i < count; i++) {
         slices[i].alpha = SGL_ALPHA_MAX;
-        slices[i].color = SGL_THEME_COLOR;
+        slices[i].color = SGL_PIECHART_COLOR;
         slices[i].value = 0;
         slices[i].label = NULL;
     }
@@ -552,7 +551,7 @@ static void sgl_piechart_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
                         .start_angle = (uint32_t)(current_angle & 0x1FF),
                         .end_angle   = (uint32_t)(end_angle   & 0x1FF),
                         .mode       = pie->option_bits.smooth ? SGL_ARC_MODE_NORMAL_SMOOTH : SGL_ARC_MODE_NORMAL,
-                        .bg_color   = SGL_THEME_BG_COLOR,
+                        .bg_color   = SGL_PIECHART_BG_COLOR,
                     };
 
                     sgl_draw_fill_arc(surf, &pie_rect, &desc);

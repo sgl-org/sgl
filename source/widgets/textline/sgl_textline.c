@@ -28,7 +28,6 @@
 #include <sgl_log.h>
 #include <sgl_mm.h>
 #include <sgl_cfgfix.h>
-#include <sgl_theme.h>
 #include "sgl_textline.h"
 
 static void sgl_textline_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *evt)
@@ -75,10 +74,10 @@ sgl_obj_t* sgl_textline_create(sgl_obj_t* parent)
     sgl_obj_init(&textline->obj, parent);
     obj->construct_fn = sgl_textline_construct_cb;
 
-    textline->alpha = SGL_THEME_ALPHA;
+    textline->alpha = SGL_TEXTLINE_ALPHA;
     textline->bg_flag = true;
-    textline->bg_color = SGL_THEME_COLOR;
-    textline->color = SGL_THEME_TEXT_COLOR;
+    textline->bg_color = SGL_TEXTLINE_COLOR;
+    textline->color = SGL_TEXTLINE_TEXT_COLOR;
     textline->line_margin = 1;
     textline->text = "textline";
     textline->font = sgl_get_system_font();

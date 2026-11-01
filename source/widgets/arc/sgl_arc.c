@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_arc.h"
@@ -219,10 +218,10 @@ sgl_obj_t* sgl_arc_create(sgl_obj_t* parent)
     obj->clickable = 1;
     obj->movable = 1;
 
-    arc->desc.alpha = SGL_THEME_ALPHA;
+    arc->desc.alpha = SGL_ARC_ALPHA;
     arc->desc.mode = SGL_ARC_MODE_NORMAL;
-    arc->desc.color = SGL_THEME_BG_COLOR;
-    arc->desc.bg_color = SGL_THEME_COLOR;
+    arc->desc.color = SGL_ARC_BG_COLOR;
+    arc->desc.bg_color = SGL_ARC_COLOR;
     arc->desc.start_angle = 0;
     arc->desc.end_angle = 360;
     obj->construct_fn = sgl_arc_construct_cb;

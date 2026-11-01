@@ -28,7 +28,6 @@
 #include <sgl_log.h>
 #include <sgl_mm.h>
 #include <sgl_cfgfix.h>
-#include <sgl_theme.h>
 #include "sgl_dropdown.h"
 
 #define  SGL_DROPDOWN_OPTION_PAD    (3)
@@ -349,11 +348,11 @@ sgl_obj_t* sgl_dropdown_create(sgl_obj_t* parent)
     sgl_obj_set_editable(obj);
     sgl_obj_set_movable(obj);
 
-    dropdown->alpha = SGL_THEME_ALPHA;
-    dropdown->bg_color = SGL_THEME_COLOR;
-    dropdown->border_color = SGL_THEME_BORDER_COLOR;
-    dropdown->item_selected_color = sgl_color_mixer(SGL_THEME_COLOR, SGL_THEME_BG_COLOR, 128);
-    dropdown->text_color = SGL_THEME_TEXT_COLOR;
+    dropdown->alpha = SGL_DROPDOWN_ALPHA;
+    dropdown->bg_color = SGL_DROPDOWN_COLOR;
+    dropdown->border_color = SGL_DROPDOWN_BORDER_COLOR;
+    dropdown->item_selected_color = sgl_color_mixer(SGL_DROPDOWN_COLOR, SGL_DROPDOWN_BG_COLOR, 128);
+    dropdown->text_color = SGL_DROPDOWN_TEXT_COLOR;
     dropdown->item_num = 0;
     dropdown->is_open = false;
     dropdown->font = sgl_get_system_font();

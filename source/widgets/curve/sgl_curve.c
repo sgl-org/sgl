@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_curve.h"
@@ -128,7 +127,7 @@ sgl_obj_t* sgl_curve_create(sgl_obj_t* parent)
     obj->construct_fn = sgl_curve_construct_cb;
 
     curve->alpha = SGL_ALPHA_MAX;
-    curve->color = SGL_THEME_COLOR;
+    curve->color = SGL_CURVE_COLOR;
     curve->thickness = 3;
     curve->point_count = 0;
 

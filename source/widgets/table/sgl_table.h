@@ -30,13 +30,17 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define  SGL_TABLE_COLOR            sgl_rgb(255, 255, 255)
+#define  SGL_TABLE_BORDER_COLOR     sgl_rgb(0, 0, 0)
+#define  SGL_TABLE_ALPHA            255
+#define  SGL_TABLE_TEXT_COLOR       sgl_rgb(0, 0, 0)
 
 /* Upper bound of the column count, it sizes the per column settings only,
  * the row count is unlimited. */

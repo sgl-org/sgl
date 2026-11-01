@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_icon.h"
@@ -72,9 +71,9 @@ sgl_obj_t* sgl_icon_create(sgl_obj_t* parent)
     sgl_obj_init(&icon->obj, parent);
     obj->construct_fn = sgl_icon_construct_cb;
 
-    icon->alpha = SGL_THEME_ALPHA;
+    icon->alpha = SGL_ICON_ALPHA;
     icon->icon = NULL;
-    icon->color = SGL_THEME_TEXT_COLOR;
+    icon->color = SGL_ICON_TEXT_COLOR;
     icon->align = SGL_ALIGN_CENTER;
 
     return obj;

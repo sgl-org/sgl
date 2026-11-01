@@ -26,7 +26,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <sgl_fs.h>
 #include <stdio.h>
@@ -963,12 +962,12 @@ sgl_obj_t* sgl_filebrowser_create(sgl_obj_t *parent)
 
     fb->selected             = &fb->selected_item;
     fb->font                 = sgl_get_system_font();
-    fb->alpha                = SGL_THEME_ALPHA;
-    fb->bg_color             = SGL_THEME_COLOR;
-    fb->item_selected_color  = sgl_color_mixer(SGL_THEME_COLOR, SGL_THEME_BORDER_COLOR, 128);
-    fb->border_color         = SGL_THEME_BORDER_COLOR;
-    fb->item_text_color      = SGL_THEME_TEXT_COLOR;
-    fb->icon_color           = sgl_rgb(121, 177, 254);
+    fb->alpha                = SGL_FILEBROWSER_ALPHA;
+    fb->bg_color             = SGL_FILEBROWSER_COLOR;
+    fb->item_selected_color  = sgl_color_mixer(SGL_FILEBROWSER_COLOR, SGL_FILEBROWSER_BORDER_COLOR, 128);
+    fb->border_color         = SGL_FILEBROWSER_BORDER_COLOR;
+    fb->item_text_color      = SGL_FILEBROWSER_TEXT_COLOR;
+    fb->icon_color           = SGL_FILEBROWSER_ICON_COLOR;
     fb->path_color           = SGL_COLOR_WHEAT;
     /* rounded row cards derived from the widget accent (same scheme as sgl_menu) */
     fb->card_color           = sgl_color_mixer(fb->icon_color, fb->bg_color, 26);

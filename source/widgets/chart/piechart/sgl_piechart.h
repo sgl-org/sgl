@@ -39,6 +39,11 @@
 extern "C" {
 #endif
 
+#define  SGL_PIECHART_COLOR         sgl_rgb(255, 255, 255)
+#define  SGL_PIECHART_BG_COLOR      sgl_rgb(0, 0, 0)
+#define  SGL_PIECHART_BORDER_COLOR  sgl_rgb(0, 0, 0)
+#define  SGL_PIECHART_TEXT_COLOR    sgl_rgb(0, 0, 0)
+
 
 /**
  * @brief Legend position of piechart

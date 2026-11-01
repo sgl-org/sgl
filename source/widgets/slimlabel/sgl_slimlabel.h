@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#ifndef __SGL_LABEL_H__
-#define __SGL_LABEL_H__
+#ifndef __SGL_SLIMLABEL_H__
+#define __SGL_SLIMLABEL_H__
 
 #include <sgl_core.h>
 #include <sgl_draw.h>
@@ -36,6 +36,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define  SGL_SLIMLABEL_BG_COLOR      sgl_rgb(0, 0, 0)
+#define  SGL_SLIMLABEL_TEXT_COLOR    sgl_rgb(0, 0, 0)
 
 typedef struct slimlabel_style {
     sgl_color_t color;
@@ -175,4 +178,4 @@ void sgl_label_set_long_mode(sgl_obj_t *obj, uint32_t speed_ms, bool flag);
 }
 #endif
 
-#endif // !__SGL_LABEL_H__
+#endif // !__SGL_SLIMLABEL_H__

@@ -62,8 +62,15 @@
 extern "C" {
 #endif
 
-#define SGL_FILEDIALOG_PATH_MAX_LEN   (SGL_FILEBROWSER_PATH_MAX_LEN)
-#define SGL_FILEDIALOG_NAME_MAX_LEN   (SGL_FILEBROWSER_NAME_MAX_LEN)
+#define  SGL_FILEDIALOG_ICON_COLOR        sgl_rgb(121, 177, 254)
+#define  SGL_FILEDIALOG_BTN_COLOR         sgl_rgb(86, 156, 214)
+#define  SGL_FILEDIALOG_COLOR             sgl_rgb(255, 255, 255)
+#define  SGL_FILEDIALOG_BORDER_COLOR      sgl_rgb(0, 0, 0)
+#define  SGL_FILEDIALOG_ALPHA             255
+#define  SGL_FILEDIALOG_TEXT_COLOR        sgl_rgb(0, 0, 0)
+
+#define SGL_FILEDIALOG_PATH_MAX_LEN       (SGL_FILEBROWSER_PATH_MAX_LEN)
+#define SGL_FILEDIALOG_NAME_MAX_LEN       (SGL_FILEBROWSER_NAME_MAX_LEN)
 
 /* Title bar label shown on the virtual "/" root, where the real path would
  * read as a bare "/" (see sgl_filedialog_set_root_text) */
@@ -71,10 +78,10 @@ extern "C" {
 
 /* Cache sizing, same sliding-window scheme as the file browser. */
 #ifndef SGL_FILEDIALOG_CACHE_MULT
-#define SGL_FILEDIALOG_CACHE_MULT     (2)
+#define SGL_FILEDIALOG_CACHE_MULT         (2)
 #endif
 #ifndef SGL_FILEDIALOG_CACHE_MIN
-#define SGL_FILEDIALOG_CACHE_MIN      (8)
+#define SGL_FILEDIALOG_CACHE_MIN          (8)
 #endif
 
 /**

@@ -37,6 +37,10 @@
 extern "C" {
 #endif
 
+#define  SGL_CHARGE_BODY_COLOR      sgl_rgb(30, 38, 48)
+#define  SGL_CHARGE_FILL_COLOR      sgl_rgb(0, 200, 110)
+#define  SGL_CHARGE_BUBBLE_COLOR    sgl_rgb(190, 255, 225)
+
 /* number of bubbles rising inside the liquid */
 #define SGL_CHARGE_BUBBLE_NUM       (12)
 

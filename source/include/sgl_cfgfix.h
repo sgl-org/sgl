@@ -146,10 +146,6 @@ extern "C" {
 #   endif
 #endif
 
-#ifndef CONFIG_SGL_THEME_DEFAULT
-#define CONFIG_SGL_THEME_DEFAULT                                   (1)  /* Default theme */
-#endif
-
 #ifndef CONFIG_SGL_FONT_COMPRESSED
 #define CONFIG_SGL_FONT_COMPRESSED                                 (0)  /* Enable font compression */
 #endif
@@ -188,12 +184,6 @@ extern "C" {
 
 #ifndef CONFIG_SGL_FONT_CONSOLAS32
 #define CONFIG_SGL_FONT_CONSOLAS32                                 (0)  /* Enable Consolas32 font */
-#endif
-
-#if !(CONFIG_SGL_THEME_DARK || CONFIG_SGL_THEME_LIGHT)
-#   ifndef CONFIG_SGL_THEME_DEFAULT
-#   define CONFIG_SGL_THEME_DEFAULT                                (1)  /* Default theme if not specified */
-#   endif
 #endif
 
 #ifndef CONFIG_SGL_BOOT_LOGO

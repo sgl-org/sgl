@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_span.h"
@@ -320,7 +319,7 @@ sgl_obj_t* sgl_span_create(sgl_obj_t* parent)
 
     span->alpha = SGL_ALPHA_MAX;
     span->bg_flag = 0;
-    span->bg_color = SGL_THEME_COLOR;
+    span->bg_color = SGL_SPAN_COLOR;
     span->align = SGL_SPAN_ALIGN_LEFT;
     span->overflow = SGL_SPAN_OVERFLOW_CLIP;
     span->line_space = 2;

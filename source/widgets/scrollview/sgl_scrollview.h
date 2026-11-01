@@ -38,6 +38,10 @@
 extern "C" {
 #endif
 
+#define  SGL_SCROLLVIEW_COLOR         sgl_rgb(255, 255, 255)
+#define  SGL_SCROLLVIEW_BORDER_COLOR  sgl_rgb(0, 0, 0)
+#define  SGL_SCROLLVIEW_ALPHA         255
+
 /**
  * @file sgl_scrollview.h
  * A vertical scroll container that can hold any child widgets.

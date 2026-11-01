@@ -20,6 +20,15 @@
 extern "C" {
 #endif
 
+#define  SGL_BARCHART_GRID_COLOR  sgl_rgb(60, 60, 60)
+
+#define  SGL_BARCHART_COLOR         sgl_rgb(255, 255, 255)
+#define  SGL_BARCHART_BG_COLOR      sgl_rgb(0, 0, 0)
+#define  SGL_BARCHART_BORDER_COLOR  sgl_rgb(0, 0, 0)
+#define  SGL_BARCHART_BORDER_WIDTH  2
+#define  SGL_BARCHART_ALPHA         255
+#define  SGL_BARCHART_TEXT_COLOR    sgl_rgb(0, 0, 0)
+
 #define SGL_BARCHART_MAX_AUTO_TICKS      (8)
 #define SGL_BARCHART_DEFAULT_DIVISIONS   (4)
 #define SGL_BARCHART_OPEN_ANIM_DURATION  (600U)

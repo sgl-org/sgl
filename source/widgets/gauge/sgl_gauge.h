@@ -37,6 +37,10 @@
 extern "C" {
 #endif
 
+#define  SGL_GAUGE_COLOR        sgl_rgb(255, 255, 255)
+#define  SGL_GAUGE_BG_COLOR     sgl_rgb(0, 0, 0)
+#define  SGL_GAUGE_ALPHA        255
+
 /**
  * @brief sgl gauge widget, How to use, For example:
  *   sgl_obj_t *gauge = sgl_gauge_create(NULL);

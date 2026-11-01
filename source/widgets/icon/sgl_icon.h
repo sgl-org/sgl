@@ -33,9 +33,11 @@
 #include <sgl_cfgfix.h>
 #include <string.h>
 
+#define  SGL_ICON_ALPHA           255
+#define  SGL_ICON_TEXT_COLOR      sgl_rgb(0, 0, 0)
 
 typedef struct sgl_icon {
-    sgl_obj_t               obj;
+    sgl_obj_t          obj;
     const sgl_icon_pixmap_t *icon;
     sgl_color_t       color;
     uint8_t           alpha;

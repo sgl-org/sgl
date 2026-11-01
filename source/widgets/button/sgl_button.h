@@ -37,6 +37,13 @@
 extern "C" {
 #endif
 
+#define  SGL_BUTTON_COLOR            sgl_rgb(255, 255, 255)
+#define  SGL_BUTTON_BORDER_COLOR     sgl_rgb(0, 0, 0)
+#define  SGL_BUTTON_BORDER_WIDTH     2
+#define  SGL_BUTTON_ALPHA            255
+#define  SGL_BUTTON_TEXT_COLOR       sgl_rgb(0, 0, 0)
+#define  SGL_BUTTON_RADIUS           0
+
 /**
  * @brief Button object
  * @obj: Button object

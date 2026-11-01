@@ -37,6 +37,13 @@
 extern "C" {
 #endif
 
+#define  SGL_KEYBOARD_COLOR            sgl_rgb(255, 255, 255)
+#define  SGL_KEYBOARD_BORDER_COLOR     sgl_rgb(0, 0, 0)
+#define  SGL_KEYBOARD_BORDER_WIDTH     2
+#define  SGL_KEYBOARD_ALPHA            255
+#define  SGL_KEYBOARD_TEXT_COLOR       sgl_rgb(0, 0, 0)
+#define  SGL_KEYBOARD_RADIUS           0
+
 /**
  * @brief sgl keyboard struct
  * @obj: sgl general object

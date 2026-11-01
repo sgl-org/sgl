@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_rect_ext.h"
@@ -107,14 +106,14 @@ sgl_obj_t* sgl_rect_ext_create(sgl_obj_t* parent)
     sgl_obj_t *obj = &rect_ext->obj;
     sgl_obj_init(&rect_ext->obj, parent);
     sgl_obj_set_unflexible(obj);
-    sgl_obj_set_border_width(obj, SGL_THEME_BORDER_WIDTH);
+    sgl_obj_set_border_width(obj, SGL_RECT_EXT_BORDER_WIDTH);
 
     obj->construct_fn = sgl_rectangle_ext_construct_cb;
 
-    rect_ext->alpha = SGL_THEME_ALPHA;
-    rect_ext->border_alpha = SGL_THEME_ALPHA;
-    rect_ext->color = SGL_THEME_COLOR;
-    rect_ext->border_color = SGL_THEME_BORDER_COLOR;
+    rect_ext->alpha = SGL_RECT_EXT_ALPHA;
+    rect_ext->border_alpha = SGL_RECT_EXT_ALPHA;
+    rect_ext->color = SGL_RECT_EXT_COLOR;
+    rect_ext->border_color = SGL_RECT_EXT_BORDER_COLOR;
     rect_ext->pixmap = NULL;
 
     return obj;

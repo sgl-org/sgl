@@ -37,6 +37,11 @@
 extern "C" {
 #endif
 
+#define  SGL_PROGRESS_COLOR            sgl_rgb(255, 255, 255)
+#define  SGL_PROGRESS_BG_COLOR         sgl_rgb(0, 0, 0)
+#define  SGL_PROGRESS_BORDER_COLOR     sgl_rgb(0, 0, 0)
+#define  SGL_PROGRESS_ALPHA            255
+
 /**
  * @brief sgl progress struct
  * @obj: sgl general object

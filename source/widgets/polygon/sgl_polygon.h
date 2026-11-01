@@ -30,7 +30,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 
@@ -38,7 +37,10 @@
 extern "C" {
 #endif
 
-#define SGL_POLYGON_VERTEX_MAX 16
+#define  SGL_POLYGON_FILL_COLOR    sgl_rgb(127, 127, 127)
+#define  SGL_POLYGON_BORDER_COLOR  sgl_rgb(0, 0, 0)
+#define  SGL_POLYGON_TEXT_COLOR    sgl_rgb(0, 0, 0)
+#define SGL_POLYGON_VERTEX_MAX     16
 
 /**
  * @brief sgl polygon struct

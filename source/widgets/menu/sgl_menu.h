@@ -38,6 +38,10 @@
 extern "C" {
 #endif
 
+#define  SGL_MENU_COLOR         sgl_rgb(255, 255, 255)
+#define  SGL_MENU_ALPHA         255
+#define  SGL_MENU_TEXT_COLOR    sgl_rgb(0, 0, 0)
+
 /* forward declaration of the menu descriptor */
 typedef struct sgl_menu_def sgl_menu_def_t;
 

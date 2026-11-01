@@ -28,7 +28,6 @@
 #include <sgl_log.h>
 #include <sgl_mm.h>
 #include <sgl_cfgfix.h>
-#include <sgl_theme.h>
 #include "sgl_box.h"
 
 
@@ -216,20 +215,20 @@ sgl_obj_t* sgl_box_create(sgl_obj_t* parent)
     sgl_obj_t *obj = &box->obj;
     sgl_obj_init(&box->obj, parent);
     obj->construct_fn = sgl_box_construct_cb;
-    sgl_obj_set_border_width(obj, SGL_THEME_BORDER_WIDTH);
+    sgl_obj_set_border_width(obj, SGL_BOX_BORDER_WIDTH);
     obj->focus = 1;
 
     sgl_obj_set_clickable(obj);
     sgl_obj_set_movable(obj);
 
-    box->bg.alpha = SGL_THEME_ALPHA;
-    box->bg.color = SGL_THEME_COLOR;
-    box->bg.border_alpha = SGL_THEME_ALPHA;
+    box->bg.alpha = SGL_BOX_ALPHA;
+    box->bg.color = SGL_BOX_COLOR;
+    box->bg.border_alpha = SGL_BOX_ALPHA;
     box->bg.radius = 0;
     box->bg.border = 1;
     sgl_obj_set_border_width(obj, 1);
-    box->bg.border_color = SGL_THEME_BORDER_COLOR;
-    box->scroll_color = SGL_THEME_SCROLL_FG_COLOR;
+    box->bg.border_color = SGL_BOX_BORDER_COLOR;
+    box->scroll_color = SGL_BOX_SCROLL_FG_COLOR;
 
     box->x_offset = 0;
     box->y_offset = 0;

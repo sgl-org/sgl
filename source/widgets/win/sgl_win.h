@@ -36,6 +36,13 @@
 extern "C" {
 #endif
 
+#define  SGL_WIN_CLOSE_COLOR      sgl_rgb(255, 90, 80)
+#define  SGL_WIN_COLOR            sgl_rgb(255, 255, 255)
+#define  SGL_WIN_BG_COLOR         sgl_rgb(0, 0, 0)
+#define  SGL_WIN_BORDER_COLOR     sgl_rgb(0, 0, 0)
+#define  SGL_WIN_ALPHA            255
+#define  SGL_WIN_RADIUS           0
+
 /**
  * @brief sgl window struct
  * @obj: sgl general object

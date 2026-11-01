@@ -57,6 +57,10 @@
 extern "C" {
 #endif
 
+#define  SGL_SPECTRUM_COLOR                        sgl_rgb(255, 255, 255)
+#define  SGL_SPECTRUM_BG_COLOR                     sgl_rgb(0, 0, 0)
+#define  SGL_SPECTRUM_ALPHA                        255
+
 /**
  * @brief sgl spectrum struct
  * @obj: sgl general object

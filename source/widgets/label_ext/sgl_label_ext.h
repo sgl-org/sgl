@@ -37,6 +37,8 @@
 extern "C" {
 #endif
 
+#define  SGL_LABEL_EXT_TEXT_COLOR  sgl_rgb(0, 0, 0)
+
 /**
  * @brief sgl label_ext object
  * @obj: sgl general object

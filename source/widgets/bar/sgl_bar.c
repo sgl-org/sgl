@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_bar.h"
@@ -113,14 +112,14 @@ sgl_obj_t* sgl_bar_create(sgl_obj_t* parent)
     sgl_obj_set_clickable(obj);
     sgl_obj_set_movable(obj);
     obj->construct_fn = sgl_bar_construct_cb;
-    sgl_obj_set_border_width(obj, SGL_THEME_BORDER_WIDTH);
+    sgl_obj_set_border_width(obj, SGL_BAR_BORDER_WIDTH);
 
     bar->direct = SGL_DIRECT_HORIZONTAL;
-    bar->alpha = SGL_THEME_ALPHA;
-    bar->track_color = SGL_THEME_COLOR;
-    bar->border_color = SGL_THEME_BORDER_COLOR;
-    bar->fill_color = SGL_THEME_BG_COLOR;
-    bar->alpha = SGL_THEME_ALPHA;
+    bar->alpha = SGL_BAR_ALPHA;
+    bar->track_color = SGL_BAR_COLOR;
+    bar->border_color = SGL_BAR_BORDER_COLOR;
+    bar->fill_color = SGL_BAR_BG_COLOR;
+    bar->alpha = SGL_BAR_ALPHA;
 
     return obj;
 }

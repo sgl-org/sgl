@@ -30,7 +30,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 
@@ -38,13 +37,19 @@
 extern "C" {
 #endif
 
+#define  SGL_CALENDAR_OTHER_MONTH_COLOR  sgl_rgb(170, 170, 170)
+#define  SGL_CALENDAR_SEL_TEXT_COLOR     sgl_rgb(255, 255, 255)
+#define  SGL_CALENDAR_COLOR              sgl_rgb(255, 255, 255)
+#define  SGL_CALENDAR_ALPHA              255
+#define  SGL_CALENDAR_TEXT_COLOR         sgl_rgb(0, 0, 0)
+
 /* first column of the week row: 0 = Sunday, 1 = Monday (default) */
 #ifndef SGL_CALENDAR_WEEK_START
-#define SGL_CALENDAR_WEEK_START    (1)
+#define SGL_CALENDAR_WEEK_START          (1)
 #endif
 
 /* modern flat highlight color (material blue) */
-#define SGL_CALENDAR_HIGHLIGHT     sgl_rgb(0, 120, 215)
+#define SGL_CALENDAR_HIGHLIGHT           sgl_rgb(0, 120, 215)
 
 /**
  * @brief date changed callback

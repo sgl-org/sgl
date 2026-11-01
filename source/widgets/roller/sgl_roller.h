@@ -37,6 +37,12 @@
 extern "C" {
 #endif
 
+#define  SGL_ROLLER_COLOR           sgl_rgb(255, 255, 255)
+#define  SGL_ROLLER_BG_COLOR        sgl_rgb(0, 0, 0)
+#define  SGL_ROLLER_BORDER_COLOR    sgl_rgb(0, 0, 0)
+#define  SGL_ROLLER_ALPHA           255
+#define  SGL_ROLLER_TEXT_COLOR      sgl_rgb(0, 0, 0)
+
 /**
  * @brief sgl roller struct
  * @desc: vertical scroll selector with \n-separated options

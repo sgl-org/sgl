@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_menu.h"
@@ -630,9 +629,9 @@ sgl_obj_t* sgl_menu_create(sgl_obj_t *parent, const sgl_menu_def_t *root)
     sgl_obj_set_editable(&menu->obj);
 
     menu->font = sgl_get_system_font();
-    menu->alpha = SGL_THEME_ALPHA;
-    menu->bg_color = SGL_THEME_COLOR;
-    menu->text_color = SGL_THEME_TEXT_COLOR;
+    menu->alpha = SGL_MENU_ALPHA;
+    menu->bg_color = SGL_MENU_COLOR;
+    menu->text_color = SGL_MENU_TEXT_COLOR;
     menu->title_bg_color = SGL_MENU_TITLE_COLOR;
     menu->title_text_color = SGL_MENU_BAR_TEXT_COLOR;
     menu->sel_color = SGL_MENU_SEL_COLOR;

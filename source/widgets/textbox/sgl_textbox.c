@@ -28,7 +28,6 @@
 #include <sgl_log.h>
 #include <sgl_mm.h>
 #include <sgl_cfgfix.h>
-#include <sgl_theme.h>
 #include "sgl_textbox.h"
 
 #define  SGL_TEXTBOX_SCROLL_WIDTH                  (4)
@@ -123,24 +122,24 @@ sgl_obj_t* sgl_textbox_create(sgl_obj_t* parent)
     sgl_obj_t *obj = &textbox->obj;
     sgl_obj_init(&textbox->obj, parent);
     obj->construct_fn = sgl_textbox_construct_cb;
-    sgl_obj_set_border_width(obj, SGL_THEME_BORDER_WIDTH);
+    sgl_obj_set_border_width(obj, SGL_TEXTBOX_BORDER_WIDTH);
     obj->focus = 1;
 
     sgl_obj_set_clickable(obj);
     sgl_obj_set_movable(obj);
 
-    textbox->bg.alpha = SGL_THEME_ALPHA;
-    textbox->bg.color = SGL_THEME_COLOR;
-    textbox->bg.border_alpha = SGL_THEME_ALPHA;
+    textbox->bg.alpha = SGL_TEXTBOX_ALPHA;
+    textbox->bg.color = SGL_TEXTBOX_COLOR;
+    textbox->bg.border_alpha = SGL_TEXTBOX_ALPHA;
     textbox->bg.radius = 10;
     textbox->bg.border = 1;
-    textbox->bg.border_color = SGL_THEME_BORDER_COLOR;
+    textbox->bg.border_color = SGL_TEXTBOX_BORDER_COLOR;
     textbox->font = sgl_get_system_font();
 
-    textbox->scroll.alpha = SGL_THEME_ALPHA;
-    textbox->scroll.color = SGL_THEME_SCROLL_FG_COLOR;
+    textbox->scroll.alpha = SGL_TEXTBOX_ALPHA;
+    textbox->scroll.color = SGL_TEXTBOX_SCROLL_FG_COLOR;
 
-    textbox->text_color = SGL_THEME_TEXT_COLOR;
+    textbox->text_color = SGL_TEXTBOX_TEXT_COLOR;
     textbox->line_margin = 1;
     textbox->text = "textbox";
 

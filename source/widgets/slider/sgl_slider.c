@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_slider.h"
@@ -185,13 +184,13 @@ sgl_obj_t* sgl_slider_create(sgl_obj_t* parent)
     sgl_obj_set_clickable(obj);
     sgl_obj_set_movable(obj);
     obj->construct_fn = sgl_slider_construct_cb;
-    sgl_obj_set_border_width(obj, SGL_THEME_BORDER_WIDTH);
+    sgl_obj_set_border_width(obj, SGL_SLIDER_BORDER_WIDTH);
     sgl_obj_set_editable(obj);
 
     slider->direct = SGL_DIRECT_HORIZONTAL;
-    slider->track_color = sgl_color_mixer(SGL_THEME_COLOR, SGL_THEME_BG_COLOR, 128);
-    slider->knob_color = SGL_THEME_BG_COLOR;
-    slider->fill_color = SGL_THEME_BG_COLOR;
+    slider->track_color = sgl_color_mixer(SGL_SLIDER_COLOR, SGL_SLIDER_BG_COLOR, 128);
+    slider->knob_color = SGL_SLIDER_BG_COLOR;
+    slider->fill_color = SGL_SLIDER_BG_COLOR;
     slider->thickness = 0;
     return obj;
 }

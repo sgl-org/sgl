@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <sgl_draw.h>
 #include <string.h>
@@ -545,7 +544,7 @@ sgl_obj_t* sgl_keyboard_create(sgl_obj_t* parent)
     sgl_obj_t *obj = &keyboard->obj;
     sgl_obj_init(&keyboard->obj, parent);
     obj->construct_fn = sgl_keyboard_construct_cb;
-    sgl_obj_set_border_width(obj, SGL_THEME_BORDER_WIDTH);
+    sgl_obj_set_border_width(obj, SGL_KEYBOARD_BORDER_WIDTH);
     sgl_obj_set_editable(obj);
 
     obj->clickable = 1;
@@ -555,20 +554,20 @@ sgl_obj_t* sgl_keyboard_create(sgl_obj_t* parent)
     keyboard->key_margin = 2;
     keyboard->btn_desc.radius = 4;
 
-    keyboard->body_desc.alpha = SGL_THEME_ALPHA;
-    keyboard->body_desc.border_alpha = SGL_THEME_ALPHA;
-    keyboard->body_desc.color = SGL_THEME_COLOR;
-    keyboard->body_desc.radius = SGL_THEME_RADIUS;
+    keyboard->body_desc.alpha = SGL_KEYBOARD_ALPHA;
+    keyboard->body_desc.border_alpha = SGL_KEYBOARD_ALPHA;
+    keyboard->body_desc.color = SGL_KEYBOARD_COLOR;
+    keyboard->body_desc.radius = SGL_KEYBOARD_RADIUS;
     keyboard->body_desc.border = 1;
-    keyboard->body_desc.border_color = SGL_THEME_BORDER_COLOR;
+    keyboard->body_desc.border_color = SGL_KEYBOARD_BORDER_COLOR;
     keyboard->body_desc.pixmap = NULL;
-    keyboard->text_color = SGL_THEME_TEXT_COLOR;
+    keyboard->text_color = SGL_KEYBOARD_TEXT_COLOR;
 
-    keyboard->btn_desc.alpha = SGL_THEME_ALPHA;
-    keyboard->btn_desc.color = sgl_color_mixer(SGL_THEME_BORDER_COLOR, SGL_THEME_COLOR, 64);
+    keyboard->btn_desc.alpha = SGL_KEYBOARD_ALPHA;
+    keyboard->btn_desc.color = sgl_color_mixer(SGL_KEYBOARD_BORDER_COLOR, SGL_KEYBOARD_COLOR, 64);
     keyboard->btn_desc.radius = 4;
     keyboard->btn_desc.border = 0;
-    keyboard->btn_desc.border_color = SGL_THEME_BORDER_COLOR;
+    keyboard->btn_desc.border_color = SGL_KEYBOARD_BORDER_COLOR;
     keyboard->btn_desc.pixmap = NULL;
 
     keyboard->key_mode = KEYBOARD_KEYMODE_LOWER;

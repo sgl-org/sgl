@@ -37,6 +37,11 @@
 extern "C" {
 #endif
 
+#define  SGL_RECT_COLOR            sgl_rgb(255, 255, 255)
+#define  SGL_RECT_BORDER_COLOR     sgl_rgb(0, 0, 0)
+#define  SGL_RECT_BORDER_WIDTH     2
+#define  SGL_RECT_ALPHA            255
+
 /**
  * @brief sgl rectangle
  * @obj: sgl general object

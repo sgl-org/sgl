@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_spinner.h"
@@ -135,8 +134,8 @@ sgl_obj_t* sgl_spinner_create(sgl_obj_t* parent)
     sgl_obj_init(&spinner->obj, parent);
     obj->clickable = 0;
 
-    spinner->alpha = SGL_THEME_ALPHA;
-    spinner->color = SGL_THEME_COLOR;
+    spinner->alpha = SGL_SPINNER_ALPHA;
+    spinner->color = SGL_SPINNER_COLOR;
     spinner->seg_cnt = SGL_SPINNER_DEFAULT_SEG_CNT;
     spinner->period = SGL_SPINNER_DEFAULT_PERIOD;
     obj->construct_fn = sgl_spinner_construct_cb;

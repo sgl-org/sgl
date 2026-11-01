@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_led.h"
@@ -77,7 +76,7 @@ static void sgl_led_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *
                 else {
                     ds_alpha = dx2 * SGL_ALPHA_NUM / r2;
                     ds_alpha = sgl_pow2(ds_alpha) / SGL_ALPHA_NUM ;
-                    *blend = sgl_color_mixer(sgl_color_mixer(led->bg_color, color, ds_alpha), *blend, led->alpha);//SGL_THEME_BG_COLOR
+                    *blend = sgl_color_mixer(sgl_color_mixer(led->bg_color, color, ds_alpha), *blend, led->alpha);
                 }
             }
             buf += surf->w;
@@ -106,9 +105,9 @@ sgl_obj_t* sgl_led_create(sgl_obj_t* parent)
     obj->construct_fn = sgl_led_construct_cb;
 
     led->alpha = SGL_ALPHA_MAX;
-    led->on_color = SGL_THEME_COLOR;
-    led->off_color = SGL_THEME_BG_COLOR;
-    led->bg_color = SGL_THEME_BG_COLOR;
+    led->on_color = SGL_LED_COLOR;
+    led->off_color = SGL_LED_BG_COLOR;
+    led->bg_color = SGL_LED_BG_COLOR;
 
     return obj;
 }

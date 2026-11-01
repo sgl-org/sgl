@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <sgl_anim.h>
 #include <string.h>
@@ -360,23 +359,23 @@ sgl_obj_t* sgl_textedit_create(sgl_obj_t* parent)
     sgl_obj_t *obj = &textedit->obj;
     sgl_obj_init(&textedit->obj, parent);
     obj->construct_fn = sgl_textedit_construct_cb;
-    sgl_obj_set_border_width(obj, SGL_THEME_BORDER_WIDTH);
+    sgl_obj_set_border_width(obj, SGL_TEXTEDIT_BORDER_WIDTH);
     obj->focus = 1;
 
     sgl_obj_set_clickable(obj);
     sgl_obj_set_movable(obj);
 
-    textedit->bg.alpha = SGL_THEME_ALPHA;
-    textedit->bg.color = SGL_THEME_COLOR;
-    textedit->bg.border_alpha = SGL_THEME_ALPHA;
+    textedit->bg.alpha = SGL_TEXTEDIT_ALPHA;
+    textedit->bg.color = SGL_TEXTEDIT_COLOR;
+    textedit->bg.border_alpha = SGL_TEXTEDIT_ALPHA;
     textedit->bg.radius = 0;
     textedit->bg.border = 1;
-    textedit->bg.border_color = SGL_THEME_BORDER_COLOR;
+    textedit->bg.border_color = SGL_TEXTEDIT_BORDER_COLOR;
     textedit->bg.pixmap = NULL;
 
     textedit->font = sgl_get_system_font();
-    textedit->text_color = SGL_THEME_TEXT_COLOR;
-    textedit->cursor_color = SGL_THEME_TEXT_COLOR;
+    textedit->text_color = SGL_TEXTEDIT_TEXT_COLOR;
+    textedit->cursor_color = SGL_TEXTEDIT_TEXT_COLOR;
     textedit->text = "";
     textedit->text_max_len = 0;
     textedit->mode = SGL_TEXTEDIT_SINGLE_LINE;

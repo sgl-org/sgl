@@ -573,13 +573,13 @@ sgl_obj_t* sgl_calendar_create(sgl_obj_t *parent)
     sgl_obj_set_editable(&cal->obj);
 
     cal->font = sgl_get_system_font();
-    cal->alpha = SGL_THEME_ALPHA;
-    cal->bg_color = SGL_THEME_COLOR;
-    cal->text_color = SGL_THEME_TEXT_COLOR;
-    cal->weekday_color = SGL_THEME_TEXT_COLOR;
-    cal->other_month_color = sgl_rgb(170, 170, 170);
+    cal->alpha = SGL_CALENDAR_ALPHA;
+    cal->bg_color = SGL_CALENDAR_COLOR;
+    cal->text_color = SGL_CALENDAR_TEXT_COLOR;
+    cal->weekday_color = SGL_CALENDAR_TEXT_COLOR;
+    cal->other_month_color = SGL_CALENDAR_OTHER_MONTH_COLOR;
     cal->highlight_color = SGL_CALENDAR_HIGHLIGHT;
-    cal->sel_text_color = sgl_rgb(255, 255, 255);
+    cal->sel_text_color = SGL_CALENDAR_SEL_TEXT_COLOR;
 
     /* no selection until sgl_calendar_set_date is called */
     cal->sel_day = 0;

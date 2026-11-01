@@ -37,6 +37,13 @@
 extern "C" {
 #endif
 
+#define  SGL_TEXTBOX_COLOR            sgl_rgb(255, 255, 255)
+#define  SGL_TEXTBOX_BORDER_COLOR     sgl_rgb(0, 0, 0)
+#define  SGL_TEXTBOX_BORDER_WIDTH     2
+#define  SGL_TEXTBOX_ALPHA            255
+#define  SGL_TEXTBOX_TEXT_COLOR       sgl_rgb(0, 0, 0)
+#define  SGL_TEXTBOX_SCROLL_FG_COLOR  sgl_rgb(200, 200, 200)
+
 /**
  * @brief sgl textbox struct
  * @desc: text description

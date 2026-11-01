@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_slimlabel.h"
@@ -52,8 +51,8 @@ static void sgl_slimlabel_default_style_init(void)
     }
 
     memset(&s_default_style, 0, sizeof(s_default_style));
-    s_default_style.color     = SGL_THEME_TEXT_COLOR;
-    s_default_style.bg_color  = sgl_rgb(0, 0, 0);
+    s_default_style.color     = SGL_SLIMLABEL_TEXT_COLOR;
+    s_default_style.bg_color  = SGL_SLIMLABEL_BG_COLOR;
     s_default_style.font      = sgl_get_system_font();
     s_default_style.alpha     = SGL_ALPHA_MAX;
     s_default_style.align     = 0;

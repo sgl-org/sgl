@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+#define  SGL_LAUNCHER_MSGBOX_COLOR  sgl_rgb(109, 125, 210)
+
 typedef struct sgl_launcher_app sgl_launcher_app_t;
 typedef struct sgl_launcher sgl_launcher_t;
 

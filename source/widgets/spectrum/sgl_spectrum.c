@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_spectrum.h"
@@ -344,11 +343,11 @@ sgl_obj_t* sgl_spectrum_create(sgl_obj_t* parent)
     sgl_obj_init(&spectrum->obj, parent);
     obj->construct_fn = sgl_spectrum_construct_cb;
 
-    spectrum->alpha           = SGL_THEME_ALPHA;
-    spectrum->bar_color       = SGL_THEME_BG_COLOR;
-    spectrum->bar_color_low   = SGL_THEME_BG_COLOR;
-    spectrum->bar_hat_color   = sgl_color_mixer(SGL_THEME_BG_COLOR, SGL_THEME_COLOR, 128);
-    spectrum->floor_color     = SGL_THEME_BG_COLOR;
+    spectrum->alpha           = SGL_SPECTRUM_ALPHA;
+    spectrum->bar_color       = SGL_SPECTRUM_BG_COLOR;
+    spectrum->bar_color_low   = SGL_SPECTRUM_BG_COLOR;
+    spectrum->bar_hat_color   = sgl_color_mixer(SGL_SPECTRUM_BG_COLOR, SGL_SPECTRUM_COLOR, 128);
+    spectrum->floor_color     = SGL_SPECTRUM_BG_COLOR;
     spectrum->bar_mode        = SGL_SPECTRUM_MODE_BLOCK;
     spectrum->bar_gap         = 4;
     spectrum->bar_hat_height  = 3;

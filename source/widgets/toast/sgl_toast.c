@@ -23,7 +23,6 @@
  */
 
 #include <sgl_core.h>
-#include <sgl_theme.h>
 #include <sgl_anim.h>
 #include "sgl_toast.h"
 
@@ -136,9 +135,9 @@ sgl_obj_t* sgl_toast_create(sgl_obj_t* parent)
 
     toast->font = sgl_get_system_font();
     toast->text = "Toast";
-    toast->bg_color = SGL_THEME_COLOR;
-    toast->text_color = SGL_THEME_TEXT_COLOR;
-    toast->alpha_max = SGL_THEME_ALPHA;
+    toast->bg_color = SGL_TOAST_COLOR;
+    toast->text_color = SGL_TOAST_TEXT_COLOR;
+    toast->alpha_max = SGL_TOAST_ALPHA;
     toast->alpha_cur = 0;
     toast->hold_ms = SGL_TOAST_DEFAULT_HOLD;
     toast->fade_ms = SGL_TOAST_DEFAULT_FADE;

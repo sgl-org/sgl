@@ -40,6 +40,15 @@
 extern "C" {
 #endif
 
+#define  SGL_LINECHART_GRID_COLOR  sgl_rgb(60, 60, 60)
+
+#define  SGL_LINECHART_COLOR         sgl_rgb(255, 255, 255)
+#define  SGL_LINECHART_BG_COLOR      sgl_rgb(0, 0, 0)
+#define  SGL_LINECHART_BORDER_COLOR  sgl_rgb(0, 0, 0)
+#define  SGL_LINECHART_BORDER_WIDTH  2
+#define  SGL_LINECHART_ALPHA         255
+#define  SGL_LINECHART_TEXT_COLOR    sgl_rgb(0, 0, 0)
+
 
 #define SGL_LINECHART_MAX_AUTO_TICKS      (8)
 #define SGL_LINECHART_DEFAULT_DIVISIONS   (4)

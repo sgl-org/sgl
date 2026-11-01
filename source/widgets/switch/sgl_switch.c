@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_switch.h"
@@ -126,16 +125,16 @@ sgl_obj_t* sgl_switch_create(sgl_obj_t* parent)
     sgl_obj_t *obj = &p_switch->obj;
     sgl_obj_init(&p_switch->obj, parent);
     obj->construct_fn = sgl_switch_construct_cb;
-    sgl_obj_set_border_width(obj, SGL_THEME_BORDER_WIDTH);
-    sgl_obj_set_radius(obj, SGL_THEME_RADIUS);
+    sgl_obj_set_border_width(obj, SGL_SWITCH_BORDER_WIDTH);
+    sgl_obj_set_radius(obj, SGL_SWITCH_RADIUS);
 
-    p_switch->alpha = SGL_THEME_ALPHA;
-    p_switch->color = SGL_THEME_COLOR;
-    p_switch->border_color = SGL_THEME_BORDER_COLOR;
+    p_switch->alpha = SGL_SWITCH_ALPHA;
+    p_switch->color = SGL_SWITCH_COLOR;
+    p_switch->border_color = SGL_SWITCH_BORDER_COLOR;
 
     p_switch->status = false;
-    p_switch->bg_color = SGL_THEME_BG_COLOR;
-    p_switch->knob_color = sgl_color_mixer(SGL_THEME_COLOR, SGL_THEME_BG_COLOR, 128);
+    p_switch->bg_color = SGL_SWITCH_BG_COLOR;
+    p_switch->knob_color = sgl_color_mixer(SGL_SWITCH_COLOR, SGL_SWITCH_BG_COLOR, 128);
     p_switch->knob_margin = 1;
 
     sgl_obj_set_clickable(obj);

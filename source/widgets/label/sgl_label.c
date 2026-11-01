@@ -27,7 +27,6 @@
 #include <sgl_anim.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_label.h"
@@ -117,7 +116,7 @@ sgl_obj_t* sgl_label_create(sgl_obj_t* parent)
 
     label->alpha = SGL_ALPHA_MAX;
     label->bg_flag = 0;
-    label->color = SGL_THEME_TEXT_COLOR;
+    label->color = SGL_LABEL_TEXT_COLOR;
     label->font = sgl_get_system_font();
     label->text = "";
     return obj;

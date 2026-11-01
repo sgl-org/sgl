@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_rect.h"
@@ -94,14 +93,14 @@ sgl_obj_t* sgl_rect_create(sgl_obj_t* parent)
     sgl_obj_t *obj = &rect->obj;
     sgl_obj_init(&rect->obj, parent);
     sgl_obj_set_unflexible(obj);
-    sgl_obj_set_border_width(obj, SGL_THEME_BORDER_WIDTH);
+    sgl_obj_set_border_width(obj, SGL_RECT_BORDER_WIDTH);
 
     obj->construct_fn = sgl_rectangle_construct_cb;
 
-    rect->alpha = SGL_THEME_ALPHA;
-    rect->border_alpha = SGL_THEME_ALPHA;
-    rect->color = SGL_THEME_COLOR;
-    rect->border_color = SGL_THEME_BORDER_COLOR;
+    rect->alpha = SGL_RECT_ALPHA;
+    rect->border_alpha = SGL_RECT_ALPHA;
+    rect->color = SGL_RECT_COLOR;
+    rect->border_color = SGL_RECT_BORDER_COLOR;
     rect->pixmap = NULL;
 
     return obj;

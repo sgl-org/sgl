@@ -28,7 +28,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_linechart.h"
@@ -87,12 +86,12 @@ sgl_obj_t* sgl_linechart_create(sgl_obj_t *parent)
     sgl_obj_t *obj = &chart->obj;
     sgl_obj_init(obj, parent);
     obj->construct_fn = sgl_linechart_construct_cb;
-    sgl_obj_set_border_width(obj, SGL_THEME_BORDER_WIDTH);
+    sgl_obj_set_border_width(obj, SGL_LINECHART_BORDER_WIDTH);
 
     chart->alpha = SGL_ALPHA_MAX;
-    chart->bg_color = SGL_THEME_BG_COLOR;
-    chart->bg_alpha = SGL_THEME_ALPHA;
-    chart->border_color = SGL_THEME_BORDER_COLOR;
+    chart->bg_color = SGL_LINECHART_BG_COLOR;
+    chart->bg_alpha = SGL_LINECHART_ALPHA;
+    chart->border_color = SGL_LINECHART_BORDER_COLOR;
 
     /* X axis default */
     chart->x_axis.min           = 0;
@@ -103,10 +102,10 @@ sgl_obj_t* sgl_linechart_create(sgl_obj_t *parent)
     chart->x_axis.flag_bits.grid_dashed = 1U;
     chart->x_axis.flag_bits.show_labels = 1U;
     chart->x_axis.auto_divisions= SGL_LINECHART_DEFAULT_DIVISIONS;
-    chart->x_axis.grid_color    = sgl_rgb(60, 60, 60);
+    chart->x_axis.grid_color    = SGL_LINECHART_GRID_COLOR;
     chart->x_axis.grid_alpha    = 80;
     chart->x_axis.label_font    = sgl_get_system_font();
-    chart->x_axis.label_color   = SGL_THEME_TEXT_COLOR;
+    chart->x_axis.label_color   = SGL_LINECHART_TEXT_COLOR;
     chart->x_axis.label_alpha   = SGL_ALPHA_MAX;
 
     /* Y axis default */
@@ -118,10 +117,10 @@ sgl_obj_t* sgl_linechart_create(sgl_obj_t *parent)
     chart->y_axis.flag_bits.grid_dashed = 1U;
     chart->y_axis.flag_bits.show_labels = 1U;
     chart->y_axis.auto_divisions= SGL_LINECHART_DEFAULT_DIVISIONS;
-    chart->y_axis.grid_color    = sgl_rgb(60, 60, 60);
+    chart->y_axis.grid_color    = SGL_LINECHART_GRID_COLOR;
     chart->y_axis.grid_alpha    = 80;
     chart->y_axis.label_font    = sgl_get_system_font();
-    chart->y_axis.label_color   = SGL_THEME_TEXT_COLOR;
+    chart->y_axis.label_color   = SGL_LINECHART_TEXT_COLOR;
     chart->y_axis.label_alpha   = SGL_ALPHA_MAX;
 
     chart->series_count         = 0;
@@ -174,9 +173,9 @@ void sgl_linechart_set_series_count(sgl_obj_t *obj, uint8_t count)
         series[i].style_bits.point_shape = SGL_LINECHART_POINT_SHAPE_CIRCLE;
         series[i].line_width   = 2;
         series[i].point_radius = 3;
-        series[i].line_color   = SGL_THEME_COLOR;
+        series[i].line_color   = SGL_LINECHART_COLOR;
         series[i].line_alpha   = SGL_ALPHA_MAX;
-        series[i].fill_color   = SGL_THEME_COLOR;
+        series[i].fill_color   = SGL_LINECHART_COLOR;
         series[i].fill_alpha   = 0;
         series[i].label        = NULL;
         series[i].x_data       = NULL;

@@ -27,7 +27,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <string.h>
 #include "sgl_gauge.h"
@@ -178,15 +177,15 @@ sgl_obj_t* sgl_gauge_create(sgl_obj_t* parent)
     sgl_obj_init(&gauge->obj, parent);
     obj->construct_fn = sgl_gauge_construct_cb;
 
-    gauge->alpha = SGL_THEME_ALPHA;
-    gauge->bg_color = SGL_THEME_BG_COLOR;
-    gauge->arc_color = SGL_THEME_COLOR;
+    gauge->alpha = SGL_GAUGE_ALPHA;
+    gauge->bg_color = SGL_GAUGE_BG_COLOR;
+    gauge->arc_color = SGL_GAUGE_COLOR;
     gauge->pointer_color = SGL_COLOR_RED;
-    gauge->scale_color = SGL_THEME_COLOR;
-    gauge->text_color = SGL_THEME_COLOR;
+    gauge->scale_color = SGL_GAUGE_COLOR;
+    gauge->text_color = SGL_GAUGE_COLOR;
     gauge->scale_width = 1;
     gauge->pointer_width = 2;
-    gauge->hub_color = SGL_THEME_COLOR;
+    gauge->hub_color = SGL_GAUGE_COLOR;
     /* classic dial: 210 deg -> 510 deg sweeps clockwise over the top
      * (0 deg = top, same convention as sgl_arc) */
     gauge->angle_start = 210;

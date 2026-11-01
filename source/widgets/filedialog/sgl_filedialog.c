@@ -26,7 +26,6 @@
 #include <sgl_math.h>
 #include <sgl_log.h>
 #include <sgl_mm.h>
-#include <sgl_theme.h>
 #include <sgl_cfgfix.h>
 #include <sgl_fs.h>
 #include <stdio.h>
@@ -1072,15 +1071,15 @@ static sgl_obj_t *sgl_filedialog_create(sgl_obj_t *parent, const char *dev_name,
     fd->selected            = &fd->selected_item;
     sgl_snprintf(fd->root_text, sizeof(fd->root_text), "%s", SGL_FILEDIALOG_ROOT_TEXT);
     fd->font                = sgl_get_system_font();
-    fd->alpha               = SGL_THEME_ALPHA;
-    fd->bg_color            = SGL_THEME_COLOR;
-    fd->item_selected_color = sgl_color_mixer(SGL_THEME_COLOR, SGL_THEME_BORDER_COLOR, 128);
-    fd->border_color        = SGL_THEME_BORDER_COLOR;
-    fd->item_text_color     = SGL_THEME_TEXT_COLOR;
-    fd->icon_color          = sgl_rgb(121, 177, 254);
+    fd->alpha               = SGL_FILEDIALOG_ALPHA;
+    fd->bg_color            = SGL_FILEDIALOG_COLOR;
+    fd->item_selected_color = sgl_color_mixer(SGL_FILEDIALOG_COLOR, SGL_FILEDIALOG_BORDER_COLOR, 128);
+    fd->border_color        = SGL_FILEDIALOG_BORDER_COLOR;
+    fd->item_text_color     = SGL_FILEDIALOG_TEXT_COLOR;
+    fd->icon_color          = SGL_FILEDIALOG_ICON_COLOR;
     fd->path_color          = SGL_COLOR_WHEAT;
-    fd->btn_color           = sgl_rgb(86, 156, 214);
-    fd->btn_disabled_color  = sgl_color_mixer(SGL_THEME_COLOR, SGL_THEME_TEXT_COLOR, 64);
+    fd->btn_color           = SGL_FILEDIALOG_BTN_COLOR;
+    fd->btn_disabled_color  = sgl_color_mixer(SGL_FILEDIALOG_COLOR, SGL_FILEDIALOG_TEXT_COLOR, 64);
     /* rounded row cards derived from the dialog accent (same scheme as sgl_menu) */
     fd->card_color          = sgl_color_mixer(fd->btn_color, fd->bg_color, 26);
     fd->card_border_color   = sgl_color_mixer(fd->btn_color, fd->bg_color, 80);
