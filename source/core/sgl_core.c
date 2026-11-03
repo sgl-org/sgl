@@ -2287,13 +2287,6 @@ void sgl_monitor_trace(sgl_surf_t *surf)
         sgl_snprintf(mem_str, sizeof(mem_str), "MEM:%d.%d%", sgl_mm_get_monitor().used_rate >> 8, sgl_mm_get_monitor().used_rate & 0xff);
     }
 
-#if (CONFIG_SGL_FBDEV_RUNTIME_ROTATION)
-    if ((monitor->coords.y2 + 1) == SGL_SCREEN_WIDTH || (monitor->coords.x2 + 1) == SGL_SCREEN_HEIGHT) {
-        sgl_obj_delete(monitor);
-        monitor = NULL;
-        return;
-    }
-#endif
     sgl_draw_fill_rect(surf, &monitor_area, &monitor_area, 0, SGL_MONITOR_BG_COLOR, SGL_MONITOR_ALPHA);
 
     sgl_draw_string(surf, &monitor_area, monitor_area.x1, monitor_area.y1 + 3, (const char*)fps_str,
