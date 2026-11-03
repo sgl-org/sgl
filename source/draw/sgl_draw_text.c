@@ -194,6 +194,8 @@ static const sgl_font_table_t *sgl_font_glyph_dsc(const sgl_font_t *font, uint32
  */
 static const uint8_t *sgl_font_get_glyph_bitmap(const sgl_font_t *font, uint32_t ch_index, uint8_t *buf, uint32_t buf_size)
 {
+    static const sgl_font_t *cache_font = NULL;
+    static uint32_t cache_ch_index = 0;
     const sgl_font_table_t *dsc = sgl_font_glyph_dsc(font, ch_index);
     uint32_t bmp_size, offset;
     int32_t ret;
@@ -204,6 +206,10 @@ static const uint8_t *sgl_font_get_glyph_bitmap(const sgl_font_t *font, uint32_t
 
     if (font->flash_read == NULL) {
         return NULL;
+    }
+
+    if (cache_font == font && cache_ch_index == ch_index) {
+        return buf;
     }
 
     bmp_size = (((uint32_t)dsc->box_w * dsc->box_h * font->bpp) + 7) >> 3;
@@ -221,8 +227,12 @@ static const uint8_t *sgl_font_get_glyph_bitmap(const sgl_font_t *font, uint32_t
     ret = font->flash_read(font->flash_addr + offset, buf, bmp_size);
     if (ret != (int32_t)bmp_size) {
         SGL_LOG_WARN("sgl_font_get_glyph_bitmap: external flash read fail, ret = %d", ret);
+        cache_font = NULL;
         return NULL;
     }
+
+    cache_font = font;
+    cache_ch_index = ch_index;
     return buf;
 }
 #endif /* CONFIG_SGL_FLASH_FONT */
@@ -274,6 +284,13 @@ void sgl_draw_character(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y
     if (!sgl_area_selfclip(&clip, area)) {
         return;
     }
+
+#if (CONFIG_SGL_FLASH_FONT)
+    dot = sgl_font_get_glyph_bitmap(font, ch_index, glyph_buf, sizeof(glyph_buf));
+    if (dot == NULL) {
+        return;
+    }
+#endif
 
     buf = sgl_surf_get_buf(surf, clip.x1 - surf->x1, clip.y1 - surf->y1);
 #if (CONFIG_SGL_FONT_COMPRESSED)

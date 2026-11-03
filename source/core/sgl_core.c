@@ -2411,17 +2411,21 @@ static int32_t sgl_scroll_soft_limit(int32_t offset, int32_t range)
  */
 uint8_t sgl_scroll_stay(sgl_scroll_t *sc, int16_t coord, int32_t range)
 {
-    int16_t d = (int16_t)(coord - sc->prev_coord);
+    int16_t d;
+    int16_t span;
+    int16_t mag;
+    uint16_t now;
+    uint16_t span_ms;
     uint8_t just_started = 0U;
 
+    d = (int16_t)(coord - sc->prev_coord);
     if (!sc->touching)
         return 0U;
 
     if (!sc->dragged) {
         /* startup check: total displacement since press vs threshold */
-        int16_t span = (int16_t)(coord - sc->grab_coord);
-        int16_t mag = (span >= 0) ? span : (int16_t)(-span);
-
+        span = (int16_t)(coord - sc->grab_coord);
+        mag = (span >= 0) ? span : (int16_t)(-span);
         if (mag < SGL_SCROLL_DRAG_THRESHOLD)
             return 0U;
         sc->dragged = 1U;
@@ -2432,9 +2436,8 @@ uint8_t sgl_scroll_stay(sgl_scroll_t *sc, int16_t coord, int32_t range)
     if (d != 0) {
         /* velocity sampling: distance over a fixed time window, independent
          * of the event rate */
-        uint16_t now = (uint16_t)sgl_tick_get();
-        uint16_t span_ms = (uint16_t)(now - sc->win_tick);
-
+        now = (uint16_t)sgl_tick_get();
+        span_ms = (uint16_t)(now - sc->win_tick);
         sc->win_dist = (int16_t)(sc->win_dist + d);
         if (span_ms >= SGL_SCROLL_VEL_WINDOW_MS) {
             sc->speed = (int16_t)(-(int32_t)sc->win_dist * 16 / (int32_t)span_ms);
@@ -2458,9 +2461,13 @@ uint8_t sgl_scroll_stay(sgl_scroll_t *sc, int16_t coord, int32_t range)
  */
 uint8_t sgl_scroll_release(sgl_scroll_t *sc, int32_t range)
 {
-    uint8_t was_drag = sc->dragged;
-    uint8_t out_of_range = (sc->offset < 0 || sc->offset > range) ? 1U : 0U;
-    uint16_t since_win = (uint16_t)((uint16_t)sgl_tick_get() - sc->win_tick);
+    uint8_t was_drag;
+    uint8_t out_of_range;
+    uint16_t since_win;
+
+    was_drag = sc->dragged;
+    out_of_range = (sc->offset < 0 || sc->offset > range) ? 1U : 0U;
+    since_win = (uint16_t)((uint16_t)sgl_tick_get() - sc->win_tick);
 
     if (since_win > SGL_SCROLL_VEL_WINDOW_MS) {
         sc->speed = 0;
@@ -2490,8 +2497,11 @@ uint8_t sgl_scroll_release(sgl_scroll_t *sc, int32_t range)
  */
 static int32_t sgl_scroll_snap_back(int32_t offset, int32_t range)
 {
-    int32_t over = (offset < 0) ? -offset : offset - range;
-    int32_t step = over / SGL_SCROLL_REBOUND_PULL_DIV;
+    int32_t over;
+    int32_t step;
+
+    over = (offset < 0) ? -offset : offset - range;
+    step = over / SGL_SCROLL_REBOUND_PULL_DIV;
 
     if (step < 1)
         step = 1;
@@ -2514,7 +2524,9 @@ static int32_t sgl_scroll_snap_back(int32_t offset, int32_t range)
 uint8_t sgl_scroll_anim_step(sgl_scroll_t *sc, uint16_t elapsed_ms, int32_t range)
 {
     int32_t next;
+    int32_t delta;
     uint16_t step_ms;
+    uint16_t slices;
 
     if (!sc->coasting || elapsed_ms == 0U)
         return 0U;
@@ -2523,9 +2535,8 @@ uint8_t sgl_scroll_anim_step(sgl_scroll_t *sc, uint16_t elapsed_ms, int32_t rang
     next = sc->offset;
 
     if (sc->speed != 0) {
-        int32_t delta = ((int32_t)sc->speed * (int32_t)step_ms) / 16;
-        uint16_t slices = (uint16_t)(step_ms >> 4);
-
+        delta = ((int32_t)sc->speed * (int32_t)step_ms) / 16;
+        slices = (uint16_t)(step_ms >> 4);
         if (delta == 0)
             delta = (sc->speed > 0) ? 1 : -1;
         next = sgl_scroll_soft_limit(next + delta, range);
@@ -2572,14 +2583,13 @@ uint8_t sgl_scroll_bar_step(sgl_scroll_t *sc, uint16_t elapsed_ms)
 {
     uint16_t slices;
     uint16_t dec;
+    uint16_t remaining;
 
     if (sc->bar_alpha <= SGL_SCROLL_BAR_RESIDENT_ALPHA)
         return 0U;
 
-    /* hold at full opacity until the idle grace period is consumed */
     if (sc->bar_idle < SGL_SCROLL_BAR_IDLE_MS) {
-        uint16_t remaining = (uint16_t)(SGL_SCROLL_BAR_IDLE_MS - sc->bar_idle);
-
+        remaining = (uint16_t)(SGL_SCROLL_BAR_IDLE_MS - sc->bar_idle);
         if (elapsed_ms < remaining) {
             sc->bar_idle = (uint16_t)(sc->bar_idle + elapsed_ms);
             return 0U;
@@ -2615,10 +2625,11 @@ uint8_t sgl_scroll_bar_step(sgl_scroll_t *sc, uint16_t elapsed_ms)
  */
 void sgl_scroll_anim_step_cb(sgl_anim_t *anim, int32_t value)
 {
-    sgl_scroll_t *sc = (sgl_scroll_t *)anim->data;
+    sgl_scroll_t *sc;
     uint16_t elapsed;
     uint8_t changed = 0U;
 
+    sc = (sgl_scroll_t *)anim->data;
     SGL_ASSERT(sc != NULL);
     if (sc->commit == NULL) {
         sc->anim = NULL;
@@ -2672,15 +2683,9 @@ void sgl_scroll_anim_start(sgl_scroll_t *sc)
         return;
 
     sc->anim = anim;
-    /* pre-charge step_tick so the first path_cb call (value ~= 1) already
-     * sees elapsed >= 16ms and steps immediately, avoiding a 16ms frozen
-     * gap between release and the first inertia frame (uint16 wrap is
-     * intentional: elapsed = value - 0xFFF0 ~= value + 16) */
     sc->step_tick = (uint16_t)(0 - 16);
 
     sgl_anim_set_data(anim, sc);
-    /* linear path with start=0/end=0x7FFF yields value == elaps while
-     * elaps < duration, so path_cb fires every frame with a monotonic tick */
     sgl_anim_set_path(anim, sgl_scroll_anim_step_cb, sgl_anim_path_linear);
     sgl_anim_set_start_value(anim, 0);
     sgl_anim_set_end_value(anim, 0x7FFF);
@@ -2717,8 +2722,7 @@ void sgl_scroll_anim_stop(sgl_scroll_t *sc)
  *       thumb position maps offset into the track; drawn with the theme
  *       scroll foreground color at bar_alpha opacity
  */
-void sgl_scroll_draw_bar(sgl_surf_t *surf, sgl_obj_t *obj, const sgl_scroll_t *sc,
-                         int32_t range, const sgl_area_t *viewport, sgl_color_t color)
+void sgl_scroll_draw_bar(sgl_surf_t *surf, sgl_obj_t *obj, const sgl_scroll_t *sc, int32_t range, const sgl_area_t *viewport, sgl_color_t color)
 {
     int viewport_h;
     int thumb_h;
