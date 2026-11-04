@@ -397,12 +397,9 @@ typedef int32_t (*sgl_flash_font_read_fn)(uint32_t addr, void *buf, uint32_t len
 * @base_line: base line of font
 * @bpp: The anti aliasing level of the font, only support 2, 4
 * @format: format of font bitmap, SGL_FONT_FMT_NORMAL, SGL_FONT_FMT_COMPRESSED,
-*          SGL_FONT_FMT_EXT_FLASH, SGL_FONT_FMT_EXT_FLASH_FIXED.
+*          SGL_FONT_FMT_EXT_FLASH.
 *          SGL_FONT_FMT_EXT_FLASH: bitmap lives in external flash, offset of each
 *          glyph comes from table[].bitmap_index.
-*          SGL_FONT_FMT_EXT_FLASH_FIXED: external flash font with uniform (monospaced)
-*          glyphs, every glyph has the same size so the offset is computed as
-*          ch_index x glyph bytes, table keeps a single shared metrics entry (table[0])
 * @flash_read: external flash read callback, only used when bitmap == NULL
 * @flash_addr: base address of the font bitmap blob in the external flash,
 *              table[].bitmap_index is the offset relative to it

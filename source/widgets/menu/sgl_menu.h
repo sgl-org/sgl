@@ -89,14 +89,12 @@ struct sgl_menu_def {
 /**
  * @brief declare an action item
  */
-#define  SGL_MENU_ITEM(_text, _action) \
-        { (_text), SGL_MENU_TYPE_ACTION, (_action), NULL }
+#define  SGL_MENU_ITEM(_text, _action)             { (_text), SGL_MENU_TYPE_ACTION, (_action), NULL }
 
 /**
  * @brief declare a submenu (cascade) item
  */
-#define  SGL_MENU_SUBMENU(_text, _submenu) \
-        { (_text), SGL_MENU_TYPE_SUBMENU, NULL, (_submenu) }
+#define  SGL_MENU_SUBMENU(_text, _submenu)         { (_text), SGL_MENU_TYPE_SUBMENU, NULL, (_submenu) }
 
 /**
  * @brief declare a menu page descriptor from a constant item table
@@ -104,22 +102,21 @@ struct sgl_menu_def {
  * @param _title  title bar text of the page
  * @param _items  constant array of sgl_menu_item_t
  */
-#define  SGL_MENU_DEF(_name, _title, _items) \
-        const sgl_menu_def_t _name = { (_title), (_items), \
-        (uint16_t)(sizeof(_items) / sizeof((_items)[0])) }
+#define  SGL_MENU_DEF(_name, _title, _items)       const sgl_menu_def_t _name = { (_title), (_items), \
+                                                         (uint16_t)(sizeof(_items) / sizeof((_items)[0])) }
 
 /* maximum submenu nesting depth */
-#define  SGL_MENU_STACK_MAX              (8)
+#define  SGL_MENU_STACK_MAX                        (8)
 
 /* milliseconds of the push / pop slide animation */
-#define  SGL_MENU_ANIM_MS                (220)
+#define  SGL_MENU_ANIM_MS                          (220)
 
 /* internal animation direction states */
-#define  SGL_MENU_ANIM_NONE              (0)
-#define  SGL_MENU_ANIM_ENTER             (1)   /* page slides in from the right */
-#define  SGL_MENU_ANIM_EXIT              (2)   /* page slides out to the right  */
-#define  SGL_MENU_ANIM_CLOSE             (3)   /* root page slides out, then close */
-#define  SGL_MENU_ANIM_PENDING           (4)   /* waiting for the first draw   */
+#define  SGL_MENU_ANIM_NONE                        (0)
+#define  SGL_MENU_ANIM_ENTER                       (1)   /* page slides in from the right */
+#define  SGL_MENU_ANIM_EXIT                        (2)   /* page slides out to the right  */
+#define  SGL_MENU_ANIM_CLOSE                       (3)   /* root page slides out, then close */
+#define  SGL_MENU_ANIM_PENDING                     (4)   /* waiting for the first draw   */
 
 /**
  * @brief one stack frame of the menu navigation
@@ -160,7 +157,7 @@ typedef struct sgl_menu {
     sgl_anim_t       anim;
     int16_t          slide_ofs;          /* horizontal offset of the top page */
     uint8_t          anim_dir;           /* SGL_MENU_ANIM_xxx           */
-    void           (*close_cb)(sgl_obj_t *menu);
+    void             (*close_cb)(sgl_obj_t *menu);
 } sgl_menu_t;
 
 /**
@@ -290,8 +287,7 @@ void sgl_menu_set_card_style(sgl_obj_t *obj, sgl_color_t card_color,
  * @return none
  */
 void sgl_menu_set_sel_style(sgl_obj_t *obj, sgl_color_t sel_color,
-                            sgl_color_t sel_border_color, sgl_color_t sel_text_color,
-                            uint8_t border_width);
+                            sgl_color_t sel_border_color, sgl_color_t sel_text_color, uint8_t border_width);
 
 #ifdef __cplusplus
 }
