@@ -37,12 +37,13 @@
 extern "C" {
 #endif
 
-#define  SGL_TOAST_COLOR          sgl_rgb(255, 255, 255)
-#define  SGL_TOAST_ALPHA          255
-#define  SGL_TOAST_TEXT_COLOR     sgl_rgb(0, 0, 0)
+/* android style: dark translucent capsule, white text */
+#define  SGL_TOAST_COLOR          sgl_rgb(50, 50, 50)
+#define  SGL_TOAST_ALPHA          230
+#define  SGL_TOAST_TEXT_COLOR     sgl_rgb(255, 255, 255)
 
 /**
- * @brief toast object, a non-interactive transient notification
+ * @brief toast object, an android style non-interactive transient notification
  * @obj: base object
  * @text: message text to display, centered in the box
  * @font: text font
@@ -52,9 +53,15 @@ extern "C" {
  * @alpha_cur: current alpha driven by the fade out animation
  * @hold_ms: time the toast stays at alpha_max before fading out
  * @fade_ms: fade out time, alpha ramps down slowly during this phase
+ * @pos_anim: slide animation that moves the toast to its new stack slot,
+ *            NULL while no slide is running
+ * @reflowed: set once the fade out started and the lower toasts slid up
  * @note the life cycle is appear at once -> hold -> fade out, driven by one
  *       delayed linear animation (delay = hold_ms, duration = fade_ms), so
- *       no extra timer is required
+ *       no extra timer is required; toasts stack from the top edge of the
+ *       parent downwards, a new toast takes the slot below the visible ones
+ *       and when a toast starts fading out the toasts below slide up into
+ *       the freed slot
  */
 typedef struct sgl_toast {
     sgl_obj_t        obj;
@@ -66,6 +73,8 @@ typedef struct sgl_toast {
     uint8_t          alpha_cur;
     uint16_t         hold_ms;
     uint16_t         fade_ms;
+    struct sgl_anim  *pos_anim;
+    uint8_t          reflowed;
 } sgl_toast_t;
 
 /**
