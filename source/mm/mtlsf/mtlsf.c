@@ -624,33 +624,33 @@ static void control_construct(mem_control_t *c)
  */
 int mtlsf_mem_init(void *mem_start, size_t len)
 {
-    mem_control_t *c = NULL;
+    mem_control_t *c;
     unsigned char *pool;
     mem_blk_node_t *b;
     mem_blk_node_t *sent;
     size_t ctl_size;
     size_t pool_bytes;
 
-    if (mem_start == NULL || len < MEM_MIN_POOL_SIZE) {
+    if (mem_start == NULL || len < MEM_MIN_POOL_SIZE ||
+        ((uintptr_t)mem_start % sizeof(void *)) != 0) {
+        return -ENOMEM;
+    }
+
+    ctl_size = align_up(sizeof(mem_control_t), MEM_ALIGN_SIZE);
+    if (len < ctl_size + 2 * BLOCK_OVERHEAD + BLOCK_SIZE_MIN) {
+        return -ENOMEM;
+    }
+
+    pool_bytes = align_down(len - ctl_size - 2 * BLOCK_OVERHEAD, MEM_ALIGN_SIZE);
+    if (pool_bytes < BLOCK_SIZE_MIN || pool_bytes >= BLOCK_SIZE_MAX) {
         return -ENOMEM;
     }
 
     g_mem_base = mem_start;
-    c = (mem_control_t *)g_mem_base;
-    ctl_size = align_up(sizeof(mem_control_t), MEM_ALIGN_SIZE);
-    if (len <= ctl_size + 4 * sizeof(mem_blk_node_t)) {
-        return -ENOMEM;
-    }
-
+    c = (mem_control_t *)mem_start;
     control_construct(c);
 
-    pool = (unsigned char *)g_mem_base + ctl_size;
-    pool_bytes = align_down(len - ctl_size - 2 * BLOCK_OVERHEAD, MEM_ALIGN_SIZE);
-
-    if (pool_bytes < BLOCK_SIZE_MIN || pool_bytes > BLOCK_SIZE_MAX) {
-        return -ENOMEM;
-    }
-
+    pool = (unsigned char *)mem_start + ctl_size;
     b = (mem_blk_node_t *)(pool - BLOCK_OVERHEAD);
     b->size = 0;
     block_set_size(b, pool_bytes);
