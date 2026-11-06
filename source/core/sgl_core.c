@@ -1304,7 +1304,8 @@ uint32_t sgl_utf8_to_unicode(const char *utf8_str, uint32_t *p_unicode_buffer)
  * @param font Pointer to the font structure containing character data
  * @param unicode Unicode of the character to be searched
  * @return Index of the character in the font table, or SGL_FONT_CH_INDEX_FIXED |
- *         index inside the block when the character belongs to a monospaced block
+ *         index inside the block when the character belongs to a monospaced
+ *         block (only possible with CONFIG_SGL_FLASH_FONT)
  */
 uint32_t sgl_search_unicode_ch_index(const sgl_font_t *font, uint32_t unicode)
 {
@@ -1326,10 +1327,11 @@ uint32_t sgl_search_unicode_ch_index(const sgl_font_t *font, uint32_t unicode)
             SGL_LOG_WARN("sgl_search_unicode_ch_index: [0x%x]unicode not found in font table", unicode);
             return 0;
         }
-        /* monospaced block: only the position inside the block is meaningful */
+#if (CONFIG_SGL_FLASH_FONT)
         if (code->fixed != NULL) {
             return SGL_FONT_CH_INDEX_FIXED | (i << SGL_FONT_CH_INDEX_BLOCK_SHIFT) | target;
         }
+#endif
         return target + code->tab_offset;
     }
 
@@ -1338,9 +1340,11 @@ uint32_t sgl_search_unicode_ch_index(const sgl_font_t *font, uint32_t unicode)
         mid = left + (right - left) / 2;
 
         if (code->list[mid] == target) {
+#if (CONFIG_SGL_FLASH_FONT)
             if (code->fixed != NULL) {
                 return SGL_FONT_CH_INDEX_FIXED | (i << SGL_FONT_CH_INDEX_BLOCK_SHIFT) | mid;
             }
+#endif
             return mid + code->tab_offset;
         }
         else if (code->list[mid] < target) {
@@ -1355,6 +1359,7 @@ uint32_t sgl_search_unicode_ch_index(const sgl_font_t *font, uint32_t unicode)
     return 0;
 }
 
+#if (CONFIG_SGL_FLASH_FONT)
 /**
  * @brief Get the metrics entry of a character
  * @param font Pointer to the font structure containing character data
@@ -1398,6 +1403,7 @@ uint32_t sgl_font_get_ch_bitmap_index(const sgl_font_t *font, uint32_t ch_index)
     glyph_bytes = (((uint32_t)dsc->box_w * dsc->box_h * font->bpp) + 7u) / 8u;
     return dsc->bitmap_index + local * glyph_bytes;
 }
+#endif /* CONFIG_SGL_FLASH_FONT */
 
 /**
  * @brief get the width of a string

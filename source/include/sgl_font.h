@@ -103,7 +103,7 @@ extern const sgl_font_t sgl_icon_fontawesome14;
  *   };
  */
 
-/* Monospaced (fixed width) blocks
+/* Monospaced (fixed width) blocks, requires CONFIG_SGL_FLASH_FONT
  *
  * Square scripts (Chinese / Japanese / Korean) and icon fonts have every glyph
  * of a range sharing the same box, advance and offsets, so one font table entry
@@ -132,11 +132,18 @@ extern const sgl_font_t sgl_icon_fontawesome14;
  *     therefore cannot use a fixed block
  *   - the block contributes no entry to font_table at all and .tab_offset is
  *     unused
- *   - works for RAM bitmaps and for SGL_FONT_FMT_EXT_FLASH blobs alike
- *   - sgl_font_conv_cli emits such blocks with --fixed
+ *   - the encoding also carries a RAM bitmap, but it is only supported together
+ *     with CONFIG_SGL_FLASH_FONT: the padding buys internal flash with external
+ *     flash, so a font that has no external blob to write to loses the trade.
+ *     With CONFIG_SGL_FLASH_FONT 0 the library never reads .fixed, so a font
+ *     that uses a monospaced block refuses to build rather than being misread
+ *   - sgl_font_conv_cli emits such blocks with --flash --fixed
  * Consumers must read the metrics and the bitmap offset of a character through
  * sgl_font_get_ch_table() / sgl_font_get_ch_bitmap_index(), never by indexing
- * font->table with the value returned by sgl_search_unicode_ch_index().
+ * font->table with the value returned by sgl_search_unicode_ch_index(). Both are
+ * real functions only with CONFIG_SGL_FLASH_FONT 1; without external flash
+ * support there is no block to decode, so they are macros expanding to the very
+ * table lookup and no code is generated for them.
  */
 
 #endif // !__SGL_FONT_H__

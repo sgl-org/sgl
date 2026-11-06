@@ -373,14 +373,8 @@ typedef struct sgl_font_table {
  * @len: length of unicode list
  * @list: point to unicode list
  * @tab_offset: offset of font table
- * @fixed: shared descriptor of a monospaced (fixed width) block, NULL means the
- *         block keeps one font table entry per character, which is the classic
- *         layout. When not NULL, every character of the block shares *fixed and
- *         no per-character font table entry is stored at all (tab_offset is then
- *         unused), the bitmap offset of a character is computed as
- *         fixed->bitmap_index + local_index * (box_w * box_h * bpp / 8),
- *         so the glyph bitmaps of the block must be stored back to back with a
- *         uniform stride (square scripts like CJK / Japanese / Korean, icons, ...)
+ * @fixed: shared descriptor of a monospaced (fixed width) block, NULL means the block keeps
+ *          one font table entry per character, which is the classic layout.
  */
 typedef struct sgl_font_unicode {
     const uint32_t offset;
@@ -2056,6 +2050,7 @@ uint32_t sgl_search_unicode_ch_index(const sgl_font_t *font, uint32_t unicode);
  * @note fonts whose blocks are all per-character behave exactly like
  *       &font->table[ch_index], so every consumer should go through this helper
  */
+#if (CONFIG_SGL_FLASH_FONT)
 const sgl_font_table_t *sgl_font_get_ch_table(const sgl_font_t *font, uint32_t ch_index);
 
 /**
@@ -2068,6 +2063,10 @@ const sgl_font_table_t *sgl_font_get_ch_table(const sgl_font_t *font, uint32_t c
  *       instead of being read from a per-character table entry
  */
 uint32_t sgl_font_get_ch_bitmap_index(const sgl_font_t *font, uint32_t ch_index);
+#else
+#define sgl_font_get_ch_table(font, ch_index)         (&(font)->table[(ch_index)])
+#define sgl_font_get_ch_bitmap_index(font, ch_index)  ((font)->table[(ch_index)].bitmap_index)
+#endif
 
 /**
  * @brief get height in font
