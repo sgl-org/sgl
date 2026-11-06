@@ -166,22 +166,20 @@ static inline void font_rle_init(const uint8_t * in, uint8_t bpp)
 
 #if (CONFIG_SGL_FLASH_FONT)
 /**
- * @brief Get the bitmap data of a glyph, load from external flash when needed
+ * @brief Get the bitmap data of a glyph, load it from external flash when needed
  * @param font pointer to the font structure
  * @param ch_index index of the character in the font table
- * @param buf temporary buffer used when the glyph bitmap lives in external flash
- * @param buf_size size of the temporary buffer in bytes
  * @return pointer to the glyph bitmap data, or NULL on failure
- * @note external fonts keep only the bitmap blob in external flash
- *       (SGL_FONT_FMT_EXT_FLASH): the offset of every glyph comes from
- *       sgl_font_get_ch_bitmap_index(), relative to font->flash_addr
  */
-static const uint8_t *sgl_font_get_glyph_bitmap(const sgl_font_t *font, uint32_t ch_index, uint8_t *buf, uint32_t buf_size)
+static const uint8_t *sgl_font_get_glyph_bitmap(const sgl_font_t *font, uint32_t ch_index)
 {
-    static const sgl_font_t *cache_font = NULL;
-    static uint32_t cache_ch_index = 0;
+    static uint8_t flash_cache[CONFIG_SGL_FLASH_FONT_CACHE_SIZE];
+    static const sgl_font_t *flash_cache_font = NULL;
+    static uint32_t flash_cache_start = 0;    /* blob offset of the first cached byte */
+    static uint32_t flash_cache_len   = 0;    /* bytes held by the window */
+
     const sgl_font_table_t *dsc = sgl_font_get_ch_table(font, ch_index);
-    uint32_t bmp_size, offset;
+    uint32_t bmp_size, offset, want;
     int32_t ret;
 
     if (font->bitmap != NULL) {
@@ -190,27 +188,38 @@ static const uint8_t *sgl_font_get_glyph_bitmap(const sgl_font_t *font, uint32_t
 
     SGL_ASSERT(font->flash_read != NULL);
 
-    if (cache_font == font && cache_ch_index == ch_index) {
-        return buf;
-    }
-
     bmp_size = (((uint32_t)dsc->box_w * dsc->box_h * font->bpp) + 7) >> 3;
-    if (bmp_size > buf_size) {
-        SGL_LOG_WARN("sgl_font_get_glyph_bitmap: glyph [%u] needs %u bytes, enlarge CONFIG_SGL_FLASH_FONT_GLYPH_BUF_SIZE", ch_index, bmp_size);
+    if (bmp_size == 0) {
+        return NULL;
+    }
+    if (bmp_size > sizeof(flash_cache)) {
+        SGL_LOG_WARN("sgl_font_get_glyph_bitmap: glyph [%u] needs %u bytes, enlarge CONFIG_SGL_FLASH_FONT_CACHE_SIZE", ch_index, bmp_size);
         return NULL;
     }
 
     offset = sgl_font_get_ch_bitmap_index(font, ch_index);
-    ret = font->flash_read(font->flash_addr + offset, buf, bmp_size);
-    if (ret != (int32_t)bmp_size) {
+
+    if (flash_cache_font == font && offset >= flash_cache_start
+            && offset + bmp_size <= flash_cache_start + flash_cache_len) {
+        return &flash_cache[offset - flash_cache_start];
+    }
+
+    want = (uint32_t)sizeof(flash_cache);
+    ret = font->flash_read(font->flash_addr + offset, flash_cache, want);
+    if (ret < (int32_t)bmp_size) {
+        ret = font->flash_read(font->flash_addr + offset, flash_cache, bmp_size);
+    }
+    if (ret < (int32_t)bmp_size) {
         SGL_LOG_WARN("sgl_font_get_glyph_bitmap: external flash read fail, ret = %d", ret);
-        cache_font = NULL;
+        flash_cache_font = NULL;
+        flash_cache_len = 0;
         return NULL;
     }
 
-    cache_font = font;
-    cache_ch_index = ch_index;
-    return buf;
+    flash_cache_font = font;
+    flash_cache_start = offset;
+    flash_cache_len = (uint32_t)ret;
+    return flash_cache;
 }
 #endif /* CONFIG_SGL_FLASH_FONT */
 
@@ -230,7 +239,6 @@ static const uint8_t *sgl_font_get_glyph_bitmap(const sgl_font_t *font, uint32_t
 void sgl_draw_character(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, uint32_t ch_index, sgl_color_t color, uint8_t alpha, const sgl_font_t *font)
 {
 #if (CONFIG_SGL_FLASH_FONT)
-    static uint8_t glyph_buf[CONFIG_SGL_FLASH_FONT_GLYPH_BUF_SIZE];
     const uint8_t *dot = NULL;
 #else
     const uint8_t *dot = &font->bitmap[sgl_font_get_ch_bitmap_index(font, ch_index)];
@@ -262,7 +270,7 @@ void sgl_draw_character(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y
     }
 
 #if (CONFIG_SGL_FLASH_FONT)
-    dot = sgl_font_get_glyph_bitmap(font, ch_index, glyph_buf, sizeof(glyph_buf));
+    dot = sgl_font_get_glyph_bitmap(font, ch_index);
     if (dot == NULL) {
         return;
     }

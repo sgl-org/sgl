@@ -158,8 +158,8 @@ extern "C" {
 #define CONFIG_SGL_FLASH_FONT                                      (0)  /* Support font bitmap stored in external flash */
 #endif
 
-#ifndef CONFIG_SGL_FLASH_FONT_GLYPH_BUF_SIZE
-#define CONFIG_SGL_FLASH_FONT_GLYPH_BUF_SIZE                       (512) /* Temp buffer (bytes) for one external flash glyph bitmap */
+#ifndef CONFIG_SGL_FLASH_FONT_CACHE_SIZE
+#define CONFIG_SGL_FLASH_FONT_CACHE_SIZE                           (1024) /* Read ahead window (bytes) of the external flash font bitmap */
 #endif
 
 #ifndef CONFIG_SGL_SNPRINTF_FLOAT
