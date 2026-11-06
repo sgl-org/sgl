@@ -167,10 +167,9 @@ static void sgl_filedialog_draw_icon(sgl_filedialog_t *fd, sgl_surf_t *surf,
         uint32_t idx = sgl_search_unicode_ch_index(ifont,
                                                    sgl_filedialog_icon_unicode(icon));
         if (idx != 0) {
-            const sgl_font_table_t *dsc = &ifont->table[idx];
+            const sgl_font_table_t *dsc = sgl_font_get_ch_table(ifont, idx);
             y = (int16_t)(card_y1 + (card_h - dsc->box_h) / 2
-                          + dsc->box_h + dsc->ofs_y + ifont->base_line
-                          - ifont->font_height);
+                          + dsc->box_h + dsc->ofs_y + ifont->base_line - ifont->font_height);
         }
     }
     sgl_draw_string(surf, area, x, y, icon, fd->icon_color, fd->alpha, ifont);

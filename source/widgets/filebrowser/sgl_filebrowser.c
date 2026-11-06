@@ -168,7 +168,7 @@ static void sgl_filebrowser_draw_icon(sgl_filebrowser_t *fb, sgl_surf_t *surf,
         uint32_t idx = sgl_search_unicode_ch_index(ifont,
                                                    sgl_filebrowser_icon_unicode(icon));
         if (idx != 0) {
-            const sgl_font_table_t *dsc = &ifont->table[idx];
+            const sgl_font_table_t *dsc = sgl_font_get_ch_table(ifont, idx);
             y = (int16_t)(card_y1 + (card_h - dsc->box_h) / 2
                           + dsc->box_h + dsc->ofs_y + ifont->base_line
                           - ifont->font_height);

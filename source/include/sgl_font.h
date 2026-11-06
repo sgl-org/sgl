@@ -103,4 +103,40 @@ extern const sgl_font_t sgl_icon_fontawesome14;
  *   };
  */
 
+/* Monospaced (fixed width) blocks
+ *
+ * Square scripts (Chinese / Japanese / Korean) and icon fonts have every glyph
+ * of a range sharing the same box, advance and offsets, so one font table entry
+ * per character is pure waste. Such a unicode block can point its .fixed member
+ * to a single shared descriptor instead:
+ *
+ *   static const sgl_font_table_t my_font_cn_fixed = {
+ *       .bitmap_index = 1234, .adv_w = 384,
+ *       .box_w = 24, .box_h = 24, .ofs_x = 0, .ofs_y = -3
+ *   };
+ *
+ *   static const sgl_font_unicode_t my_font_unicode[] = {
+ *       // ASCII: one font table entry per character
+ *       { .offset = 32,    .len = 96, .list = NULL,
+ *         .tab_offset = 1, .fixed = NULL },
+ *       // CJK: every character shares one descriptor
+ *       { .offset = 20013, .len = 2,  .list = unicode_list_1,
+ *         .tab_offset = 0, .fixed = &my_font_cn_fixed }
+ *   };
+ *
+ * Rules the generated font must obey:
+ *   - .bitmap_index of the shared descriptor is the offset of the FIRST glyph of
+ *     the block, the offset of the n-th glyph is bitmap_index + n * glyph bytes
+ *     with glyph bytes = (box_w * box_h * bpp + 7) / 8, i.e. the bitmaps of the
+ *     block are stored back to back with a uniform stride; RLE compressed fonts
+ *     therefore cannot use a fixed block
+ *   - the block contributes no entry to font_table at all and .tab_offset is
+ *     unused
+ *   - works for RAM bitmaps and for SGL_FONT_FMT_EXT_FLASH blobs alike
+ *   - sgl_font_conv_cli emits such blocks with --fixed
+ * Consumers must read the metrics and the bitmap offset of a character through
+ * sgl_font_get_ch_table() / sgl_font_get_ch_bitmap_index(), never by indexing
+ * font->table with the value returned by sgl_search_unicode_ch_index().
+ */
+
 #endif // !__SGL_FONT_H__

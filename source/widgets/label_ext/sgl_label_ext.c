@@ -173,8 +173,8 @@ static int32_t sgl_label_ext_fill_coverage(uint8_t *cov_buf, int16_t text_w, int
     while (*str) {
         str += sgl_utf8_to_unicode(str, &unicode);
         uint32_t ch_index = sgl_search_unicode_ch_index(font, unicode);
-        const sgl_font_table_t *dsc = &font->table[ch_index];
-        const uint8_t *dot = &font->bitmap[dsc->bitmap_index];
+        const sgl_font_table_t *dsc = sgl_font_get_ch_table(font, ch_index);
+        const uint8_t *dot = &font->bitmap[sgl_font_get_ch_bitmap_index(font, ch_index)];
 
         const int32_t glyph_x = pen_x + dsc->ofs_x;
         /* glyph box sits at baseline: bottom at font_height - base_line - ofs_y */

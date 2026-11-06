@@ -1303,7 +1303,8 @@ uint32_t sgl_utf8_to_unicode(const char *utf8_str, uint32_t *p_unicode_buffer)
  * @brief Search for the index of a Unicode character in the font table
  * @param font Pointer to the font structure containing character data
  * @param unicode Unicode of the character to be searched
- * @return Index of the character in the font table
+ * @return Index of the character in the font table, or SGL_FONT_CH_INDEX_FIXED |
+ *         index inside the block when the character belongs to a monospaced block
  */
 uint32_t sgl_search_unicode_ch_index(const sgl_font_t *font, uint32_t unicode)
 {
@@ -1325,6 +1326,10 @@ uint32_t sgl_search_unicode_ch_index(const sgl_font_t *font, uint32_t unicode)
             SGL_LOG_WARN("sgl_search_unicode_ch_index: [0x%x]unicode not found in font table", unicode);
             return 0;
         }
+        /* monospaced block: only the position inside the block is meaningful */
+        if (code->fixed != NULL) {
+            return SGL_FONT_CH_INDEX_FIXED | (i << SGL_FONT_CH_INDEX_BLOCK_SHIFT) | target;
+        }
         return target + code->tab_offset;
     }
 
@@ -1333,6 +1338,9 @@ uint32_t sgl_search_unicode_ch_index(const sgl_font_t *font, uint32_t unicode)
         mid = left + (right - left) / 2;
 
         if (code->list[mid] == target) {
+            if (code->fixed != NULL) {
+                return SGL_FONT_CH_INDEX_FIXED | (i << SGL_FONT_CH_INDEX_BLOCK_SHIFT) | mid;
+            }
             return mid + code->tab_offset;
         }
         else if (code->list[mid] < target) {
@@ -1345,6 +1353,50 @@ uint32_t sgl_search_unicode_ch_index(const sgl_font_t *font, uint32_t unicode)
 
     SGL_LOG_WARN("sgl_search_unicode_ch_index: [0x%x]unicode not found in font table", unicode);
     return 0;
+}
+
+/**
+ * @brief Get the metrics entry of a character
+ * @param font Pointer to the font structure containing character data
+ * @param ch_index Index returned by sgl_search_unicode_ch_index()
+ * @return Pointer to the font table entry describing this character
+ */
+const sgl_font_table_t *sgl_font_get_ch_table(const sgl_font_t *font, uint32_t ch_index)
+{
+    uint32_t block;
+
+    if ((ch_index & SGL_FONT_CH_INDEX_FIXED) == 0) {
+        return &font->table[ch_index];
+    }
+
+    block = (ch_index >> SGL_FONT_CH_INDEX_BLOCK_SHIFT) & SGL_FONT_CH_INDEX_BLOCK_MASK;
+    if (block < font->unicode_num && font->unicode[block].fixed != NULL) {
+        return font->unicode[block].fixed;
+    }
+
+    SGL_LOG_WARN("sgl_font_get_ch_table: no fixed block for index [0x%x]", ch_index);
+    return &font->table[0];
+}
+
+/**
+ * @brief Get the bitmap offset of a character, relative to font->bitmap or
+ *        font->flash_addr depending on the font format
+ * @param font Pointer to the font structure containing character data
+ * @param ch_index Index returned by sgl_search_unicode_ch_index()
+ * @return Offset in bytes of the glyph bitmap inside the bitmap blob
+ */
+uint32_t sgl_font_get_ch_bitmap_index(const sgl_font_t *font, uint32_t ch_index)
+{
+    const sgl_font_table_t *dsc = sgl_font_get_ch_table(font, ch_index);
+    uint32_t local, glyph_bytes;
+
+    if ((ch_index & SGL_FONT_CH_INDEX_FIXED) == 0) {
+        return dsc->bitmap_index;
+    }
+
+    local = ch_index & SGL_FONT_CH_INDEX_LOCAL_MASK;
+    glyph_bytes = (((uint32_t)dsc->box_w * dsc->box_h * font->bpp) + 7u) / 8u;
+    return dsc->bitmap_index + local * glyph_bytes;
 }
 
 /**
@@ -1366,7 +1418,7 @@ int32_t sgl_font_get_string_width(const char *str, const sgl_font_t *font)
     while (*str) {
         str += sgl_utf8_to_unicode(str, &unicode);
         ch_index = sgl_search_unicode_ch_index(font, unicode);
-        len += ((font->table[ch_index].adv_w + 8) >> 4);
+        len += ((sgl_font_get_ch_table(font, ch_index)->adv_w + 8) >> 4);
     }
     return len;
 }
@@ -1382,7 +1434,7 @@ int32_t sgl_font_get_string_width(const char *str, const sgl_font_t *font)
 int32_t sgl_font_get_string_height(int16_t width, const char *str, const sgl_font_t *font, uint8_t line_space)
 {
     int16_t offset_x = 0;
-    int16_t ch_index;
+    uint32_t ch_index;
     int16_t ch_width;
     int16_t lines = 1;
     uint32_t unicode = 0;
@@ -1397,8 +1449,7 @@ int32_t sgl_font_get_string_height(int16_t width, const char *str, const sgl_fon
 
         str += sgl_utf8_to_unicode(str, &unicode);
         ch_index = sgl_search_unicode_ch_index(font, unicode);
-
-        ch_width = ((font->table[ch_index].adv_w + 8)>> 4);
+        ch_width = ((sgl_font_get_ch_table(font, ch_index)->adv_w + 8)>> 4);
 
         if ((offset_x + ch_width) >= width) {
             offset_x = 0;

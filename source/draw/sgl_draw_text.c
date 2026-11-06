@@ -174,18 +174,18 @@ static inline void font_rle_init(const uint8_t * in, uint8_t bpp)
  * @return pointer to the glyph bitmap data, or NULL on failure
  * @note external fonts keep only the bitmap blob in external flash
  *       (SGL_FONT_FMT_EXT_FLASH): the offset of every glyph comes from
- *       table[ch_index].bitmap_index, relative to font->flash_addr
+ *       sgl_font_get_ch_bitmap_index(), relative to font->flash_addr
  */
 static const uint8_t *sgl_font_get_glyph_bitmap(const sgl_font_t *font, uint32_t ch_index, uint8_t *buf, uint32_t buf_size)
 {
     static const sgl_font_t *cache_font = NULL;
     static uint32_t cache_ch_index = 0;
-    const sgl_font_table_t *dsc = &font->table[ch_index];
+    const sgl_font_table_t *dsc = sgl_font_get_ch_table(font, ch_index);
     uint32_t bmp_size, offset;
     int32_t ret;
 
     if (font->bitmap != NULL) {
-        return &font->bitmap[font->table[ch_index].bitmap_index];
+        return &font->bitmap[sgl_font_get_ch_bitmap_index(font, ch_index)];
     }
 
     SGL_ASSERT(font->flash_read != NULL);
@@ -200,7 +200,7 @@ static const uint8_t *sgl_font_get_glyph_bitmap(const sgl_font_t *font, uint32_t
         return NULL;
     }
 
-    offset = dsc->bitmap_index;
+    offset = sgl_font_get_ch_bitmap_index(font, ch_index);
     ret = font->flash_read(font->flash_addr + offset, buf, bmp_size);
     if (ret != (int32_t)bmp_size) {
         SGL_LOG_WARN("sgl_font_get_glyph_bitmap: external flash read fail, ret = %d", ret);
@@ -233,9 +233,9 @@ void sgl_draw_character(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y
     static uint8_t glyph_buf[CONFIG_SGL_FLASH_FONT_GLYPH_BUF_SIZE];
     const uint8_t *dot = NULL;
 #else
-    const uint8_t *dot = &font->bitmap[font->table[ch_index].bitmap_index];
+    const uint8_t *dot = &font->bitmap[sgl_font_get_ch_bitmap_index(font, ch_index)];
 #endif
-    const sgl_font_table_t *dsc = &font->table[ch_index];
+    const sgl_font_table_t *dsc = sgl_font_get_ch_table(font, ch_index);
     int offset_y2 = font->font_height - dsc->ofs_y - font->base_line;
     const uint8_t font_w = dsc->box_w;
     const uint8_t font_h = dsc->box_h;
@@ -355,7 +355,7 @@ void sgl_draw_string(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, c
         str += sgl_utf8_to_unicode(str, &unicode);
         ch_index = sgl_search_unicode_ch_index(font, unicode);
         sgl_draw_character(surf, area, x, y, ch_index, color, alpha, font);
-        x += ((font->table[ch_index].adv_w + 8)>> 4);
+        x += ((sgl_font_get_ch_table(font, ch_index)->adv_w + 8)>> 4);
     }
 }
 
@@ -374,7 +374,8 @@ void sgl_draw_string(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, c
  */
 void sgl_draw_string_mult_line(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, const char *str, sgl_color_t color, uint8_t alpha, const sgl_font_t *font, uint8_t line_margin)
 {
-    int16_t ch_index, ch_width;
+    uint32_t ch_index;
+    int16_t ch_width;
     int16_t x_off = x;
     uint32_t unicode = 0;
 
@@ -388,8 +389,7 @@ void sgl_draw_string_mult_line(sgl_surf_t *surf, sgl_area_t *area, int16_t x, in
 
         str += sgl_utf8_to_unicode(str, &unicode);
         ch_index = sgl_search_unicode_ch_index(font, unicode);
-
-        ch_width = (font->table[ch_index].adv_w + 8) >> 4;
+        ch_width = (int16_t)((sgl_font_get_ch_table(font, ch_index)->adv_w + 8) >> 4);
 
         if ((x_off + ch_width) > area->x2) {
             x_off = x;
