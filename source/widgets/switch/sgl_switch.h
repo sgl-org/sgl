@@ -60,9 +60,9 @@ typedef struct sgl_switch {
     sgl_color_t       knob_color;
     uint8_t           alpha;
     bool              status;
-    int16_t           knob_margin;
+    int8_t            knob_margin;
+    uint8_t           anim_value;
 } sgl_switch_t;
-
 
 /**
  * @brief create a switch object

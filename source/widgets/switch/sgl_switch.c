@@ -28,8 +28,20 @@
 #include <sgl_log.h>
 #include <sgl_mm.h>
 #include <sgl_cfgfix.h>
+#include <sgl_anim.h>
 #include <string.h>
 #include "sgl_switch.h"
+
+#define SGL_SWITCH_ANIM_DURATION    180
+#define SGL_SWITCH_ANIM_RANGE       UINT8_MAX
+
+static void sgl_switch_anim_cb(sgl_anim_t *anim, int32_t value)
+{
+    sgl_obj_t *obj = (sgl_obj_t *)sgl_anim_get_data(anim);
+    sgl_switch_t *p_switch = sgl_container_of(obj, sgl_switch_t, obj);
+    p_switch->anim_value = (uint8_t)value;
+    sgl_obj_set_dirty(obj);
+}
 
 static void sgl_switch_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_t *evt)
 {
@@ -74,6 +86,8 @@ static void sgl_switch_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
     sgl_area_t knob_rect = {0};
     knob_rect.y1 = obj->coords.y1 + knob_offset;
     knob_rect.y2 = knob_rect.y1 + knob_size;
+    int16_t knob_start_x = obj->coords.x1 + knob_offset;
+    int16_t knob_end_x = obj->coords.x2 - knob_offset - knob_size;
 
     sgl_draw_rect_t bg_desc = {
         .alpha        = p_switch->alpha,
@@ -87,21 +101,23 @@ static void sgl_switch_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_
     };
 
     if (evt->type == SGL_EVENT_DRAW_MAIN) {
-        if (p_switch->status) {
-            bg_desc.color = p_switch->color;
-            knob_rect.x2 = obj->coords.x2 - knob_offset;
-            knob_rect.x1 = knob_rect.x2 - knob_size;
-        } else {
-            bg_desc.color = p_switch->bg_color;
-            knob_rect.x1 = obj->coords.x1 + knob_offset;
-            knob_rect.x2 = knob_rect.x1 + knob_size;
-        }
+        uint8_t color_factor = p_switch->anim_value;
+        knob_rect.x1 = knob_start_x + (int32_t)(knob_end_x - knob_start_x) * p_switch->anim_value / SGL_SWITCH_ANIM_RANGE;
+        knob_rect.x2 = knob_rect.x1 + knob_size;
+        bg_desc.color = sgl_color_mixer(p_switch->color, p_switch->bg_color, color_factor);
 
         sgl_draw_rect(surf, &obj->area, &bg_rect, &bg_desc);
         sgl_draw_fill_rect(surf, &obj->area, &knob_rect, knob_r, p_switch->knob_color, p_switch->alpha);
     }
     else if (evt->type == SGL_EVENT_PRESSED) {
         p_switch->status = !p_switch->status;
+        uint8_t target = p_switch->status ? SGL_SWITCH_ANIM_RANGE : 0;
+
+        if (p_switch->anim_value != target) {
+            sgl_anim_setup_obj_action(obj, p_switch->anim_value, target,
+                                      SGL_SWITCH_ANIM_DURATION, sgl_switch_anim_cb,
+                                      SGL_ANIM_PATH_EASE_OUT, NULL);
+        }
         sgl_obj_set_dirty(obj);
     }
 }
@@ -252,6 +268,7 @@ void sgl_switch_set_status(sgl_obj_t *obj, bool status)
 {
     sgl_switch_t *switch_obj = sgl_container_of(obj, sgl_switch_t, obj);
     switch_obj->status = status;
+    switch_obj->anim_value = status ? SGL_SWITCH_ANIM_RANGE : 0;
     sgl_obj_set_dirty(obj);
 }
 
