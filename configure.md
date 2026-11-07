@@ -32,6 +32,7 @@ sgl_config.h是 SGL (Simple Graphics Library) 框架中的**功能配置**。
 | [CONFIG_SGL_FBDEV_RUNTIME_ROTATION] | `0` | 启用运行时屏幕旋转。如果设置为 `1`，应用程序可以在启动后动态旋转屏幕。 |
 | [CONFIG_SGL_IMG_BUFFER_LINES] | `1` | 该宏用来设置Flash外部图片时缓冲行大小，默认为1，增加宏值可以加快外部Flash图片显示速度。|
 | [CONFIG_SGL_FBDEV_EVEN_COORDS]| `0` | 如果启用 (`1`)，SGL的每次设置的坐标为偶数，这个主要在QSPI屏幕下使用。|
+| [CONFIG_SGL_FBDEV_TE]| `0` | 如果启用 (`1`)，SGL 在刷新脏区域前会等待 TE（Tearing Effect，撕裂效应）信号，由驱动在 TE 中断中调用 `sgl_fbdev_set_te_flag()` 置位（`true` 表示 TE 信号已到来），以避免帧缓冲写入与屏幕扫描冲突导致的画面撕裂。适用于带有 TE 信号输出的屏幕（如 MIPI DSI 屏）。 |
 | [CONFIG_SGL_USE_FBDEV_VRAM]| `0` | 如果启用 (`1`)，SGL 直接写入帧缓冲 VRAM。如果禁用 (`0`)，SGL 可能根据驱动实现使用内部缓冲区。 |
 | [CONFIG_SGL_COLOR16_SWAP]| `0` | 交换 16 位颜色的字节顺序（例如 RGB565 与 BGR565）。如果硬件上颜色显示不正确，请启用此项。 |
 

@@ -52,6 +52,10 @@ extern "C" {
 #define CONFIG_SGL_FBDEV_EVEN_COORDS                               (0)  /* FBDEV even coordinates */
 #endif
 
+#ifndef CONFIG_SGL_FBDEV_TE
+#define CONFIG_SGL_FBDEV_TE                                        (0)  /* FBDEV tearing effect */
+#endif
+
 #ifndef CONFIG_SGL_USE_FBDEV_VRAM
 #define CONFIG_SGL_USE_FBDEV_VRAM                                  (0)  /* Use FBDEV VRAM directly */
 #endif

@@ -535,7 +535,11 @@ typedef struct sgl_fbinfo {
  * @fb_emit: current flush buffer index, 0: buffer0 is emitting, 1: buffer1 is emitting.
  * @fb_ready: framebuffer ready flag, 01: buffer0 is ready, 10: buffer1 is ready, 11: buffers are ready
  * @dirty: dirty area pool
- * @page: current page
+ * @active: current page
+ * @trace_flag: trace flag
+ * @trace_dirty_num: trace dirty area number
+ * @trace_flag: trace flag
+ * @te_flag: tearing effect flag, true: TE is finished, false: TE is not finished
  */
 typedef struct sgl_fbdev {
     sgl_fbinfo_t      fbinfo;
@@ -550,6 +554,9 @@ typedef struct sgl_fbdev {
     sgl_area_t        trace_dirty[SGL_DIRTY_AREA_NUM_MAX];
     uint8_t           trace_dirty_num;
     bool              trace_flag;
+#endif
+#if (CONFIG_SGL_FBDEV_TE)
+    volatile bool     te_flag;
 #endif
 } sgl_fbdev_t;
 
@@ -818,6 +825,18 @@ static inline void sgl_fbdev_flush_area(sgl_area_t *area, sgl_color_t *src)
  */
 void sgl_fbdev_set_angle(uint16_t angle);
 #endif //CONFIG_SGL_FBDEV_RUNTIME_ROTATION
+
+#if (CONFIG_SGL_FBDEV_TE)
+/**
+ * @brief set framebuffer device TE flag
+ * @param flag [in] TE flag, true: TE is finished, false: TE is not finished
+ * @return none
+ */
+static inline void sgl_fbdev_set_te_flag(bool flag)
+{
+    sgl_system.fbdev.te_flag = flag;
+}
+#endif
 
 /**
  * @brief register log output device

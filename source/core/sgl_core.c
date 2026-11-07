@@ -94,7 +94,9 @@ int sgl_fbdev_register(sgl_fbinfo_t *fbinfo)
     sgl_system.tick_ms = 0;
     sgl_system.fbdev.fb_ready = 3;
     sgl_system.fbdev.fb_emit = 0;
-
+#if (CONFIG_SGL_FBDEV_TE)
+    sgl_system.fbdev.te_flag = true;
+#endif
     return 0;
 }
 
@@ -1961,6 +1963,11 @@ static inline void sgl_draw_task(sgl_fbdev_t *fbdev, sgl_area_t *dirty_area, uin
     for (uint8_t i = 0; i < dirty_num; i++) {
         dirty = &dirty_area[i];
 
+#if (CONFIG_SGL_FBDEV_TE)
+        /* wait TE signal  */
+        while (!fbdev->te_flag);
+#endif
+
 #if (CONFIG_SGL_FBDEV_EVEN_COORDS)
         /* floor and ceil dirty area, it is for QSPI display*/
         dirty->x1 = sgl_floor_even(dirty->x1);
@@ -1982,7 +1989,6 @@ static inline void sgl_draw_task(sgl_fbdev_t *fbdev, sgl_area_t *dirty_area, uin
         SGL_ASSERT(dirty->x1 >= 0 && dirty->y1 >= 0 && dirty->x2 < SGL_SCREEN_WIDTH && dirty->y2 < SGL_SCREEN_HEIGHT);
 
 #if (!CONFIG_SGL_USE_FBDEV_VRAM)
-
         uint16_t draw_h = 0;
         surf->h = dirty->y2 - dirty->y1 + 1;
         surf->x1 = dirty->x1;
