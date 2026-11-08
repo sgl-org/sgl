@@ -758,6 +758,7 @@ static MJRESULT mcu_output(MJDEC *jd, int (*outfunc)(MJDEC *, void *, MJRECT *),
         const mj_yuv_t *yp = jd->mcubuf + (oy >> 3) * msx64 + (oy & 7) * 8;
         const mj_yuv_t *cbp = chroma + ((cysub ? (oy >> 1) : oy) << 3);
         const mj_yuv_t *crp = cbp + 64;
+        int r_cr, g_cb, g_cr, b_cb;
 #if MJDEC_FORMAT == 1
         uint16_t *outp = (uint16_t *)(out_base + (size_t)oy * out_pitch);
 #else
@@ -766,11 +767,22 @@ static MJRESULT mcu_output(MJDEC *jd, int (*outfunc)(MJDEC *, void *, MJRECT *),
         for (ox = 0; ox < rx; ox++) {
             const int yy = (int)*yp++;
             const unsigned int ci = cxsub ? (ox >> 1) : ox;
-            const unsigned int cri = ycc_idx((int)crp[ci]);
-            const unsigned int cbi = ycc_idx((int)cbp[ci]);
-            const unsigned int r = BYTECLIP(yy + ycc_r_cr[cri]);
-            const unsigned int g = BYTECLIP(yy - ycc_g_cb[cbi] - ycc_g_cr[cri]);
-            const unsigned int b = BYTECLIP(yy + ycc_b_cb[cbi]);
+            unsigned int r, g, b;
+
+            /* In 4:2:0 and 4:2:2, each chroma sample serves two
+             * adjacent pixels. Convert it once and reuse the terms. */
+            if (!cxsub || !(ox & 1)) {
+                const unsigned int cri = ycc_idx((int)crp[ci]);
+                const unsigned int cbi = ycc_idx((int)cbp[ci]);
+
+                r_cr = ycc_r_cr[cri];
+                g_cb = ycc_g_cb[cbi];
+                g_cr = ycc_g_cr[cri];
+                b_cb = ycc_b_cb[cbi];
+            }
+            r = BYTECLIP(yy + r_cr);
+            g = BYTECLIP(yy - g_cb - g_cr);
+            b = BYTECLIP(yy + b_cb);
 
             if ((ox & 7) == 7) {
                 yp += 56; /* hop to the next 8x8 block in this MCU row */
@@ -2205,7 +2217,6 @@ static int avi_audio_start(sgl_avi_t *avi)
  */
 static void avi_audio_stop(sgl_avi_t *avi)
 {
-    SGL_UNUSED(avi);
     if (g_audio_port_ready) {
         g_audio_port.stop(g_audio_port.user_data);
     }
