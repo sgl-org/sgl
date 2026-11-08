@@ -33,7 +33,8 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
-          update: true
+          release: false
+          update: false
           install: cmake make gcc
 
       - name: configure cmake
