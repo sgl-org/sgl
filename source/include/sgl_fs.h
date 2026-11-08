@@ -55,6 +55,7 @@ extern "C" {
 #define SGL_MAX_FD                  (8)        /* max file descriptor */
 #define SGL_MAX_DD                  (4)        /* max directory descriptor */
 #define SGL_FD_OFFSET               (3)        /* FD offset to avoid stdin/stdout/stderr */
+#define SGL_DD_OFFSET               (SGL_FD_OFFSET + SGL_MAX_FD)
 
 /* POSIX-style filesystem error codes */
 #define SGL_FS_OK                   (0)        /* success */

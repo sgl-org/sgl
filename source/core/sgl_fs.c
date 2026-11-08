@@ -406,7 +406,7 @@ int sgl_fs_opendir(const char *path, int *dd)
             g_dd_table[i].used = 1;
             g_dd_table[i].mp = mp;
             g_dd_table[i].local_dd = (int16_t)local_dd;
-            *dd = i + SGL_FD_OFFSET;
+            *dd = i + SGL_DD_OFFSET;
             return 0;
         }
     }
@@ -426,7 +426,7 @@ int sgl_fs_opendir(const char *path, int *dd)
  */
 int sgl_fs_readdir(int dd, char *name, uint32_t name_size, uint32_t *type)
 {
-    int table_idx = dd - SGL_FD_OFFSET;
+    int table_idx = dd - SGL_DD_OFFSET;
     if (table_idx < 0 || table_idx >= SGL_MAX_DD || !g_dd_table[table_idx].used) {
         SGL_LOG_ERROR(FS_LOG_TAG"invalid directory descriptor: %d", dd);
         return -1;
@@ -443,7 +443,7 @@ int sgl_fs_readdir(int dd, char *name, uint32_t name_size, uint32_t *type)
  */
 int sgl_fs_closedir(int dd)
 {
-    int table_idx = dd - SGL_FD_OFFSET;
+    int table_idx = dd - SGL_DD_OFFSET;
     if (table_idx < 0 || table_idx >= SGL_MAX_DD || !g_dd_table[table_idx].used) {
         SGL_LOG_ERROR(FS_LOG_TAG"invalid directory descriptor: %d", dd);
         return -1;
@@ -473,6 +473,13 @@ int sgl_fs_unmount(const char *mount_point)
             for (int i = 0; i < SGL_MAX_FD; i++) {
                 if (g_fd_table[i].used && g_fd_table[i].mp == pos) {
                     SGL_LOG_ERROR(FS_LOG_TAG"cannot unmount: fd %d still open on %s", i + SGL_FD_OFFSET, mount_point);
+                    return -1;
+                }
+            }
+
+            for (int i = 0; i < SGL_MAX_DD; i++) {
+                if (g_dd_table[i].used && g_dd_table[i].mp == pos) {
+                    SGL_LOG_ERROR(FS_LOG_TAG"cannot unmount: dd %d still open on %s", i + SGL_DD_OFFSET, mount_point);
                     return -1;
                 }
             }
