@@ -837,6 +837,9 @@ void *mtlsf_memalign(size_t align, size_t size)
     }
 
     gap_min = sizeof(mem_blk_node_t);
+    if (align > (size_t)-1 - adj - gap_min) {
+        return NULL;
+    }
     need = align > MEM_ALIGN_SIZE
                   ? adjust_request_size(adj + align + gap_min, align)
                   : adj;
