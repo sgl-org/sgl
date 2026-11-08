@@ -566,6 +566,8 @@ static uint32_t fat_dir_chain_get(fat_ctx_t *ctx, uint32_t start, uint32_t index
     uint32_t cur;
     uint32_t i;
 
+    if (start < 2 || start - 2 >= ctx->total_clusters) return 0;
+
     if (ctx->dir_cursor_start == start && index >= ctx->dir_cursor_index) {
         cur = ctx->dir_cursor_cluster;
         i = ctx->dir_cursor_index;
@@ -575,13 +577,15 @@ static uint32_t fat_dir_chain_get(fat_ctx_t *ctx, uint32_t start, uint32_t index
     }
 
     while (i < index) {
-        if (cur < 2 || is_eoc(ctx, cur)) return 0;
+        if (cur < 2 || cur - 2 >= ctx->total_clusters) return 0;
         cur = fat_get_entry(ctx, cur);
-        if (cur < 2 || is_eoc(ctx, cur)) return 0;
+        if (cur == 0xFFFFFFFF) return 0xFFFFFFFF;
+        if (is_eoc(ctx, cur)) return 0;
+        if (cur < 2 || cur - 2 >= ctx->total_clusters) return 0;
         i++;
     }
 
-    if (cur < 2 || is_eoc(ctx, cur)) return (index == 0 ? start : 0);
+    if (cur < 2 || cur - 2 >= ctx->total_clusters) return 0;
     ctx->dir_cursor_start = start;
     ctx->dir_cursor_index = index;
     ctx->dir_cursor_cluster = cur;
@@ -812,6 +816,10 @@ static int fat_read_dir_entry(fat_ctx_t *ctx, uint32_t dir_cluster,
             /* end of the cluster chain = normal end-of-directory signal */
             SGL_LOG_TRACE(FAT_FS_NAME " read_dir_entry: chain_get dir=%d idx=%d failed", (int)dir_cluster, (int)cluster_index);
             return FAT_ERR_NOT_FOUND;
+        }
+        if (clust == 0xFFFFFFFF) {
+            SGL_LOG_ERROR(FAT_FS_NAME " read_dir_entry: FAT chain read failed");
+            return FAT_ERR_IO;
         }
         sector = cluster_to_sector(ctx, clust) + sec_in_cluster;
     }
@@ -1746,8 +1754,20 @@ static int fatfs_readdir(void *fs, int dd, char *name, uint32_t name_size, uint3
     while (1) {
         fat_dir_entry_t entry;
         int ret = fat_read_dir_entry(ctx, is_root ? 0 : dc, d->entry_index, &entry, NULL, NULL);
-        if (ret != FAT_OK) { d->finished = 1; return 0; }
-        if (entry.name[0] == FAT_ENTRY_END) { d->finished = 1; return 0; }
+        if (ret == FAT_ERR_NOT_FOUND) { 
+            d->finished = 1;
+            return 0;
+        }
+
+        if (ret != FAT_OK) {
+            SGL_LOG_ERROR(FAT_FS_NAME " readdir: read entry index=%d failed, ret=%d",
+                          (int)d->entry_index, ret);
+            return ret;
+        }
+        if (entry.name[0] == FAT_ENTRY_END) {
+            d->finished = 1;
+            return 0;
+        }
         if (entry.name[0] == FAT_ENTRY_FREE) {
             d->entry_index++;
             d->lfn_valid = 0;
@@ -1755,7 +1775,9 @@ static int fatfs_readdir(void *fs, int dd, char *name, uint32_t name_size, uint3
         }
         if (entry.attr & FAT_ATTR_LONG_NAME) {
             uint32_t next_index = 0;
-            if (fat_collect_lfn_name(ctx, is_root ? 0 : dc, d->entry_index, d->lfn_name, sizeof(d->lfn_name), &next_index) == FAT_OK) {
+            int lfn_ret = fat_collect_lfn_name(ctx, is_root ? 0 : dc, d->entry_index, d->lfn_name,
+                                               sizeof(d->lfn_name), &next_index);
+            if (lfn_ret == FAT_OK) {
                 /* orphan LFN chain: short entry already deleted/end ->
                  * do not report the dead name */
                 fat_dir_entry_t se;
@@ -1769,6 +1791,7 @@ static int fatfs_readdir(void *fs, int dd, char *name, uint32_t name_size, uint3
                 d->entry_index = next_index;
                 continue;
             }
+            if (lfn_ret != FAT_ERR_NOT_FOUND) return lfn_ret;
             d->entry_index++;
             d->lfn_valid = 0;
             continue;
@@ -1786,8 +1809,7 @@ static int fatfs_readdir(void *fs, int dd, char *name, uint32_t name_size, uint3
                 strncpy(name, d->lfn_name, name_size - 1);
                 name[name_size - 1] = '\0';
                 d->lfn_valid = 0;
-            } else
-            {
+            } else {
                 name_from_83(entry.name, name, name_size);
             }
         }
