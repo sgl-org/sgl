@@ -1298,7 +1298,9 @@ uint32_t sgl_utf8_to_unicode(const char *utf8_str, uint32_t *p_unicode_buffer)
         *p_unicode_buffer = (ptr[0] & 0x07) << 18 | (ptr[1] & 0x3F) << 12 | (ptr[2] & 0x3F) << 6  | (ptr[3] & 0x3F);
         return 4;
     }
-    return 0;
+
+    *p_unicode_buffer = '?';
+    return 1;
 }
 
 /**
@@ -2339,7 +2341,7 @@ void sgl_monitor_trace(sgl_surf_t *surf)
         fps_calc.last_tick = cur_tick;
 
         sgl_snprintf(fps_str, sizeof(fps_str), "FPS:%d", fps_avg);
-        sgl_snprintf(mem_str, sizeof(mem_str), "MEM:%d.%d%", sgl_mm_get_monitor().used_rate >> 8, sgl_mm_get_monitor().used_rate & 0xff);
+        sgl_snprintf(mem_str, sizeof(mem_str), "MEM:%d.%d%%", sgl_mm_get_monitor().used_rate >> 8, sgl_mm_get_monitor().used_rate & 0xff);
     }
 
     sgl_draw_fill_rect(surf, &monitor_area, &monitor_area, 0, SGL_MONITOR_BG_COLOR, SGL_MONITOR_ALPHA);

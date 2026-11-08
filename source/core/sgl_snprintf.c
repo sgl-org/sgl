@@ -212,12 +212,17 @@ int sgl_vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
             continue;
         }
 
-        fmt++;
         bool zero_pad = false;
         bool left_align = false;
         int width = 0;
         int precision = -1;
 
+        if (fmt[1] == '\0') {
+            append_char(buf, size, &pos, '%');
+            break;
+        }
+
+        fmt++;
         if (*fmt == '-') {
             left_align = true;
             fmt++;
@@ -279,6 +284,11 @@ int sgl_vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
 
         case '%': {
             append_char(buf, size, &pos, '%');
+            break;
+        }
+
+        case '\0': {
+            fmt--;
             break;
         }
 
