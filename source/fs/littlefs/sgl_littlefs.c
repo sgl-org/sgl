@@ -5253,6 +5253,11 @@ static int littlefs_mount(void **rfs, sgl_block_dev_t *dev,
         return LFS_ERR_INVAL;
     }
 
+    if (dev->init && dev->init(dev) != 0) {
+        SGL_LOG_ERROR(LFS_FS_NAME " mount: device init failed");
+        return LFS_ERR_IO;
+    }
+
     lfs_ctx_t *ctx = (lfs_ctx_t *)sgl_malloc(sizeof(*ctx));
     if (!ctx) {
         return LFS_ERR_NOMEM;
@@ -5543,8 +5548,7 @@ static int littlefs_format(void *fs)
     }
     for (int i = 0; i < LFS_MAX_OPEN_DIRS; i++) {
         if (ctx->dir_used[i]) {
-            lfs_dir_close_(&ctx->fs, &ctx->dirs[i]);
-            ctx->dir_used[i] = 0;
+            return LFS_ERR_INVAL;
         }
     }
 
