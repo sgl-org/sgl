@@ -59,43 +59,6 @@ static inline void append_str(char *buf, size_t size, size_t *pos, const char* s
 }
 
 /**
- * @brief pad alignment characters (default: space) to the buffer
- * @param buf buffer
- * @param size buffer size
- * @param pos current position
- * @param pad_len number of padding characters to append
- * @param pad_char padding character (default: ' ')
- */
-static inline void pad_align(char *buf, size_t size, size_t *pos, size_t pad_len, char pad_char)
-{
-    for (size_t i = 0; i < pad_len; i++) {
-        append_char(buf, size, pos, pad_char);
-    }
-}
-
-/**
- * @brief calculate the length of an integer when converted to string
- * @param val integer value
- * @return number of characters of the integer string
- */
-static inline size_t int_str_len(int val)
-{
-    if (val == 0) return 1; // Special case: 0 has length 1
-
-    size_t len = 0;
-    bool neg = val < 0;
-    
-    if (neg) val = -val;
-
-    do {
-        len++;
-        val /= 10;
-    } while (val);
-
-    return neg ? len + 1 : len; // Add 1 for negative sign
-}
-
-/**
  * @brief append an integer to the buffer with left/right alignment support
  * @param buf buffer
  * @param size buffer size

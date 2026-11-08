@@ -96,7 +96,6 @@ static inline uint8_t arc_get_dot(sgl_arc_dot_t *dot,int ax, int ay)
     return max;
 }
 
-
 /**
  * @brief draw an arc with alpha
  * @param surf pointer to surface
@@ -177,6 +176,7 @@ void sgl_draw_fill_arc(sgl_surf_t *surf, sgl_area_t *area, sgl_draw_arc_t *desc)
         int32_t de = dx * ey + de_base;
 
         for (int32_t x = clip.x1; x <= clip.x2; x++, blend++) {
+            sgl_color_t tmp_color = color;
             int32_t real_r2 = x2 + y2;
 
             if (real_r2 >= out_r2_max) {
@@ -219,8 +219,6 @@ void sgl_draw_fill_arc(sgl_surf_t *surf, sgl_area_t *area, sgl_draw_arc_t *desc)
             } else {
                 edge_alpha = SGL_ALPHA_MAX;
             }
-
-            sgl_color_t tmp_color = color;
 
             if (flag != 0xff) {
                 bool in_range = flag > 0 ? (ds > 0 || de > 0) : (ds > 0 && de >= 0);
