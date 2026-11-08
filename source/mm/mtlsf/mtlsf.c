@@ -680,6 +680,9 @@ void *mtlsf_malloc(size_t size)
     mem_blk_node_t *b;
 
     c = get_control();
+    if (!c) {
+        return NULL;
+    }
     adj = adjust_request_size(size, MEM_ALIGN_SIZE);
     b = block_locate_free(c, adj);
     return block_prepare_used(c, b, adj);
@@ -736,6 +739,9 @@ void mtlsf_free(void *ptr)
     }
 
     c = get_control();
+    if (!c) {
+        return;
+    }
     b = block_from_ptr(ptr);
     SGL_ASSERT(!block_is_free(b) && "double free");
     block_mark_as_free(b);
@@ -769,6 +775,9 @@ void *mtlsf_realloc(void *ptr, size_t size)
     }
 
     c = get_control();
+    if (!c) {
+        return NULL;
+    }
     b = block_from_ptr(ptr);
     n = block_next(b);
     cur = block_size(b);
@@ -942,6 +951,9 @@ static void mem_get_stats(mem_stats_t *out)
     }
     memset(out, 0, sizeof(*out));
     c = get_control();
+    if (!c) {
+        return;
+    }
     out->pool_bytes = c->pool_size;
     mtlsf_mem_walk(stats_walker, out);
 
