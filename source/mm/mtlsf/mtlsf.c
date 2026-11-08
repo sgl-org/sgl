@@ -588,7 +588,7 @@ static size_t adjust_request_size(size_t size, size_t align)
 {
     size_t a;
 
-    if (!size) {
+    if (!size || size >= BLOCK_SIZE_MAX) {
         return 0;
     }
     a = align_up(size, align);
@@ -815,7 +815,10 @@ void *mtlsf_memalign(size_t align, size_t size)
     void *aligned;
     size_t gap;
 
-    if (align & (align - 1)) {
+    if (align == 0 || (align & (align - 1))) {
+        return NULL;
+    }
+    if (!c) {
         return NULL;
     }
 
