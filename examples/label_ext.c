@@ -66,6 +66,7 @@ static void label_ext_counter_cb(const sgl_timer_t *timer, void *user_data)
     static int count = 0;
     sgl_obj_t *label = (sgl_obj_t *)user_data;
 
+    SGL_UNUSED(timer);
     if (label != NULL) {
         /* sgl_vsnprintf only supports %d (no %u) */
         sgl_label_ext_set_text_fmt(label, "count %d", ++count);

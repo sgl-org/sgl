@@ -5210,6 +5210,7 @@ static int lfs_dev_query(sgl_block_dev_t *dev, uint32_t *sector_size,
 static void lfs_dev_config(lfs_ctx_t *ctx, sgl_block_dev_t *dev)
 {
     struct lfs_config *cfg = &ctx->cfg;
+    SGL_UNUSED(dev);
     memset(cfg, 0, sizeof(*cfg));
     cfg->context = &ctx->bdev;
     cfg->read = lfs_bdev_read;

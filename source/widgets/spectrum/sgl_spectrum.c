@@ -180,6 +180,7 @@ static inline void sgl_spectrum_draw_row(sgl_surf_t *surf, const sgl_spectrum_t 
 {
     int16_t x1 = sgl_max(x, surf->x1);
     int16_t x2 = (int16_t)sgl_min((int32_t)x + width - 1, (int32_t)surf->x2);
+    SGL_UNUSED(spectrum);
 
     if (x1 > x2) {
         return;

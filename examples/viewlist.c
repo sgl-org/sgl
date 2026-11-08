@@ -54,6 +54,7 @@ static void music_draw_item(sgl_obj_t *list, sgl_surf_t *surf, sgl_area_t *clip,
                             sgl_area_t *coords, const sgl_viewlist_item_t *item, bool selected)
 {
     SGL_UNUSED(list);
+    SGL_UNUSED(selected);
     const int16_t pad     = 6;
     const int16_t cover   = coords->y2 - coords->y1 + 1 - 2 * pad;
     const int16_t cover_x = coords->x1 + pad;

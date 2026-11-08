@@ -56,8 +56,7 @@ typedef struct sgl_line {
     uint8_t       x_swap : 4;
     uint8_t       y_swap : 4;
     uint8_t       dashed;        /* 0: solid line, non-zero: dashed line */
-}sgl_line_t;
-
+} sgl_line_t;
 
 /**
  * @brief create a line object
@@ -65,7 +64,6 @@ typedef struct sgl_line {
  * @return line object
  */
 sgl_obj_t* sgl_line_create(sgl_obj_t* parent);
-
 
 /**
  * @brief set line color

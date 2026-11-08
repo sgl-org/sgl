@@ -438,7 +438,7 @@ static int fat_set_entry(fat_ctx_t *ctx, uint32_t cluster, uint32_t value)
         if (ctx->fat_type == FAT_TYPE_12) {
             uint16_t val;
             /* FAT12 entry may span sector boundary - read carefully to avoid buffer overrun */
-            if (ent_offset < ctx->sector_size - 1) {
+            if (ent_offset + 1 < (uint32_t)ctx->sector_size) {
                 val = rd16(&ctx->sec_buf[ent_offset]);
             } else {
                 /* Entry spans boundary: read low byte from current, high from next */
@@ -454,7 +454,7 @@ static int fat_set_entry(fat_ctx_t *ctx, uint32_t cluster, uint32_t value)
             } else {
                 val = (val & 0xF000) | (value & 0x0FFF);
             }
-            if (ent_offset < ctx->sector_size - 1) {
+            if (ent_offset + 1 < (uint32_t)ctx->sector_size) {
                 wr16(&ctx->sec_buf[ent_offset], val);
                 fat_cache_dirty(ctx);
             } else {
@@ -1648,7 +1648,6 @@ static int fatfs_seek(void *fs, int fd, int32_t offset, uint8_t whence)
 
     if (new_pos < 0) return FAT_ERR_INVALID;
 
-    uint32_t old_pos = f->cur_pos;
     f->cur_pos = (uint32_t)new_pos;
 
     /* Recompute the current cluster for the new position. Walk the FAT chain

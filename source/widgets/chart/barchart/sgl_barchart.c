@@ -530,8 +530,6 @@ static void sgl_barchart_draw_series(sgl_surf_t *surf, sgl_obj_t *obj,
     uint16_t point_count = 0;
     int16_t plot_w = plot_rect->x2 - plot_rect->x1 + 1;
     int16_t plot_h = plot_rect->y2 - plot_rect->y1 + 1;
-    int32_t x_range = chart->x_axis.max - chart->x_axis.min;
-    int32_t y_range = chart->y_axis.max - chart->y_axis.min;
     if (plot_w <= 0 || plot_h <= 0) return;
 
     for (uint8_t i = 0; i < chart->series_count; i++) {

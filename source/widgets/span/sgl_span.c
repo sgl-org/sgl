@@ -86,6 +86,7 @@ static void sgl_span_draw_fragment(sgl_surf_t *surf, sgl_obj_t *obj,
                                     sgl_span_fragment_t *span,
                                     int16_t x, int16_t y, sgl_area_t *clip)
 {
+    SGL_UNUSED(obj);
     if (span->text == NULL || span->font == NULL || span->text[0] == '\0') {
         return;
     }

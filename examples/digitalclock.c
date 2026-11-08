@@ -58,7 +58,6 @@ static void digitalclock_tick_cb(const sgl_timer_t *timer, void *user_data)
 {
     time_t rawtime;
     struct tm *t;
-    int i;
 
     (void)timer;
     (void)user_data;
