@@ -588,7 +588,7 @@ static size_t adjust_request_size(size_t size, size_t align)
 {
     size_t a;
 
-    if (!size) {
+    if (!size || size >= BLOCK_SIZE_MAX) {
         return 0;
     }
     a = align_up(size, align);
@@ -624,33 +624,33 @@ static void control_construct(mem_control_t *c)
  */
 int mtlsf_mem_init(void *mem_start, size_t len)
 {
-    mem_control_t *c = NULL;
+    mem_control_t *c;
     unsigned char *pool;
     mem_blk_node_t *b;
     mem_blk_node_t *sent;
     size_t ctl_size;
     size_t pool_bytes;
 
-    if (mem_start == NULL || len < MEM_MIN_POOL_SIZE) {
+    if (mem_start == NULL || len < MEM_MIN_POOL_SIZE ||
+        ((uintptr_t)mem_start % sizeof(void *)) != 0) {
+        return -ENOMEM;
+    }
+
+    ctl_size = align_up(sizeof(mem_control_t), MEM_ALIGN_SIZE);
+    if (len < ctl_size + 2 * BLOCK_OVERHEAD + BLOCK_SIZE_MIN) {
+        return -ENOMEM;
+    }
+
+    pool_bytes = align_down(len - ctl_size - 2 * BLOCK_OVERHEAD, MEM_ALIGN_SIZE);
+    if (pool_bytes < BLOCK_SIZE_MIN || pool_bytes >= BLOCK_SIZE_MAX) {
         return -ENOMEM;
     }
 
     g_mem_base = mem_start;
-    c = (mem_control_t *)g_mem_base;
-    ctl_size = align_up(sizeof(mem_control_t), MEM_ALIGN_SIZE);
-    if (len <= ctl_size + 4 * sizeof(mem_blk_node_t)) {
-        return -ENOMEM;
-    }
-
+    c = (mem_control_t *)mem_start;
     control_construct(c);
 
-    pool = (unsigned char *)g_mem_base + ctl_size;
-    pool_bytes = align_down(len - ctl_size - 2 * BLOCK_OVERHEAD, MEM_ALIGN_SIZE);
-
-    if (pool_bytes < BLOCK_SIZE_MIN || pool_bytes > BLOCK_SIZE_MAX) {
-        return -ENOMEM;
-    }
-
+    pool = (unsigned char *)mem_start + ctl_size;
     b = (mem_blk_node_t *)(pool - BLOCK_OVERHEAD);
     b->size = 0;
     block_set_size(b, pool_bytes);
@@ -680,6 +680,9 @@ void *mtlsf_malloc(size_t size)
     mem_blk_node_t *b;
 
     c = get_control();
+    if (!c) {
+        return NULL;
+    }
     adj = adjust_request_size(size, MEM_ALIGN_SIZE);
     b = block_locate_free(c, adj);
     return block_prepare_used(c, b, adj);
@@ -736,6 +739,9 @@ void mtlsf_free(void *ptr)
     }
 
     c = get_control();
+    if (!c) {
+        return;
+    }
     b = block_from_ptr(ptr);
     SGL_ASSERT(!block_is_free(b) && "double free");
     block_mark_as_free(b);
@@ -769,6 +775,9 @@ void *mtlsf_realloc(void *ptr, size_t size)
     }
 
     c = get_control();
+    if (!c) {
+        return NULL;
+    }
     b = block_from_ptr(ptr);
     n = block_next(b);
     cur = block_size(b);
@@ -815,7 +824,10 @@ void *mtlsf_memalign(size_t align, size_t size)
     void *aligned;
     size_t gap;
 
-    if (align & (align - 1)) {
+    if (align == 0 || (align & (align - 1))) {
+        return NULL;
+    }
+    if (!c) {
         return NULL;
     }
 
@@ -825,6 +837,9 @@ void *mtlsf_memalign(size_t align, size_t size)
     }
 
     gap_min = sizeof(mem_blk_node_t);
+    if (align > (size_t)-1 - adj - gap_min) {
+        return NULL;
+    }
     need = align > MEM_ALIGN_SIZE
                   ? adjust_request_size(adj + align + gap_min, align)
                   : adj;
@@ -939,6 +954,9 @@ static void mem_get_stats(mem_stats_t *out)
     }
     memset(out, 0, sizeof(*out));
     c = get_control();
+    if (!c) {
+        return;
+    }
     out->pool_bytes = c->pool_size;
     mtlsf_mem_walk(stats_walker, out);
 
