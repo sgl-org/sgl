@@ -42,7 +42,13 @@
 # define MEM_FL_INDEX_MAX               (_MEM_FLS64((size_t)(MEM_SIZE_BYTES)) + 1)
 #define MEM_MIN_POOL_SIZE               (2048U)
 
+/* Payload alignment must match the block header size (sizeof(size_t)):
+ * 4 bytes on 32-bit targets, 8 bytes on 64-bit targets. */
+#if defined(__SIZEOF_SIZE_T__) && (__SIZEOF_SIZE_T__ > 4)
 #define MEM_ALIGN_SIZE_LOG2             (3)
+#else
+#define MEM_ALIGN_SIZE_LOG2             (2)
+#endif
 #define MEM_ALIGN_SIZE                  ((size_t)1 << MEM_ALIGN_SIZE_LOG2)
 #define SL_INDEX_COUNT_LOG2             (4)
 #define SL_INDEX_COUNT                  (1u << SL_INDEX_COUNT_LOG2)
@@ -89,7 +95,7 @@ typedef void (*mem_walker)(void *ptr, size_t size, int used, void *user);
 
 /**
  * @brief Create a TLSF memory pool from a given memory region
- * @param[in] mem_start: start address of the memory region to manage
+ * @param[in] mem_start: start address of the memory region, aligned to MEM_ALIGN_SIZE (4/8 bytes)
  * @param[in] len: length of the memory region in bytes
  * @return 0 is success, otherwise is failure
  */
@@ -127,7 +133,7 @@ void* mtlsf_realloc (void *ptr, size_t size);
 
 /**
  * @brief Allocate memory with a specific alignment requirement
- * @param[in] align: alignment (must be power of 2)
+ * @param[in] align: alignment (must be a non-zero power of 2)
  * @param[in] size: requested size
  * @return void *: aligned pointer to allocated memory, or NULL on failure
  */
