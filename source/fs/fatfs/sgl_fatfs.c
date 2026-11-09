@@ -28,7 +28,7 @@
 #define FAT_FS_NAME         "fatfs"
 
 #define FAT_MAX_OPEN_FILES  8
-#define FAT_MAX_OPEN_DIRS   4
+#define FAT_MAX_OPEN_DIRS   8
 #define FAT_MAX_VOLS        4
 
 #define FAT_TYPE_12         12
@@ -42,6 +42,7 @@
 #define FAT_ATTR_DIRECTORY  0x10
 #define FAT_ATTR_ARCHIVE    0x20
 #define FAT_ATTR_LONG_NAME  (FAT_ATTR_READ_ONLY|FAT_ATTR_HIDDEN|FAT_ATTR_SYSTEM|FAT_ATTR_VOLUME_ID)
+#define FAT_IS_LFN(attr)    (((attr) & 0x3F) == FAT_ATTR_LONG_NAME)
 
 #define FAT_ENTRY_FREE      0xE5
 #define FAT_ENTRY_END       0x00
@@ -659,7 +660,7 @@ static int fat_collect_lfn_name(fat_ctx_t *ctx, uint32_t dir_cluster, uint32_t s
             expected_seq = 0;
             continue;
         }
-        if (!(e.attr & FAT_ATTR_LONG_NAME)) break;
+        if (!FAT_IS_LFN(e.attr)) break;
 
         const uint8_t *raw = (const uint8_t *)&e;
         uint8_t seq = raw[0] & 0x1F;
@@ -871,7 +872,7 @@ static int fat_find_in_dir(fat_ctx_t *ctx, uint32_t dir_cluster,
             i++;
             continue;
         }
-        if (e.attr & FAT_ATTR_LONG_NAME) {
+        if (FAT_IS_LFN(e.attr)) {
             char lfn_name[SGL_FATFS_MAX_LFN * 3 + 1];
             uint32_t short_index = 0;
             if (fat_collect_lfn_name(ctx, dir_cluster, i, lfn_name, sizeof(lfn_name), &short_index) == FAT_OK) {
@@ -1069,7 +1070,7 @@ static int fat_dir_is_empty(fat_ctx_t *ctx, uint32_t dir_cluster)
         if (ret != FAT_OK) return 1; /* end of dir = empty */
         if (e.name[0] == FAT_ENTRY_END) return 1; /* end of dir = empty */
         if (e.name[0] == FAT_ENTRY_FREE) continue;
-        if (e.attr & FAT_ATTR_LONG_NAME) continue;
+        if (FAT_IS_LFN(e.attr)) continue;
         /* Check for . and .. */
         if (e.name[0] == '.' && (e.name[1] == ' ' || (e.name[1] == '.' && e.name[2] == ' ')))
             continue;
@@ -1773,7 +1774,7 @@ static int fatfs_readdir(void *fs, int dd, char *name, uint32_t name_size, uint3
             d->lfn_valid = 0;
             continue;
         }
-        if (entry.attr & FAT_ATTR_LONG_NAME) {
+        if (FAT_IS_LFN(entry.attr)) {
             uint32_t next_index = 0;
             int lfn_ret = fat_collect_lfn_name(ctx, is_root ? 0 : dc, d->entry_index, d->lfn_name,
                                                sizeof(d->lfn_name), &next_index);
@@ -1979,7 +1980,7 @@ static int fatfs_remove(void *fs, const char *path)
             int r2 = fat_read_dir_entry(ctx, parent_dir, i, &e2, NULL, NULL);
             if (r2 != FAT_OK) break;
             if (e2.name[0] == FAT_ENTRY_END) break;
-            if (!(e2.attr & FAT_ATTR_LONG_NAME)) continue;
+            if (!FAT_IS_LFN(e2.attr)) continue;
             const uint8_t *raw2 = (const uint8_t *)&e2;
             if (raw2[13] == sum) {
                 fat_dir_entry_t clear;
@@ -2132,7 +2133,7 @@ static int fatfs_rename(void *fs, const char *old_path, const char *new_path)
             fat_dir_entry_t e2;
             if (fat_read_dir_entry(ctx, new_parent, j, &e2, NULL, NULL) != FAT_OK) break;
             if (e2.name[0] == FAT_ENTRY_END) break;
-            if (!(e2.attr & FAT_ATTR_LONG_NAME)) continue;
+            if (!FAT_IS_LFN(e2.attr)) continue;
             const uint8_t *raw2 = (const uint8_t *)&e2;
             if (raw2[13] != osum) continue;
             fat_dir_entry_t clear;
@@ -2164,7 +2165,7 @@ static int fatfs_rename(void *fs, const char *old_path, const char *new_path)
             int r2 = fat_read_dir_entry(ctx, old_parent, i, &e2, NULL, NULL);
             if (r2 != FAT_OK) break;
             if (e2.name[0] == FAT_ENTRY_END) break;
-            if (!(e2.attr & FAT_ATTR_LONG_NAME)) continue;
+            if (!FAT_IS_LFN(e2.attr)) continue;
             const uint8_t *raw2 = (const uint8_t *)&e2;
             if (raw2[13] == sum) {
                 fat_dir_entry_t clear;
