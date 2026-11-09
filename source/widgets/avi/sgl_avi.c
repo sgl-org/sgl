@@ -2207,8 +2207,7 @@ static int avi_audio_start(sgl_avi_t *avi)
     }
     /* consumed counter restarted at zero, rebase the clock so it
      * continues from the current sample frame count (pause/resume) */
-    avi->played_base =
-        (int32_t)(avi->audio_frame * avi->audio_align) - (int32_t)avi_audio_consumed_bytes();
+    avi->played_base = (int32_t)(avi->audio_frame * avi->audio_align) - (int32_t)avi_audio_consumed_bytes();
     return 0;
 }
 
@@ -2217,6 +2216,7 @@ static int avi_audio_start(sgl_avi_t *avi)
  */
 static void avi_audio_stop(sgl_avi_t *avi)
 {
+    SGL_UNUSED(avi);
     if (g_audio_port_ready) {
         g_audio_port.stop(g_audio_port.user_data);
     }

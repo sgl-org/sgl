@@ -97,8 +97,7 @@ typedef struct {
     uint32_t start_cluster;      /* first data cluster of file */
     uint32_t cur_cluster;        /* current cluster for r/w */
     uint32_t cur_pos;            /* current byte position */
-    uint32_t cluster_pos;        /* byte offset of the START of cur_cluster,
-                                    used to skip FAT chain walks on forward seeks */
+    uint32_t cluster_pos;        /* byte offset of the START of cur_cluster, used to skip FAT chain walks on forward seeks */
     uint32_t file_size;
     uint8_t  flags;              /* SGL_O_xxx */
     uint8_t  dirty;              /* entry metadata needs flush */
@@ -1159,8 +1158,7 @@ static int fat_create_entry(fat_ctx_t *ctx, uint32_t parent_dir, const char *nam
     return FAT_OK;
 }
 
-static int fatfs_mount(void **fs, sgl_block_dev_t *dev,
-                       const char *mount_point, void *fs_config)
+static int fatfs_mount(void **fs, sgl_block_dev_t *dev, const char *mount_point, void *fs_config)
 {
     (void)mount_point;
     sgl_fatfs_config_t *cfg = NULL;
