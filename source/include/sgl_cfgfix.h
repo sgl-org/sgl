@@ -80,6 +80,10 @@ extern "C" {
 #define CONFIG_SGL_FOCUSED_WIDTH                                   (0)  /* Focused width */
 #endif
 
+#ifndef CONFIG_SGL_MOUSE_CURSOR
+#define CONFIG_SGL_MOUSE_CURSOR                                    (0)  /* Mouse cursor enable */
+#endif
+
 #ifndef CONFIG_SGL_DIRTY_AREA_NUM_MAX
 #define CONFIG_SGL_DIRTY_AREA_NUM_MAX                              (16)  /* Max dirty regions for partial refresh */
 #endif

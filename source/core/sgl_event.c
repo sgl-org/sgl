@@ -22,6 +22,7 @@
  * SOFTWARE.
  */
 
+#include <sgl_draw.h>
 #include <sgl_event.h>
 #include <sgl_math.h>
 #include <sgl_cfgfix.h>
@@ -58,6 +59,9 @@ static struct event_context {
     sgl_event_pos_t last_touch;
     event_queue_t   evtq;
 } evt_ctx;
+
+/* first and current position */
+static sgl_event_pos_t first_pos, curr_pos;
 
 /**
  * @brief key group active
@@ -433,6 +437,78 @@ void sgl_event_task(void)
 }
 
 /**
+ * @brief Update mouse cursor position
+ * @param pos_x The x coordinate of the cursor
+ * @param pos_y The y coordinate of the cursor
+ * @return none
+ */
+void event_cursor_update(int pos_x, int pos_y)
+{
+    extern void sgl_obj_update_area(sgl_area_t *area);
+    sgl_area_t area = {
+        .x1 = sgl_min(curr_pos.x, pos_x),
+        .x2 = sgl_max(curr_pos.x + SGL_EVENT_CURSOR_WIDTH - 1, pos_x + SGL_EVENT_CURSOR_WIDTH - 1),
+        .y1 = sgl_min(curr_pos.y, pos_y),
+        .y2 = sgl_max(curr_pos.y + SGL_EVENT_CURSOR_HEIGHT - 1, pos_y + SGL_EVENT_CURSOR_HEIGHT - 1),
+    };
+    sgl_obj_update_area(&area);
+}
+
+/**
+ * @brief Draw mouse cursor
+ * @param surf The surface to draw
+ * @param x The x coordinate of the cursor
+ * @param y The y coordinate of the cursor
+ * @return none
+ */
+void sgl_event_cursor_draw(sgl_surf_t *surf, int16_t x, int16_t y)
+{
+    static const uint8_t cursor_bitmap[SGL_EVENT_CURSOR_WIDTH * SGL_EVENT_CURSOR_HEIGHT] = {
+        1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 1, 0, 1, 3, 3, 3, 3, 3, 3, 3,
+        1, 0, 0, 1, 3, 3, 3, 3, 3, 3, 1, 0, 0, 0, 1, 3, 3, 3, 3, 3, 1, 0, 0, 0, 0, 1, 3, 3, 3, 3,
+        1, 0, 0, 0, 0, 0, 1, 3, 3, 3, 1, 0, 0, 0, 0, 0, 0, 1, 3, 3, 1, 0, 0, 0, 0, 0, 0, 0, 1, 3,
+        1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 3, 3, 3, 1, 0, 1, 3, 1, 0, 0, 1, 3, 3,
+        1, 1, 3, 3, 1, 0, 0, 1, 3, 3, 1, 3, 3, 3, 3, 1, 0, 0, 1, 3, 3, 3, 3, 3, 3, 1, 0, 0, 1, 3,
+        3, 3, 3, 3, 3, 3, 1, 1, 3, 3
+    };
+
+    sgl_area_t clip = SGL_AREA_MAX;
+    sgl_color_t *buf = NULL;
+    int bitmap_row, bitmap_index;
+
+    sgl_area_t rect = {
+        .x1 = x, .x2 = x + SGL_EVENT_CURSOR_WIDTH - 1,
+        .y1 = y, .y2 = y + SGL_EVENT_CURSOR_HEIGHT - 1,
+    };
+
+    if (!sgl_surf_clip(surf, &rect, &clip)) {
+        return;
+    }
+
+    bitmap_row = (clip.y1 - rect.y1) * SGL_EVENT_CURSOR_WIDTH + (clip.x1 - rect.x1);
+    for (int row = clip.y1; row <= clip.y2; row++, bitmap_row += SGL_EVENT_CURSOR_WIDTH) {
+        buf = sgl_surf_get_buf(surf, clip.x1 - surf->x1, row - surf->y1);
+        bitmap_index = bitmap_row;
+        for (int col = clip.x1; col <= clip.x2; col++, buf++, bitmap_index++) {
+            if (cursor_bitmap[bitmap_index] == 1) {
+                *buf = SGL_COLOR_BLACK;
+            } else if (cursor_bitmap[bitmap_index] == 0) {
+                *buf = SGL_COLOR_WHITE;
+            }
+        }
+    }
+}
+
+/**
+ * @brief Get the cursor position
+ * @return The cursor position, if the cursor is not visible, return the last position
+ */
+sgl_event_pos_t sgl_event_cursor_get(void)
+{
+    return curr_pos;
+}
+
+/**
  * @brief Touch event read, this function will be called by user
  * @param x: touch x position
  * @param y: touch y position
@@ -454,7 +530,6 @@ void sgl_event_task(void)
  */
 void sgl_event_pos_input(int16_t x, int16_t y, bool flag)
 {
-    static sgl_event_pos_t first_pos, curr_pos;
     static uint32_t start_ms;
     static bool touch;
     const uint32_t tick = sgl_tick_get();
@@ -492,6 +567,10 @@ void sgl_event_pos_input(int16_t x, int16_t y, bool flag)
         break;
     }
 #endif //!CONFIG_SGL_FBDEV_ROTATION
+
+#if (CONFIG_SGL_MOUSE_CURSOR)
+    event_cursor_update(pos_x, pos_y);
+#endif
 
     if (flag) {
         if (!touch) {

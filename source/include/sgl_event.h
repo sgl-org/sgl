@@ -37,6 +37,8 @@ extern "C" {
 /* Forward declaration of sgl_obj and sgl_page*/
 struct sgl_obj;
 struct sgl_page;
+struct sgl_surf;
+struct sgl_area;
 
 /**
  * @brief Event type enumeration
@@ -74,6 +76,9 @@ struct sgl_page;
 
 #define  SGL_EVENT_MOVE_THRESHOLD       (2)
 #define  SGL_EVENT_CLICK_INTERVAL       (500)
+
+#define SGL_EVENT_CURSOR_WIDTH          (10)
+#define SGL_EVENT_CURSOR_HEIGHT         (16)
 
 /**
 * @brief Event location structure, Used to represent the coordinates of an event, 
@@ -313,6 +318,21 @@ void sgl_event_task(void);
  *        }
  */
 void sgl_event_pos_input(int16_t x, int16_t y, bool flag);
+
+/**
+ * @brief Get the cursor position
+ * @return The cursor position, if the cursor is not visible, return the last position
+ */
+sgl_event_pos_t sgl_event_cursor_get(void);
+
+/**
+ * @brief Draw mouse cursor
+ * @param surf The surface to draw
+ * @param x The x coordinate of the cursor
+ * @param y The y coordinate of the cursor
+ * @return none
+ */
+void sgl_event_cursor_draw(struct sgl_surf *surf, int16_t x, int16_t y);
 
 /**
  * @brief create a key group
