@@ -569,7 +569,9 @@ void sgl_event_pos_input(int16_t x, int16_t y, bool flag)
 #endif //!CONFIG_SGL_FBDEV_ROTATION
 
 #if (CONFIG_SGL_MOUSE_CURSOR)
-    event_cursor_update(pos_x, pos_y);
+    if (pos_x != curr_pos.x || pos_y != curr_pos.y) {
+        event_cursor_update(pos_x, pos_y);
+    }
 #endif
 
     if (flag) {
