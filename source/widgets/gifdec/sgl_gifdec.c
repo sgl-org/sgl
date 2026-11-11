@@ -1475,7 +1475,7 @@ void gd_rewind(gd_gif_t *gif)
 /* ------------------------------------------------------------------ */
 /* 调试开关                                                            */
 /* ------------------------------------------------------------------ */
-/* 逐帧详细打印 (仅 CONFIG_SGL_DEBUG 生效):
+/* 逐帧详细打印 (仅 CONFIG_SGL_LOG_LEVEL 大于 0 时生效):
  *   0 = 只打生命周期 / 错误 (推荐, 避免 UART 刷屏)
  *   1 = 每解码一帧打印帧号 / 播放状态 */
 #ifndef SGL_GIFDEC_DEBUG_FRAME
@@ -2140,5 +2140,4 @@ void sgl_gifdec_destroy(sgl_obj_t *obj)
     SGL_ASSERT(obj != NULL);
     sgl_obj_delete_sync(obj);
 }
-
 

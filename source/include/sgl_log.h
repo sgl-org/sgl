@@ -31,19 +31,19 @@
 extern "C" {
 #endif
 
-#define SGL_LOG_LEVEL_TRACE              0 /**< A lot of logs to give detailed information*/
-#define SGL_LOG_LEVEL_INFO               1 /**< Log important events*/
-#define SGL_LOG_LEVEL_WARN               2 /**< Log if something unwanted happened but didn't caused problem*/
-#define SGL_LOG_LEVEL_ERROR              3 /**< Only critical issue, when the system may fail*/
-#define SGL_LOG_LEVEL_USER               4 /**< Custom logs from the user*/
-#define SGL_LOG_LEVEL_NONE               5 /**< Do not log anything*/
-#define _SGL_LOG_LEVEL_NUM               6 /**< Number of log levels*/
+#define SGL_LOG_LEVEL_NONE               0 /**< Do not log anything */
+#define SGL_LOG_LEVEL_ERROR              1 /**< Only critical issues */
+#define SGL_LOG_LEVEL_WARN               2 /**< Unwanted situations that did not cause a failure */
+#define SGL_LOG_LEVEL_INFO               3 /**< Important events */
+#define SGL_LOG_LEVEL_TRACE              4 /**< Detailed information */
+#define SGL_LOG_LEVEL_USER               5 /**< Custom user logs (enabled at any nonzero level) */
+#define _SGL_LOG_LEVEL_NUM               6 /**< Number of log levels */
 
-#if CONFIG_SGL_DEBUG
+#if CONFIG_SGL_LOG_LEVEL > SGL_LOG_LEVEL_NONE
 
 /**
- * @brief sgl log printing function, used to print debugging information. Note that this function 
- *        should only be called in debugging mode, otherwise it may affect system real-time 
+ * @brief sgl log printing function, used to print logging information. Note that this function
+ *        should only be called when logging is enabled, otherwise it may affect system real-time
  *        performance due to long execution time
  * 
  * @param level:  log level, such as, INFO, USER...
@@ -97,7 +97,7 @@ void sgl_assert_handler(const char *file, const char *func, int line);
 #endif // !CONFIG_SGL_LOG_COLOR
 
 #ifndef SGL_LOG_TRACE
-#    if CONFIG_SGL_LOG_LEVEL <= SGL_LOG_LEVEL_TRACE
+#    if CONFIG_SGL_LOG_LEVEL >= SGL_LOG_LEVEL_TRACE
 #        define SGL_LOG_TRACE(...)      sgl_log(SGL_LOG_TRACE_FLAG, __VA_ARGS__)
 #    else
 #        define SGL_LOG_TRACE(...)      do {} while(0)
@@ -105,7 +105,7 @@ void sgl_assert_handler(const char *file, const char *func, int line);
 #endif
 
 #ifndef SGL_LOG_INFO
-#    if CONFIG_SGL_LOG_LEVEL <= SGL_LOG_LEVEL_INFO
+#    if CONFIG_SGL_LOG_LEVEL >= SGL_LOG_LEVEL_INFO
 #        define SGL_LOG_INFO(...)       sgl_log(SGL_LOG_INFO_FLAG,  __VA_ARGS__)
 #    else
 #        define SGL_LOG_INFO(...)       do {} while(0)
@@ -113,7 +113,7 @@ void sgl_assert_handler(const char *file, const char *func, int line);
 #endif
 
 #ifndef SGL_LOG_WARN
-#    if CONFIG_SGL_LOG_LEVEL <= SGL_LOG_LEVEL_WARN
+#    if CONFIG_SGL_LOG_LEVEL >= SGL_LOG_LEVEL_WARN
 #        define SGL_LOG_WARN(...)       sgl_log(SGL_LOG_WARN_FLAG, __VA_ARGS__)
 #    else
 #        define SGL_LOG_WARN(...)       do {} while(0)
@@ -121,7 +121,7 @@ void sgl_assert_handler(const char *file, const char *func, int line);
 #endif
 
 #ifndef SGL_LOG_ERROR
-#    if CONFIG_SGL_LOG_LEVEL <= SGL_LOG_LEVEL_ERROR
+#    if CONFIG_SGL_LOG_LEVEL >= SGL_LOG_LEVEL_ERROR
 #        define SGL_LOG_ERROR(...)      sgl_log(SGL_LOG_ERROR_FLAG, __VA_ARGS__)
 #    else
 #        define SGL_LOG_ERROR(...)      do {} while(0)
@@ -129,14 +129,10 @@ void sgl_assert_handler(const char *file, const char *func, int line);
 #endif
 
 #ifndef SGL_LOG_USER
-#    if CONFIG_SGL_LOG_LEVEL <= SGL_LOG_LEVEL_USER
-#        define SGL_LOG_USER(...)       sgl_log(SGL_LOG_USER_FLAG,  __VA_ARGS__)
-#    else
-#        define SGL_LOG_USER(...)       do {} while(0)
-#    endif
+#    define SGL_LOG_USER(...)           sgl_log(SGL_LOG_USER_FLAG,  __VA_ARGS__)
 #endif
 
-#if CONFIG_SGL_LOG_LEVEL < SGL_LOG_LEVEL_NONE
+#if CONFIG_SGL_LOG_LEVEL > SGL_LOG_LEVEL_NONE
 #    define SGL_LOG(...)                sgl_log(__VA_ARGS__)
 #else
 #    define SGL_LOG(...)                do {} while(0)
@@ -155,7 +151,7 @@ void sgl_assert_handler(const char *file, const char *func, int line);
                                             }                                                         \
                                         } while(0)
 
-#else // if no define debug mode macro
+#else // if logging is disabled
 
 #define SGL_LOG_NONE                    0
 #define SGL_LOG_TRACE(...)              do {} while(0)
@@ -169,7 +165,7 @@ void sgl_assert_handler(const char *file, const char *func, int line);
 #define SGL_ASSERT_INFO(cond, info)     do {} while(0)
 #endif
 
-#if CONFIG_SGL_DEBUG
+#if CONFIG_SGL_LOG_LEVEL >= SGL_LOG_LEVEL_TRACE
 #define SGL_DEBUG_TRACE(...)            sgl_log(SGL_DEBUG_TRACE_FLAG, __VA_ARGS__)
 #else
 #define SGL_DEBUG_TRACE(...)            do {} while(0)

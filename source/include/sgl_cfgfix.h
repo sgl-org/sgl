@@ -120,15 +120,12 @@ extern "C" {
 #define CONFIG_SGL_IMG_BUFFER_LINES                                (1)  /* External image line buffer size in lines, 0=auto (use full height) */
 #endif
 
-#ifndef CONFIG_SGL_DEBUG
-#   define CONFIG_SGL_DEBUG                                        (0)  /* Global debug log enable */
-#elif (CONFIG_SGL_DEBUG == 1)
-#   ifndef CONFIG_SGL_LOG_COLOR
-#       define CONFIG_SGL_LOG_COLOR                                (0)  /* Colored log output */
-#   endif
-#   ifndef CONFIG_SGL_LOG_LEVEL
-#       define CONFIG_SGL_LOG_LEVEL                                (1)  /* Log level (err/warn/info/debug) */
-#   endif
+#ifndef CONFIG_SGL_LOG_LEVEL
+#define CONFIG_SGL_LOG_LEVEL                                       (0)  /* 0=off, 1=error, 2=warning, 3=info, 4=trace */
+#endif
+
+#ifndef CONFIG_SGL_LOG_COLOR
+#define CONFIG_SGL_LOG_COLOR                                       (0)  /* Colored log output */
 #endif
 
 #ifndef CONFIG_SGL_OBJ_USE_NAME

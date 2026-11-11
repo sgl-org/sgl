@@ -514,7 +514,7 @@ void sgl_obj_set_radius(sgl_obj_t *obj, size_t radius)
     obj->radius = radius & 0xFFF;
 }
 
-#if (CONFIG_SGL_OBJ_USE_NAME && CONFIG_SGL_DEBUG)
+#if (CONFIG_SGL_OBJ_USE_NAME)
 /**
  * @brief print object name that include this all child
  * @param obj point to object

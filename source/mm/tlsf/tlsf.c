@@ -260,11 +260,7 @@ enum tlsf_private
 /*
 ** Set assert macro, if it has not been provided by the user.
 */
-#if CONFIG_SGL_DEBUG
 #define tlsf_assert SGL_ASSERT
-#else
-#define tlsf_assert (void)
-#endif
 
 /*
 ** Static assertion mechanism.

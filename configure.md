@@ -77,9 +77,8 @@ sgl_config.h是 SGL (Simple Graphics Library) 框架中的**功能配置**。
 
 | 宏定义 | 默认值 | 描述 |
 | :--- | :---: | :--- |
-| [CONFIG_SGL_DEBUG]| `0` | 全局调试日志启用。设置为 `1` 以启用日志记录。 |
-| [CONFIG_SGL_LOG_COLOR]| `0` | *(仅当 `DEBUG=1` 时有效)* 在终端日志中启用彩色输出以提高可读性。 |
-| [CONFIG_SGL_LOG_LEVEL]| `1` | *(仅当 `DEBUG=1` 时有效)* 设置 verbosity 级别。通常：`0`=错误, `1`=警告, `2`=信息, `3`=调试。 |
+| [CONFIG_SGL_LOG_LEVEL]| `0` | 日志等级：`0`=不打印，`1`=错误，`2`=警告，`3`=信息，`4`=详细跟踪。等级越高，输出越详细；用户自定义日志在任意非零等级下输出。 |
+| [CONFIG_SGL_LOG_COLOR]| `0` | 为终端日志启用彩色输出以提高可读性。 |
 | [CONFIG_SGL_DIRTY_AREA_TRACE]| `0` | 在屏幕上可视化脏区域。用于优化部分刷新逻辑。 |
 | [CONFIG_SGL_DIRTY_AREA_TRACE_COLOR]| [sgl_rgb(0,0,0)]| 用于绘制脏区域调试覆盖层的颜色。 |
 | [CONFIG_SGL_MONITOR_TRACE]| `0` | 启用一般监控跟踪（如 FPS、内存使用情况），如果在监控模块中实现的话。 |

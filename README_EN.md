@@ -423,7 +423,7 @@ Edit `sgl/source/sgl_config.h`; key options:
 | `CONFIG_SGL_COLOR16_SWAP` | Swap RGB565 byte order | Set to `1` if SPI big-endian panels show wrong colors |
 | `CONFIG_SGL_HEAP_MEMORY_SIZE` | GUI heap size (bytes) | Tune according to widget count |
 | `CONFIG_SGL_FONT_XXX` | Built-in font switches | **Enable only what you use**; fonts are Flash hogs |
-| `CONFIG_SGL_DEBUG` | Debug logging | Turn off for production |
+| `CONFIG_SGL_LOG_LEVEL` | Log level: `0` off, `1` error, `2` warning, `3` info, `4` trace | Set to `0` for production |
 
 For the complete item-by-item reference, read **[configure.md](configure.md)**.
 
@@ -466,7 +466,7 @@ And add the header search paths: `sgl/source/` and `sgl/source/include/`.
 <details>
 <summary>❓ UI frozen / nothing displayed at all</summary>
 
-Check in order: ① is `sgl_fbdev_register` called before `sgl_init`; ② is `sgl_fbdev_flush_ready()` missing from the flush callback (with DMA it belongs in the transfer-complete IRQ); ③ is `sgl_task_handler()` called in the main loop; ④ enable `CONFIG_SGL_DEBUG` and watch the logs.
+Check in order: ① is `sgl_fbdev_register` called before `sgl_init`; ② is `sgl_fbdev_flush_ready()` missing from the flush callback (with DMA it belongs in the transfer-complete IRQ); ③ is `sgl_task_handler()` called in the main loop; ④ set `CONFIG_SGL_LOG_LEVEL` to `3` for info logs or `4` for detailed trace logs.
 
 </details>
 

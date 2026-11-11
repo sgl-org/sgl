@@ -399,7 +399,7 @@ int main(void)
 | `CONFIG_SGL_COLOR16_SWAP` | RGB565 字节序交换 | SPI 大端屏颜色异常时置 `1` |
 | `CONFIG_SGL_HEAP_MEMORY_SIZE` | GUI 堆大小（字节） | 按控件数量调整 |
 | `CONFIG_SGL_FONT_XXX` | 内置字体开关 | **只开用到的**，字体是 Flash 大户 |
-| `CONFIG_SGL_DEBUG` | 调试日志 | 量产时关闭 |
+| `CONFIG_SGL_LOG_LEVEL` | 日志等级：`0` 关闭，`1` 错误，`2` 警告，`3` 信息，`4` 跟踪 | 量产时设为 `0` |
 
 完整的逐项说明请阅读 **[configure.md](configure.md)**。
 
@@ -559,7 +559,7 @@ void my_mouse_scan(void)
 <details>
 <summary>❓ 界面完全不动 / 无任何显示</summary>
 
-按顺序检查：① `sgl_fbdev_register` 是否在 `sgl_init` 之前调用；② `flush_area` 是否漏调 `sgl_fbdev_flush_ready()`（DMA 模式应在传输完成中断里调用）；③ `sgl_task_handler()` 是否在主循环中调用；④ 打开 `CONFIG_SGL_DEBUG` 观察日志。
+按顺序检查：① `sgl_fbdev_register` 是否在 `sgl_init` 之前调用；② `flush_area` 是否漏调 `sgl_fbdev_flush_ready()`（DMA 模式应在传输完成中断里调用）；③ `sgl_task_handler()` 是否在主循环中调用；④ 将 `CONFIG_SGL_LOG_LEVEL` 设为 `3` 查看信息日志，设为 `4` 查看详细跟踪日志。
 
 </details>
 

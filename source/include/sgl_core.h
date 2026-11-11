@@ -581,7 +581,7 @@ typedef struct sgl_system {
     sgl_color_t        *rotation;
     uint16_t            angle;
 #endif
-#if (CONFIG_SGL_DEBUG)
+#if (CONFIG_SGL_LOG_LEVEL > SGL_LOG_LEVEL_NONE)
     void               (*logdev)(const char *str);
 #endif
 } sgl_system_t;
@@ -846,7 +846,7 @@ static inline void sgl_fbdev_set_te_flag(bool flag)
  */
 static inline void sgl_logdev_register(void (*puts)(const char *str))
 {
-#if (CONFIG_SGL_DEBUG)
+#if (CONFIG_SGL_LOG_LEVEL > SGL_LOG_LEVEL_NONE)
     sgl_system.logdev = puts;
 #else
     SGL_UNUSED(puts);
@@ -861,7 +861,7 @@ static inline void sgl_logdev_register(void (*puts)(const char *str))
  */
 static inline void sgl_log_stdout(const char *str)
 {
-#if (CONFIG_SGL_DEBUG)
+#if (CONFIG_SGL_LOG_LEVEL > SGL_LOG_LEVEL_NONE)
     if (sgl_system.logdev) {
         sgl_system.logdev(str);
     }
@@ -2209,7 +2209,7 @@ int sgl_snprintf(char *buf, size_t size, const char *fmt, ...);
  */
 int sgl_sprintf(char *buf, const char *fmt, ...);
 
-#if (CONFIG_SGL_OBJ_USE_NAME && CONFIG_SGL_DEBUG)
+#if (CONFIG_SGL_OBJ_USE_NAME)
 /**
  * @brief set object name
  * @param obj The object to set the name

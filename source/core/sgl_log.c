@@ -28,7 +28,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#if CONFIG_SGL_DEBUG
+#if CONFIG_SGL_LOG_LEVEL > SGL_LOG_LEVEL_NONE
 
 /**
  * @brief sgl log printing function, used to print debugging information. Note that this function 
@@ -75,4 +75,4 @@ void sgl_assert_handler(const char *file, const char *func, int line)
     };
 }
 
-#endif // !CONFIG_SGL_DEBUG
+#endif // CONFIG_SGL_LOG_LEVEL > SGL_LOG_LEVEL_NONE
