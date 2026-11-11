@@ -374,6 +374,23 @@ void my_touch_scan(void)
 }
 ```
 
+##### Mouse Input
+
+The mouse shares the same input API as the touch: `sgl_event_pos_input()`. Wiring it up is identical to a touch panel — report the current `x, y` while the mouse moves, pass `flag = true` when the left button is pressed and `false` when released. Press/move/release all go through this single call.
+
+```c
+/* Inside the mouse polling or message handler */
+void my_mouse_scan(void)
+{
+    int16_t x, y;
+    bool button = mouse_read_button();          /* true while the left button is down */
+    mouse_read_pos(&x, &y);                     /* read the current position */
+    sgl_event_pos_input(x, y, button);          /* move/press/release all use this one call */
+}
+```
+
+Enabling the on-screen mouse cursor (optional): set `CONFIG_SGL_MOUSE_CURSOR` to `1` in `sgl_config.h`. SGL then draws an arrow cursor at `(x, y)` on every refresh, following the last position reported by `sgl_event_pos_input()` — no extra draw calls are needed. The current cursor position can also be read via `sgl_event_cursor_get()`.
+
 #### Step 5: Main Loop
 
 ```c

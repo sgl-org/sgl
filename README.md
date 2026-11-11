@@ -521,6 +521,31 @@ sgl_event_encoder_input(0, true);
 sgl_event_encoder_input(0, false);
 ```
 
+##### 鼠标输入
+
+鼠标与触摸共用同一个输入接口 `sgl_event_pos_input()`，对接方式与触摸完全一致：移动鼠标时上报当前 `x, y` 坐标，鼠标左键按下时 `flag` 传 `true`，松开时传 `false`。按下/移动/松开都调这一个函数。
+
+```c
+void sgl_event_pos_input(int16_t x, int16_t y, bool flag);
+```
+
+参数说明：
+
+- `x`、`y`：鼠标当前坐标（屏幕坐标系，无需处理旋转，SGL 会按 `CONFIG_SGL_FBDEV_ROTATION` 自动换算）。
+- `flag`：鼠标左键状态。`true` 表示按下，`false` 表示释放（松开或仅移动）。
+
+```c
+/* 鼠标轮询或消息处理函数中 */
+void my_mouse_scan(void)
+{
+    int16_t x, y;
+    bool button = mouse_read_button();          /* 左键按下为 true */
+    mouse_read_pos(&x, &y);                     /* 读取当前坐标 */
+    sgl_event_pos_input(x, y, button);          /* 移动/按下/松开 都调这一个函数 */
+}
+```
+
+启用鼠标光标显示（可选）：将 `sgl_config.h` 中 `CONFIG_SGL_MOUSE_CURSOR` 置 `1`，SGL 会在每次重绘时自动在 `(x, y)` 处绘制一个箭头光标，光标位置跟随最近一次 `sgl_event_pos_input()` 上报的坐标，无需额外调用绘制接口。也可以通过 `sgl_event_cursor_get()` 读取当前光标位置。
 
 ### 移植常见问题
 

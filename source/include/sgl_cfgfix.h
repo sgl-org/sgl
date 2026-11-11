@@ -100,14 +100,6 @@ extern "C" {
 #define CONFIG_SGL_MONITOR_TRACE                                   (0)  /* Monitor debug trace */
 #endif
 
-#ifndef CONFIG_SGL_MONITOR_COORDS_WIDTH
-#define CONFIG_SGL_MONITOR_COORDS_WIDTH                            (81)  /* Monitor width */
-#endif
-
-#ifndef CONFIG_SGL_MONITOR_COORDS_HEIGHT
-#define CONFIG_SGL_MONITOR_COORDS_HEIGHT                           (30)  /* Monitor height */
-#endif
-
 #ifndef CONFIG_SGL_MONITOR_BG_COLOR
 #define CONFIG_SGL_MONITOR_BG_COLOR                                (SGL_COLOR_BLACK)  /* Monitor background */
 #endif
