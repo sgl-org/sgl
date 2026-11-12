@@ -452,7 +452,6 @@ void event_cursor_update(int pos_x, int pos_y)
         .y2 = sgl_max(curr_pos.y + SGL_EVENT_CURSOR_HEIGHT - 1, pos_y + SGL_EVENT_CURSOR_HEIGHT - 1),
     };
     sgl_obj_update_area(&area);
-    curr_pos.x = pos_x, curr_pos.y = pos_y;
 }
 
 /**
@@ -612,6 +611,7 @@ void sgl_event_pos_input(int16_t x, int16_t y, bool flag)
             SGL_LOG_INFO("Touch RELEASED: pos: %d, %d", curr_pos.x, curr_pos.y);
         }
     }
+    curr_pos.x = pos_x, curr_pos.y = pos_y;
 }
 
 /**
