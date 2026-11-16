@@ -2253,25 +2253,24 @@ static int fatfs_rename(void *fs, const char *old_path, const char *new_path)
     fat_write_dir_entry(ctx, old_sec, old_off, &entry);
     /* wipe the old name's LFN slots (same 8.3 checksum) so the old long
      * name is gone too */
-    {
-        uint8_t target[11];
-        memcpy(target, entry.name, 11);
-        uint8_t sum = fat_lfn_checksum(target);
-        fat_dir_entry_t e2;
-        for (uint32_t i = 0; ; i++) {
-            int r2 = fat_read_dir_entry(ctx, old_parent, i, &e2, NULL, NULL);
-            if (r2 != FAT_OK) break;
-            if (e2.name[0] == FAT_ENTRY_END) break;
-            if (!FAT_IS_LFN(e2.attr)) continue;
-            const uint8_t *raw2 = (const uint8_t *)&e2;
-            if (raw2[13] == sum) {
-                fat_dir_entry_t clear;
-                memset(&clear, 0, sizeof(clear));
-                clear.name[0] = FAT_ENTRY_FREE;
-                uint32_t s2; uint16_t o2;
-                if (fat_read_dir_entry(ctx, old_parent, i, &e2, &s2, &o2) == FAT_OK) {
-                    fat_write_dir_entry(ctx, s2, o2, &clear);
-                }
+    uint8_t target[11];
+    memcpy(target, entry.name, 11);
+    uint8_t sum = fat_lfn_checksum(target);
+    fat_dir_entry_t e2;
+
+    for (uint32_t i = 0; ; i++) {
+        int r2 = fat_read_dir_entry(ctx, old_parent, i, &e2, NULL, NULL);
+        if (r2 != FAT_OK) break;
+        if (e2.name[0] == FAT_ENTRY_END) break;
+        if (!FAT_IS_LFN(e2.attr)) continue;
+        const uint8_t *raw2 = (const uint8_t *)&e2;
+        if (raw2[13] == sum) {
+            fat_dir_entry_t clear;
+            memset(&clear, 0, sizeof(clear));
+            clear.name[0] = FAT_ENTRY_FREE;
+            uint32_t s2; uint16_t o2;
+            if (fat_read_dir_entry(ctx, old_parent, i, &e2, &s2, &o2) == FAT_OK) {
+                fat_write_dir_entry(ctx, s2, o2, &clear);
             }
         }
     }
