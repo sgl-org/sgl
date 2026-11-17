@@ -43,6 +43,7 @@ typedef struct {
     uint8_t solid;                  /* alpha == SGL_ALPHA_MAX: hoisted branch */
     uint8_t ring;                   /* 1 = border ring only, keep the interior */
     uint8_t bw;                     /* ring: border width */
+    const sgl_color_t *inner_fill;
     int hx1, hx2, hy1, hy2;         /* ring: inner hole rectangle */
 } rect_paint_t;
 
@@ -111,6 +112,17 @@ static void rect_band(sgl_color_t *d, int x0, int y, int n, const rect_paint_t *
     int dy2 = sgl_pow2(y - a->cy);
     int lim = band ? (a->hole_lim - 1) : a->edge_lim;
     int fix = band ? a->fix_in : a->fix_out;
+
+    if (band && p->inner_fill != NULL) {
+        const sgl_color_t inner_fill = *p->inner_fill;
+        for (; n > 0; n--, d++, x0++) {
+            int real_r2 = sgl_pow2(x0 - a->cx) + dy2;
+            int diff = real_r2 - lim;
+            uint8_t cov = (uint8_t)((diff < 1 ? 1 : diff) * fix >> SGL_FIXED_SHIFT);
+            *d = sgl_color_mixer(rect_src(x0, y, p), inner_fill, cov);
+        }
+        return;
+    }
 
     for (; n > 0; n--, d++, x0++) {
         int real_r2 = sgl_pow2(x0 - a->cx) + dy2;
@@ -443,6 +455,7 @@ static void rect_paint_init(rect_paint_t *p, const sgl_area_t *rect, sgl_color_t
     p->solid = (alpha == SGL_ALPHA_MAX);
     p->ring = 0;
     p->bw = 0;
+    p->inner_fill = NULL;
     p->hx1 = p->hy1 = 0;
     p->hx2 = p->hy2 = -1;
 }
@@ -512,8 +525,9 @@ void sgl_draw_fill_rich_rect(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rec
  * @param border_alpha alpha of border
  * @return none
  */
-void sgl_draw_fill_rect_border(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, int16_t radius,
-                               sgl_color_t border_color, uint8_t border_width, uint8_t border_alpha)
+static void rect_draw_fill_border(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, int16_t radius,
+                                  sgl_color_t border_color, uint8_t border_width, uint8_t border_alpha,
+                                  const sgl_color_t *inner_fill)
 {
     sgl_area_t clip = SGL_AREA_INVALID;
     rect_paint_t p;
@@ -525,6 +539,7 @@ void sgl_draw_fill_rect_border(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *r
     rect_paint_init(&p, rect, border_color, border_alpha);
     p.ring = 1;
     p.bw = border_width;
+    p.inner_fill = inner_fill;
     p.hx1 = rect->x1 + border_width;
     p.hx2 = rect->x2 - border_width;
     p.hy1 = rect->y1 + border_width;
@@ -532,6 +547,12 @@ void sgl_draw_fill_rect_border(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *r
 
     if (radius <= 0) { rect_axis(surf, &clip, &p); return; }
     rect_run(surf, &clip, rect, radius, radius, radius, radius, &p);
+}
+
+void sgl_draw_fill_rect_border(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, int16_t radius,
+                               sgl_color_t border_color, uint8_t border_width, uint8_t border_alpha)
+{
+    rect_draw_fill_border(surf, area, rect, radius, border_color, border_width, border_alpha, NULL);
 }
 
 /**
@@ -739,6 +760,9 @@ void sgl_draw_rect(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, sgl_dra
     }
 
     if (desc->border && (!desc->border_mask)) {
-        sgl_draw_fill_rect_border(surf, area, rect, desc->radius, desc->border_color, desc->border, desc->border_alpha);
+        rect_draw_fill_border(surf, area, rect, desc->radius, desc->border_color,
+                              desc->border, desc->border_alpha,
+                              (desc->pixmap == NULL && desc->alpha == SGL_ALPHA_MAX &&
+                               desc->border_alpha == SGL_ALPHA_MAX) ? &desc->color : NULL);
     }
 }
