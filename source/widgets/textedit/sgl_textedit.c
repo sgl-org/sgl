@@ -360,8 +360,6 @@ sgl_obj_t* sgl_textedit_create(sgl_obj_t* parent)
     sgl_obj_init(&textedit->obj, parent);
     obj->construct_fn = sgl_textedit_construct_cb;
     sgl_obj_set_border_width(obj, SGL_TEXTEDIT_BORDER_WIDTH);
-    obj->focus = 1;
-
     sgl_obj_set_clickable(obj);
     sgl_obj_set_movable(obj);
 
