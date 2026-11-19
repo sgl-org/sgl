@@ -72,6 +72,12 @@ static void keyboard_key_cb(sgl_obj_t *keyboard_obj, uint8_t key, void *user_dat
             g_active_textedit = NULL;
         }
         break;
+    case KEYBOARD_KEY_TO_LEFT:
+        sgl_textedit_cursor_left(g_active_textedit);
+        break;
+    case KEYBOARD_KEY_TO_RIGHT:
+        sgl_textedit_cursor_right(g_active_textedit);
+        break;
     default:
         sgl_textedit_insert_char(g_active_textedit, (char)key);
         break;

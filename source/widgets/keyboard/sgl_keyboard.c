@@ -53,21 +53,16 @@
 
 
 #define  KEYBOARD_KEY_INVALID                     (-1)
-#define  KEYBOARD_KEY_TO_UPPER                    (255)
-#define  KEYBOARD_KEY_TO_LOWER                    (254)
-#define  KEYBOARD_KEY_TO_SPEC                     (253)
-#define  KEYBOARD_KEY_TO_CLOSE                    (252)
-
 #define  KEYBOARD_KEY_MODE(x)                     ((x) >> 1)
 
-#define  KEYBOARD_KEY_BACKSPACE                   (11)
+/* button index of the special buttons, only for icon lookup */
 #define  KEYBOARD_KEY_NUMBER_BACKSPACE            (10)
-#define  KEYBOARD_KEY_SPACE                       (37)
+#define  KEYBOARD_KEY_BACKSPACE                   (11)
 #define  KEYBOARD_KEY_NEWLINE                     (22)
-#define  KEYBOARD_KEY_ENTER                       (39)
 #define  KEYBOARD_KEY_CLOSE                       (35)
 #define  KEYBOARD_KEY_LEFT                        (36)
 #define  KEYBOARD_KEY_RIGHT                       (38)
+#define  KEYBOARD_KEY_ENTER                       (39)
 
 
 static const uint8_t font_bitmap[] = {
@@ -171,19 +166,19 @@ static const char keyboard_key_ascii[KEYBOARD_KEYMODE_MAX][KEYBOARD_BTN_NUM] = {
         KEYBOARD_KEY_TO_SPEC, 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '\b',
         KEYBOARD_KEY_TO_LOWER, 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', '\n',
         '_', '-', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '.', ',', ':',
-        KEYBOARD_KEY_TO_CLOSE, KEYBOARD_KEY_LEFT, ' ', KEYBOARD_KEY_RIGHT, '\r'
+        KEYBOARD_KEY_TO_CLOSE, KEYBOARD_KEY_TO_LEFT, ' ', KEYBOARD_KEY_TO_RIGHT, '\r'
     },
     {
         KEYBOARD_KEY_TO_SPEC, 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '\b',
         KEYBOARD_KEY_TO_UPPER, 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', '\n',
         '_', '-', 'z', 'x', 'c', 'v', 'b', 'n', 'm', '.', ',', ':',
-        KEYBOARD_KEY_TO_CLOSE, KEYBOARD_KEY_LEFT, ' ', KEYBOARD_KEY_RIGHT, '\r'
+        KEYBOARD_KEY_TO_CLOSE, KEYBOARD_KEY_TO_LEFT, ' ', KEYBOARD_KEY_TO_RIGHT, '\r'
     },
     {
         '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\b',
         KEYBOARD_KEY_TO_LOWER, '+', '-', '/', '*', '=', '%', '!', '?', '#', '<', '>',
         '\\', '@', '$', '(', ')', '{', '}', '[', ']', ';', '\"', '\'',
-        KEYBOARD_KEY_TO_CLOSE, KEYBOARD_KEY_LEFT, ' ', KEYBOARD_KEY_RIGHT, '\r'
+        KEYBOARD_KEY_TO_CLOSE, KEYBOARD_KEY_TO_LEFT, ' ', KEYBOARD_KEY_TO_RIGHT, '\r'
     },
 };
 
@@ -471,6 +466,13 @@ static void sgl_keyboard_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
         else if(key_ascii == KEYBOARD_KEY_TO_CLOSE) {
             sgl_obj_set_destroyed(obj);
             return;
+        }
+        else if(key_ascii == KEYBOARD_KEY_TO_LEFT || key_ascii == KEYBOARD_KEY_TO_RIGHT) {
+            /* cursor moving keys: hand over to external widget via callback,
+             * the internal edit buffer has no cursor, so drop them here */
+            if (keyboard->key_cb) {
+                keyboard->key_cb(obj, key_ascii, keyboard->key_cb_data);
+            }
         }
         else {
             keyboard->opcode = key_ascii;

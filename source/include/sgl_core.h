@@ -332,6 +332,7 @@ typedef struct sgl_pixmap {
  * @width: pixmap width
  * @height: pixmap height
  * @bitmap: point to icon bitmap
+ * @note: pixmap format is only 8bpp (1Byte per pixel)
  */
 typedef struct sgl_icon_pixmap {
     uint16_t       width;
@@ -403,7 +404,7 @@ typedef int32_t (*sgl_flash_font_read_fn)(uint32_t addr, void *buf, uint32_t len
 * @unicode: point to struct sgl_font_unicode struct
 * @unicode_num: number of unicode parts
 * @base_line: base line of font
-* @bpp: The anti aliasing level of the font, only support 2, 4
+* @bpp: The anti aliasing level of the font, only support 1, 2, 4
 * @format: format of font bitmap, SGL_FONT_FMT_NORMAL, SGL_FONT_FMT_COMPRESSED,
 *          SGL_FONT_FMT_EXT_FLASH.
 *          SGL_FONT_FMT_EXT_FLASH: bitmap lives in external flash, offset of each

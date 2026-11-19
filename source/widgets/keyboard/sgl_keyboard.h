@@ -45,6 +45,17 @@ extern "C" {
 #define  SGL_KEYBOARD_RADIUS           0
 
 /**
+ * special key codes reported through sgl_keyboard_get_opcode() and the key
+ * callback, they must not collide with printable character codes
+ */
+#define  KEYBOARD_KEY_TO_UPPER                    (255)
+#define  KEYBOARD_KEY_TO_LOWER                    (254)
+#define  KEYBOARD_KEY_TO_SPEC                     (253)
+#define  KEYBOARD_KEY_TO_CLOSE                    (252)
+#define  KEYBOARD_KEY_TO_LEFT                     (251)
+#define  KEYBOARD_KEY_TO_RIGHT                    (250)
+
+/**
  * @brief sgl keyboard struct
  * @obj: sgl general object
  * @body_desc: pointer to sgl_draw_rect_t descriptor
@@ -244,7 +255,8 @@ void sgl_keyboard_set_textarea(sgl_obj_t *obj, char *buffer, int buf_max_len);
  * @note when callback is set, keyboard will NOT modify the edit buffer directly,
  *       instead it calls the callback with the pressed key code.
  *       The callback should handle the key (e.g. insert into textedit).
- *       Special key codes: '\b' = backspace, '\n' = newline, '\r' = enter/confirm
+ *       Special key codes: '\b' = backspace, '\n' = newline, '\r' = enter/confirm,
+ *       KEYBOARD_KEY_TO_LEFT = move cursor left, KEYBOARD_KEY_TO_RIGHT = move cursor right
  */
 void sgl_keyboard_set_key_callback(sgl_obj_t *obj, void (*cb)(sgl_obj_t *keyboard_obj, uint8_t key, void *user_data), void *user_data);
 
