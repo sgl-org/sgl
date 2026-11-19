@@ -70,43 +70,106 @@ static inline int32_t sgl_clock_cos01(int32_t deg01)
     return sgl_clock_sin01(deg01 + 900);
 }
 
-static void analogclock_update_area(sgl_analogclock_t *clock)
+/* Geometry shared by the construct callback and the per-hand dirty-rect
+ * computation below (keep in sync with sgl_analogclock_construct_cb). */
+typedef struct {
+    int16_t  cx, cy;
+    int32_t  bias_x, bias_y;
+    int16_t  inner_r;
+    int16_t  s_len_2;           /* hand counterweight tail length */
+    int16_t  hub_r;             /* effective hub radius, sgl_max(5, hub_r) */
+} analogclock_geom_t;
+
+static void analogclock_get_geom(const sgl_analogclock_t *clock, analogclock_geom_t *g)
 {
-    const int16_t cx = (clock->obj.coords.x1 + clock->obj.coords.x2) / 2;
-    const int16_t cy = (clock->obj.coords.y1 + clock->obj.coords.y2) / 2;
-    const int16_t half = sgl_obj_get_width(&clock->obj) / 2 - 1;
+    const int16_t half = sgl_obj_get_width((sgl_obj_t *)&clock->obj) / 2 - 1;
     const int16_t r = (clock->obj.radius == 0 || clock->obj.radius > half) ? half : (int16_t)clock->obj.radius;
 
-    const int16_t border_w = sgl_min(clock->obj.border, r);
-    const int16_t inner_r = r - border_w;
-    if (inner_r <= 0) return;
+    g->cx = (clock->obj.coords.x1 + clock->obj.coords.x2) / 2;
+    g->cy = (clock->obj.coords.y1 + clock->obj.coords.y2) / 2;
+    g->bias_x = ((clock->obj.coords.x2 - clock->obj.coords.x1) & 1) ? (SGL_SIN_FIXED_ONE / 2) : 0;
+    g->bias_y = ((clock->obj.coords.y2 - clock->obj.coords.y1) & 1) ? (SGL_SIN_FIXED_ONE / 2) : 0;
+    g->inner_r = r - sgl_min(clock->obj.border, r);
+    g->s_len_2 = (g->inner_r * 39) >> 8;
+    g->hub_r = sgl_max(5, clock->hub_r);
+}
 
-    sgl_area_t total_area = {0};
-    sgl_area_t tmp_area;
-    bool first = true;
+/* Bounding box of one hand drawn at `angle` (0.1 deg units): the segment from
+ * `tail_r` to `tip_r` grown by the SDF line renderer pad (thickness + 1) plus
+ * the center hub box, which is repainted above the hand root every frame. */
+static void analogclock_hand_area(const analogclock_geom_t *g, int32_t angle,
+                                  int16_t tip_r, int16_t tail_r, int16_t thickness, sgl_area_t *area)
+{
+    const int32_t n_sin = sgl_clock_sin01(angle);
+    const int32_t n_cos = sgl_clock_cos01(angle);
+    const int16_t tip_x  = SGL_CLOCK_PX(tip_r,  n_cos, g->cx, g->bias_x);
+    const int16_t tip_y  = SGL_CLOCK_PY(tip_r,  n_sin, g->cy, g->bias_y);
+    const int16_t tail_x = SGL_CLOCK_PX(tail_r, n_cos, g->cx, g->bias_x);
+    const int16_t tail_y = SGL_CLOCK_PY(tail_r, n_sin, g->cy, g->bias_y);
+    const int16_t pad = thickness + 1;
+    sgl_area_t hub = {
+        g->cx - g->hub_r - 2, g->cy - g->hub_r - 2,
+        g->cx + g->hub_r + 2, g->cy + g->hub_r + 2,
+    };
 
-    #define CALC_MAX_NEEDLE_AREA_INT(len_ratio_permille, width) do { \
-        int16_t ptr_len = (int16_t)((int32_t)inner_r * (len_ratio_permille) / 1000); \
-        int16_t expand = (int16_t)(((int32_t)(width) * 3) / 2); \
-        int16_t rad = ptr_len + expand; \
-        tmp_area.x1 = cx - rad; \
-        tmp_area.x2 = cx + rad; \
-        tmp_area.y1 = cy - rad; \
-        tmp_area.y2 = cy + rad; \
-        if (first) { total_area = tmp_area; first = false; } \
-        else { sgl_area_selfmerge(&total_area, &tmp_area); } \
-    } while(0)
+    area->x1 = sgl_min(tip_x, tail_x) - pad;
+    area->x2 = sgl_max(tip_x, tail_x) + pad;
+    area->y1 = sgl_min(tip_y, tail_y) - pad;
+    area->y2 = sgl_max(tip_y, tail_y) + pad;
+    sgl_area_selfmerge(area, &hub);
+}
 
-    CALC_MAX_NEEDLE_AREA_INT(500, clock->hour_ptr_width);
-    CALC_MAX_NEEDLE_AREA_INT(700, clock->min_ptr_width);
-    CALC_MAX_NEEDLE_AREA_INT(850, clock->sec_ptr_width);
+/* Push one dirty rect covering the union of the hand's old and new position,
+ * so a single redraw restores the face under the old hand and paints the new
+ * one.  Hands whose angle did not change push nothing. */
+static void analogclock_update_hand(sgl_analogclock_t *clock, const analogclock_geom_t *g,
+                                    int32_t old_angle, int32_t new_angle,
+                                    int16_t tip_r, int16_t tail_r, int16_t thickness)
+{
+    sgl_area_t area, tmp;
 
-    #undef CALC_MAX_NEEDLE_AREA_INT
-
-    if (!first) {
-        sgl_area_selfclip(&total_area, &clock->obj.area);
-        sgl_update_area(&total_area);
+    if (old_angle == new_angle) {
+        return;
     }
+
+    analogclock_hand_area(g, old_angle, tip_r, tail_r, thickness, &area);
+    analogclock_hand_area(g, new_angle, tip_r, tail_r, thickness, &tmp);
+    sgl_area_selfmerge(&area, &tmp);
+
+    if (!sgl_area_selfclip(&area, &clock->obj.area)) {
+        return;
+    }
+    sgl_update_area(&area);
+}
+
+static void analogclock_update_area(sgl_analogclock_t *clock,
+                                    uint8_t old_hour, uint8_t old_min, uint8_t old_sec)
+{
+    analogclock_geom_t g;
+    int32_t h_angle, m_angle, s_angle;
+
+    analogclock_get_geom(clock, &g);
+    if (g.inner_r <= 0) return;
+
+    /* same angle formulas as the construct callback */
+    h_angle = ((int32_t)(clock->hour % 12) * 300) + ((int32_t)clock->min * 5)
+            + ((int32_t)clock->sec / 12) - 900;
+    m_angle = ((int32_t)clock->min * 60) + (int32_t)clock->sec - 900;
+    s_angle = ((int32_t)clock->sec * 60) - 900;
+
+    analogclock_update_hand(clock, &g,
+                            ((int32_t)(old_hour % 12) * 300) + ((int32_t)old_min * 5)
+                            + ((int32_t)old_sec / 12) - 900,
+                            h_angle, g.inner_r / 2, g.s_len_2,
+                            sgl_max(clock->hour_ptr_width, clock->sec_ptr_width));
+    analogclock_update_hand(clock, &g,
+                            ((int32_t)old_min * 60) + (int32_t)old_sec - 900,
+                            m_angle, (g.inner_r * 160) >> 8, g.s_len_2,
+                            sgl_max(clock->min_ptr_width, clock->sec_ptr_width));
+    analogclock_update_hand(clock, &g,
+                            ((int32_t)old_sec * 60) - 900,
+                            s_angle, (g.inner_r * 217) >> 8, -g.s_len_2,
+                            clock->sec_ptr_width);
 }
 
 static void sgl_analogclock_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *evt)
@@ -307,10 +370,13 @@ void sgl_analogclock_set_time(sgl_obj_t *obj, uint8_t hour, uint8_t min, uint8_t
     sec = sec > 59 ? 59 : sec;
 
     if (clock->hour != hour || clock->min != min || clock->sec != sec) {
+        uint8_t old_hour = clock->hour;
+        uint8_t old_min = clock->min;
+        uint8_t old_sec = clock->sec;
         clock->hour = hour;
         clock->min = min;
         clock->sec = sec;
-        analogclock_update_area(clock);
+        analogclock_update_area(clock, old_hour, old_min, old_sec);
     }
 }
 
