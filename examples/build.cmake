@@ -65,6 +65,7 @@ set(SGL_EXAMPLE_SOURCE
     ${SGL_EXAMPLE_DIR}/coverflow.c          # sgl_coverflow_examples
     ${SGL_EXAMPLE_DIR}/dropdown.c           # sgl_dropdown_examples
     ${SGL_EXAMPLE_DIR}/img_ext.c            # sgl_img_ext_examples
+    ${SGL_EXAMPLE_DIR}/icon_test.c          # sgl_icon_test_examples
     ${SGL_EXAMPLE_DIR}/label.c              # sgl_label_examples
     ${SGL_EXAMPLE_DIR}/label_ext.c          # sgl_label_ext_examples
     ${SGL_EXAMPLE_DIR}/launcher.c           # sgl_launcher_examples
@@ -92,6 +93,7 @@ set(SGL_EXAMPLE_SOURCE
     ${SGL_EXAMPLE_DIR}/viewlist.c           # sgl_viewlist_examples
 
     # ---- composite widgets ------------------------------------------------
+    ${SGL_EXAMPLE_DIR}/explorer.c             # sgl_explorer_examples
     ${SGL_EXAMPLE_DIR}/filebrowser.c        # sgl_filebrowser_examples
     ${SGL_EXAMPLE_DIR}/filedialog.c         # sgl_filedialog_examples
     ${SGL_EXAMPLE_DIR}/qrcode.c             # sgl_qrcode_examples

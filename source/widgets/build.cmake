@@ -71,6 +71,7 @@ set(SGL_SOURCE
     ${CMAKE_CURRENT_LIST_DIR}/gauge/sgl_gauge.c
     ${CMAKE_CURRENT_LIST_DIR}/sprite/sgl_sprite.c
     ${CMAKE_CURRENT_LIST_DIR}/filebrowser/sgl_filebrowser.c
+    ${CMAKE_CURRENT_LIST_DIR}/explorer/sgl_explorer.c
     ${CMAKE_CURRENT_LIST_DIR}/menu/sgl_menu.c
     ${CMAKE_CURRENT_LIST_DIR}/coverflow/sgl_coverflow.c
     ${CMAKE_CURRENT_LIST_DIR}/calendar/sgl_calendar.c

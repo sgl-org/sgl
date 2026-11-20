@@ -151,14 +151,14 @@ static void sgl_numberkbd_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_eve
                         sgl_draw_rect(surf, &btn, &btn, &numberkbd->btn_desc);
                         text_x = btn.x1 + ((box_w -  backspace_icon.width) / 2);
                         text_y = btn.y1 + ((box_h - backspace_icon.height + 1) / 2);
-                        sgl_draw_icon(surf, &btn, text_x, text_y, numberkbd->text_color, numberkbd->btn_desc.alpha, &backspace_icon);
+                        sgl_draw_icon(surf, &btn, text_x, text_y, numberkbd->btn_desc.alpha, &backspace_icon);
                     }
                     else if (btn_row == 3) {
                         btn.y2 += (numberkbd->margin + box_h);
                         sgl_draw_rect(surf, &btn, &btn, &numberkbd->btn_desc);
                         text_x = btn.x1 + ((box_w -  enter_icon.width) / 2);
                         text_y = btn.y1 + ((2 * box_h - enter_icon.height) / 2);
-                        sgl_draw_icon(surf, &btn, text_x, text_y, numberkbd->text_color, numberkbd->btn_desc.alpha, &enter_icon);
+                        sgl_draw_icon(surf, &btn, text_x, text_y, numberkbd->btn_desc.alpha, &enter_icon);
                     }
                 }
                 else {

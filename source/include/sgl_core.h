@@ -332,7 +332,7 @@ typedef struct sgl_pixmap {
  * @width: pixmap width
  * @height: pixmap height
  * @bitmap: point to icon bitmap
- * @note: pixmap format is only 8bpp (1Byte per pixel)
+ * @note: each pixel is RGB565 (little-endian) followed by an 8-bit alpha value
  */
 typedef struct sgl_icon_pixmap {
     uint16_t       width;
