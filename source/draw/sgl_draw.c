@@ -286,13 +286,7 @@ void sgl_draw_xform_surf(sgl_surf_t *dst, sgl_surf_t *src, sgl_area_t *area, int
  */
 void sgl_draw_icon( sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, uint8_t alpha, const sgl_icon_pixmap_t *icon)
 {
-    const uint8_t *dot;
     sgl_area_t clip = SGL_AREA_MAX;
-    sgl_color_t *buf = NULL;
-    int rel_x, rel_y;
-    uint16_t rgb565;
-    uint8_t alpha_dot;
-
     sgl_area_t icon_rect = {
         .x1 = x,
         .x2 = x + icon->width - 1,
@@ -308,24 +302,21 @@ void sgl_draw_icon( sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, ui
         return;
     }
 
-    buf = sgl_surf_get_buf(surf, clip.x1 - surf->x1, clip.y1 - surf->y1);
-    for (int y = clip.y1; y <= clip.y2; y++) {
-        rel_y = y - icon_rect.y1;
+    const int source_x = clip.x1 - icon_rect.x1;
+    const int source_y = clip.y1 - icon_rect.y1;
+    const size_t source_row_skip = (size_t)(icon->width - (clip.x2 - clip.x1 + 1)) * 3;
+    const uint8_t *dot = icon->bitmap + ((size_t)source_y * icon->width + source_x) * 3;
+    sgl_color_t *blend, *buf = sgl_surf_get_buf(surf, clip.x1 - surf->x1, clip.y1 - surf->y1);
 
-        for (int x = clip.x1; x <= clip.x2; x++) {
-            rel_x = x - icon_rect.x1;
-            dot = icon->bitmap + (((size_t)rel_y * icon->width + rel_x) * 3);
-            rgb565 = (uint16_t)dot[0] | ((uint16_t)dot[1] << 8);
-            alpha_dot = (uint8_t)(((uint16_t)dot[2] * alpha + 127) / SGL_ALPHA_MAX);
-
+    for (int row = clip.y1; row <= clip.y2; ++row, dot += source_row_skip, buf += surf->w) {
+        blend = buf;
+        for (int col = clip.x1; col <= clip.x2; ++col, dot += 3, ++blend) {
+            const uint16_t rgb565 = (uint16_t)dot[0] | ((uint16_t)dot[1] << 8);
+            const uint8_t alpha_dot = (uint8_t)(((uint16_t)dot[2] * alpha + 127) / SGL_ALPHA_MAX);
             if (alpha_dot != 0) {
-                *buf = sgl_color_mixer(sgl_rgb565_to_color(rgb565), *buf, alpha_dot);
+                sgl_color_t color = sgl_color_mixer(sgl_rgb565_to_color(rgb565), *blend, alpha_dot);
+                *blend = color;
             }
-            buf++;
-        }
-
-        if (y < clip.y2) {
-            buf += surf->w - (clip.x2 - clip.x1 + 1);
         }
     }
 }
