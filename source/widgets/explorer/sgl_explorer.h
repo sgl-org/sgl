@@ -68,6 +68,7 @@ extern "C" {
 #endif
 
 typedef struct sgl_explorer_icon {
+    /* Filename suffix, or "*", "..", "dir". Root device rows use "/". */
     const char *pattern;
     const sgl_icon_pixmap_t *icon;
 } sgl_explorer_icon_t;

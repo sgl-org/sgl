@@ -102,13 +102,22 @@ static void sgl_explorer_join_path(char *dst, size_t dst_size,
     out[name_len] = '\0';
 }
 
+static const sgl_icon_pixmap_t *sgl_explorer_root_icon(const sgl_explorer_t *fb)
+{
+    if (fb->icons == NULL) return NULL;
+
+    for (const sgl_explorer_icon_t *e = fb->icons; e->pattern != NULL; ++e) {
+        if (strcmp(e->pattern, "/") == 0 && e->icon != NULL)
+            return e->icon;
+    }
+    return NULL;
+}
+
 static const sgl_icon_pixmap_t *sgl_explorer_match_icon(const sgl_explorer_t *fb, const sgl_explorer_item_t *item)
 {
     if (fb->icons == NULL || item == NULL) return NULL;
-
-    /* The virtual "/" root lists block devices, not files: its rows are plain
-     * device names, so no icon is matched (and none is drawn) for them. */
-    if (sgl_explorer_is_root(fb)) return NULL;
+    if (sgl_explorer_is_root(fb))
+        return sgl_explorer_root_icon(fb);
 
     const sgl_icon_pixmap_t *default_icon = NULL;
     const sgl_icon_pixmap_t *dir_icon     = NULL;
@@ -123,6 +132,7 @@ static const sgl_icon_pixmap_t *sgl_explorer_match_icon(const sgl_explorer_t *fb
         if (p[0] == '*' && p[1] == '\0') { default_icon = ic; continue; }
         if (p[0] == '.' && p[1] == '.' && p[2] == '\0') { parent_icon = ic; continue; }
         if (p[0] == 'd' && p[1] == 'i' && p[2] == 'r' && p[3] == '\0') { dir_icon = ic; continue; }
+        if (strcmp(p, "/") == 0) continue;
 
         size_t plen = strlen(p);
         if (plen == 0 || plen > item_len) continue;
@@ -630,8 +640,11 @@ static void sgl_explorer_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_even
      * clamped to the card body between the row gaps */
     int16_t card_radius = fb->card_radius;
     const int card_hpad = fb->card_hpad;
-    /* no icon column at the "/" root: the device rows have no icons */
-    const int16_t icon_col_w = (fb->icons != NULL && !sgl_explorer_is_root(fb))
+    const bool show_icon_column = fb->icons != NULL &&
+                                  (!sgl_explorer_is_root(fb) ||
+                                   sgl_explorer_root_icon(fb) != NULL);
+    /* Root devices get an icon column only when a "/" icon was configured. */
+    const int16_t icon_col_w = show_icon_column
                                ? (fb->icon_width == 0 ? (int16_t)item_height : (int16_t)fb->icon_width)
                                : (int16_t)0;
     /* row content starts where the card corner arc ends, as in sgl_menu */
