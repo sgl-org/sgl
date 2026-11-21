@@ -26,12 +26,44 @@
 #include <sgl_draw.h>
 #include <sgl_math.h>
 
-/* Pixels per iteration of the span loops: 1 = smallest code, 4..8 = fastest. */
-#ifndef SGL_RECT_UNROLL
+#if CONFIG_SGL_FBDEV_PIXEL_DEPTH == SGL_COLOR_RGB565 && defined(__ARM_ARCH_7EM__) && defined(__GNUC__)
+#define SGL_RECT_RGB565     1
+/* uint32_t view of a pixel pair; may_alias keeps the wide stores legal. */
+typedef uint32_t rect_word_t __attribute__((__may_alias__));
+#else
+#define SGL_RECT_RGB565     0
+#endif
+
+#if CONFIG_SGL_FBDEV_PIXEL_DEPTH == SGL_COLOR_RGB565 && defined(__ARM_ARCH_7EM__)
+#define SGL_RECT_UNROLL 2
+#else
 #define SGL_RECT_UNROLL 4
 #endif
 
-typedef enum { RECT_SOLID = 0, RECT_BLIT, RECT_STEP, RECT_BILN } rect_kind_t;
+typedef enum {
+    RECT_SOLID = 0,
+    RECT_BLIT,
+    RECT_STEP,
+    RECT_BILN
+} rect_kind_t;
+
+static inline bool rect_alpha_solid(uint8_t alpha)
+{
+#if CONFIG_SGL_FBDEV_PIXEL_DEPTH == SGL_COLOR_RGB565
+    return alpha >= 252;
+#else
+    return alpha == SGL_ALPHA_MAX;
+#endif
+}
+
+static inline bool rect_alpha_empty(uint8_t alpha)
+{
+#if CONFIG_SGL_FBDEV_PIXEL_DEPTH == SGL_COLOR_RGB565
+    return alpha < 4;
+#else
+    return alpha == 0;
+#endif
+}
 
 typedef struct {
     sgl_color_t color;              /* solid source colour */
@@ -40,7 +72,7 @@ typedef struct {
     int32_t sx, sy;                 /* pixmap -> rect step, SGL fixed point */
     int16_t rx1, ry1;               /* rect origin: maps screen -> source */
     uint8_t alpha;                  /* global opacity of the source */
-    uint8_t solid;                  /* alpha == SGL_ALPHA_MAX: hoisted branch */
+    bool solid;                     /* effective opacity is fully opaque */
     uint8_t ring;                   /* 1 = border ring only, keep the interior */
     uint8_t bw;                     /* ring: border width */
     const sgl_color_t *inner_fill;
@@ -58,16 +90,80 @@ typedef struct {
     int dx_sol, dx_edge, dx_hole, dx_hole_edge;   /* scanline walk state */
 } rect_arc_t;
 
+static sgl_fn_shared int rect_clip(sgl_surf_t *surf, const sgl_area_t *area, const sgl_area_t *rect, sgl_area_t *clip)
+{
+#if CONFIG_SGL_USE_FBDEV_VRAM
+    const int x1 = surf->dirty->x1, y1 = surf->dirty->y1;
+    const int x2 = surf->dirty->x2, y2 = surf->dirty->y2;
+#else
+    const int x1 = surf->x1, y1 = surf->y1;
+    const int x2 = surf->x2, y2 = surf->y2;
+#endif
+    clip->x1 = sgl_max(x1, sgl_max(area->x1, rect->x1));
+    clip->y1 = sgl_max(y1, sgl_max(area->y1, rect->y1));
+    clip->x2 = sgl_min(x2, sgl_min(area->x2, rect->x2));
+    clip->y2 = sgl_min(y2, sgl_min(area->y2, rect->y2));
+    return clip->x1 <= clip->x2 && clip->y1 <= clip->y2;
+}
+
 static inline void sgl_rect_span_set(sgl_color_t *d, int n, sgl_color_t c)
 {
+#if SGL_RECT_RGB565
+    /* Peel an odd halfword address: every wide store remains word-aligned. */
+    if (n > 0 && ((uintptr_t)d & 3u)) {
+        *d++ = c;
+        --n;
+    }
+    const uint32_t pair = (uint32_t)c.full | ((uint32_t)c.full << 16);
+    rect_word_t *words = (rect_word_t *)(void *)d;
+    for (; n >= 4; n -= 4) {                     /* two aligned words per pass */
+        words[0] = pair;
+        words[1] = pair;
+        words += 2;
+    }
+    for (; n >= 2; n -= 2) *words++ = pair;
+    d = (sgl_color_t *)(void *)words;
+    if (n > 0) *d = c;
+#else
     for (; n >= SGL_RECT_UNROLL; n -= SGL_RECT_UNROLL, d += SGL_RECT_UNROLL) {
         int k;
         for (k = 0; k < SGL_RECT_UNROLL; k++) d[k] = c;
     }
     for (; n > 0; n--, d++) *d = c;
+#endif
 }
 
-static inline void sgl_rect_span_blend(sgl_color_t *d, int n, sgl_color_t c, uint8_t a)
+static inline void sgl_rect_span_copy(sgl_color_t *d, const sgl_color_t *s, int n)
+{
+#if SGL_RECT_RGB565
+    uintptr_t dst = (uintptr_t)d, src = (uintptr_t)s;
+    uintptr_t bytes = (uintptr_t)n * sizeof(*d);
+    if (n >= 8 && !((dst ^ src) & 3u) && (dst + bytes <= src || src + bytes <= dst)) {
+        if (dst & 3u) {
+            *d++ = *s++;
+            --n;
+        }
+        rect_word_t *restrict words = (rect_word_t *)(void *)d;
+        const rect_word_t *restrict source = (const rect_word_t *)(const void *)s;
+        for (; n >= 4; n -= 4) {                 /* two aligned words per pass */
+            words[0] = source[0];
+            words[1] = source[1];
+            words += 2;
+            source += 2;
+        }
+        for (; n >= 2; n -= 2) *words++ = *source++;
+        s = (const sgl_color_t *)(const void *)source;
+        if (n) *(sgl_color_t *)(void *)words = *s;
+        return;
+    }
+#endif
+    for (; n >= SGL_RECT_UNROLL; n -= SGL_RECT_UNROLL, d += SGL_RECT_UNROLL, s += SGL_RECT_UNROLL) {
+        for (int k = 0; k < SGL_RECT_UNROLL; ++k) d[k] = s[k];
+    }
+    for (; n > 0; n--, d++, s++) *d = *s;
+}
+
+static sgl_fn_novec void sgl_rect_span_blend(sgl_color_t *d, int n, sgl_color_t c, uint8_t a)
 {
     for (; n >= SGL_RECT_UNROLL; n -= SGL_RECT_UNROLL, d += SGL_RECT_UNROLL) {
         int k;
@@ -76,22 +172,19 @@ static inline void sgl_rect_span_blend(sgl_color_t *d, int n, sgl_color_t c, uin
     for (; n > 0; n--, d++) *d = sgl_color_mixer(c, *d, a);
 }
 
-static inline int rect_dx_max(int lim, int dy2)
-{
-    int v = lim - dy2 - 1;
-    return v < 0 ? -1 : (int)sgl_sqrt((uint32_t)v);
-}
-
 static inline sgl_color_t rect_src(int x, int y, const rect_paint_t *p)
 {
     switch (p->kind) {
     case RECT_BLIT: return *sgl_pixmap_get_buf(p->px, x - p->rx1, y - p->ry1);
+#if !CONFIG_SGL_PIXMAP_BILINEAR_INTERP
     case RECT_STEP: return *sgl_pixmap_get_buf(p->px,
                             (p->sx * (x - p->rx1)) >> SGL_FIXED_SHIFT,
                             (p->sy * (y - p->ry1)) >> SGL_FIXED_SHIFT);
+#else
     case RECT_BILN: return sgl_draw_biln_color((sgl_color_t *)p->px->bitmap.array,
                             p->px->width, p->px->height,
                             p->sx * (x - p->rx1), p->sy * (y - p->ry1));
+#endif
     default:        return p->color;
     }
 }
@@ -132,48 +225,54 @@ static void rect_band(sgl_color_t *d, int x0, int y, int n, const rect_paint_t *
     }
 }
 
-/* Paint `n` fully covered pixels starting at screen x `x0`.  The source
- * selection is hoisted out of the pixel loop, so the inner loops are pure
- * store / copy / blend streams that the compiler can vectorise. */
 static void rect_span(sgl_color_t *d, int x0, int y, int n, const rect_paint_t *p)
 {
     switch (p->kind) {
     case RECT_BLIT: {                             /* 1:1 pixmap: copy / blend */
         sgl_color_t *s = sgl_pixmap_get_buf(p->px, x0 - p->rx1, y - p->ry1);
         if (p->solid) {
-            for (; n >= SGL_RECT_UNROLL; n -= SGL_RECT_UNROLL, d += SGL_RECT_UNROLL, s += SGL_RECT_UNROLL) {
-                int k;
-                for (k = 0; k < SGL_RECT_UNROLL; k++) d[k] = s[k];
-            }
-            for (; n > 0; n--, d++, s++) *d = *s;
+            sgl_rect_span_copy(d, s, n);
         }
         else {
             for (; n > 0; n--, d++, s++) *d = sgl_color_mixer(*s, *d, p->alpha);
         }
         return;
     }
+#if !CONFIG_SGL_PIXMAP_BILINEAR_INTERP
     case RECT_STEP: {                             /* nearest neighbour resample */
         uint32_t w = p->px->width;
         sgl_color_t *row = (sgl_color_t *)p->px->bitmap.array +
                            (uint32_t)((p->sy * (y - p->ry1)) >> SGL_FIXED_SHIFT) * w;
         int32_t acc = p->sx * (x0 - p->rx1);       /* no multiply per pixel any more */
-        for (; n > 0; n--, d++, acc += p->sx) {
-            sgl_color_t c = row[acc >> SGL_FIXED_SHIFT];
-            *d = p->solid ? c : sgl_color_mixer(c, *d, p->alpha);
+        if (p->solid) {
+            for (; n > 0; n--, d++, acc += p->sx)
+                *d = row[acc >> SGL_FIXED_SHIFT];
+        }
+        else {
+            for (; n > 0; n--, d++, acc += p->sx)
+                *d = sgl_color_mixer(row[acc >> SGL_FIXED_SHIFT], *d, p->alpha);
         }
         return;
     }
+#else
     case RECT_BILN: {                             /* bilinear resample */
         sgl_color_t *base = (sgl_color_t *)p->px->bitmap.array;
         uint32_t w = p->px->width, h = p->px->height;
         int32_t fy = p->sy * (y - p->ry1);
         int32_t fx = p->sx * (x0 - p->rx1);
-        for (; n > 0; n--, d++, fx += p->sx) {
-            sgl_color_t c = sgl_draw_biln_color(base, w, h, fx, fy);
-            *d = p->solid ? c : sgl_color_mixer(c, *d, p->alpha);
+        if (p->solid) {
+            for (; n > 0; n--, d++, fx += p->sx)
+                *d = sgl_draw_biln_color(base, w, h, fx, fy);
+        }
+        else {
+            for (; n > 0; n--, d++, fx += p->sx) {
+                sgl_color_t c = sgl_draw_biln_color(base, w, h, fx, fy);
+                *d = sgl_color_mixer(c, *d, p->alpha);
+            }
         }
         return;
     }
+#endif
     default: break;
     }
 
@@ -187,13 +286,19 @@ static void rect_span(sgl_color_t *d, int x0, int y, int n, const rect_paint_t *
 /* Source selection of a solid colour fill, hoisted out of the row loop: see
  * rect_axis().  Same two streams as the RECT_SOLID arm of rect_span(), just
  * without the call and the switch on every single scanline. */
-static void rect_axis_solid(sgl_surf_t *surf, const sgl_area_t *clip, sgl_color_t c,
-                            uint8_t alpha, int solid)
+static sgl_fn_shared void rect_axis_solid(sgl_surf_t *surf, const sgl_area_t *clip, sgl_color_t c, uint8_t alpha, int solid)
 {
     const int stride = (int)surf->w;
     const int n = clip->x2 - clip->x1 + 1;
     sgl_color_t *row = sgl_surf_get_buf(surf, clip->x1 - surf->x1, clip->y1 - surf->y1);
     int y;
+
+    if (n == stride) {
+        int pixels = n * (clip->y2 - clip->y1 + 1);
+        if (solid) sgl_rect_span_set(row, pixels, c);
+        else sgl_rect_span_blend(row, pixels, c, alpha);
+        return;
+    }
 
     /* A one pixel wide span is what a column oriented widget produces: walking
      * the span loop for every row would add up to more work than the store. */
@@ -218,7 +323,23 @@ static void rect_axis_solid(sgl_surf_t *surf, const sgl_area_t *clip, sgl_color_
 /* Seed one corner arc.  `in_r` < 0 for a filled rectangle, >= 0 for the border
  * ring (inner radius).  `dir` < 0 for the top arcs (|dy| shrinks while the
  * scanline loop runs), > 0 for the bottom ones. */
-static void arc_init(rect_arc_t *a, int cx, int cy, int r, int in_r, int dir, int ring)
+static sgl_fn_shared void arc_place(rect_arc_t *a, int cx, int cy, int r, int in_r, int dir, int ring)
+{
+    a->cx = cx;
+    a->cy = cy;
+    if (dir < 0) {
+        a->dx_edge = a->dx_sol = a->dx_hole = a->dx_hole_edge = -1;
+    }
+    else {
+        /* At |dy| = 1 these integer roots simplify exactly to r or r - 1. */
+        a->dx_edge = r > 0 ? r : -1;
+        a->dx_sol = r > (ring ? 0 : 1) ? r - 1 : -1;
+        a->dx_hole = ring && in_r > 0 ? in_r - 1 : -1;
+        a->dx_hole_edge = ring && in_r > 0 ? in_r : -1;
+    }
+}
+
+static sgl_fn_shared void arc_init(rect_arc_t *a, int cx, int cy, int r, int in_r, int dir, int ring)
 {
     int r2 = sgl_pow2(r), r2_max = sgl_pow2(r + 1);
 
@@ -238,36 +359,28 @@ static void arc_init(rect_arc_t *a, int cx, int cy, int r, int in_r, int dir, in
         a->hole_lim = a->hole_edge_lim = a->fix_in = 0;
     }
 
-    if (dir < 0) {
-        a->dx_edge = a->dx_sol = a->dx_hole = a->dx_hole_edge = -1;
-    }
-    else {                                      /* first row of the band: |dy| = 1 */
-        a->dx_hole = rect_dx_max(a->hole_lim, 1);
-        a->dx_hole_edge = rect_dx_max(a->hole_edge_lim, 1);
-        a->dx_sol = rect_dx_max(a->sol_lim, 1);
-        a->dx_edge = rect_dx_max(a->edge_lim, 1);
-    }
+    arc_place(a, cx, cy, r, in_r, dir, ring);
 }
 
-/* Monotone walk of the four thresholds of one arc on row `y`: a couple of adds
+/* Advance one monotone dx threshold of an arc on row `y`: a couple of adds
  * and compares per scanline instead of sgl_pow2() per pixel. */
+static inline void arc_step(int *dx, int lim, int dy2)
+{
+    while (sgl_pow2(*dx + 1) + dy2 < lim) (*dx)++;
+    while (*dx >= 0 && sgl_pow2(*dx) + dy2 >= lim) (*dx)--;
+}
+
+/* Monotone walk of the four thresholds of one arc on row `y`. */
 static inline void arc_walk(rect_arc_t *a, int y)
 {
     int dy2 = sgl_pow2(y - a->cy);
 
-#define ARC_STEP(dx, lim)                                         \
-    do {                                                          \
-        while (sgl_pow2((dx) + 1) + dy2 < (lim)) (dx)++;          \
-        while ((dx) >= 0 && sgl_pow2(dx) + dy2 >= (lim)) (dx)--;  \
-    } while (0)
-
-    ARC_STEP(a->dx_edge, a->edge_lim);
-    ARC_STEP(a->dx_sol, a->sol_lim);
+    arc_step(&a->dx_edge, a->edge_lim, dy2);
+    arc_step(&a->dx_sol, a->sol_lim, dy2);
     if (a->hole_lim) {              /* border ring only: a plain fill has no hole */
-        ARC_STEP(a->dx_hole_edge, a->hole_edge_lim);
-        ARC_STEP(a->dx_hole, a->hole_lim);
+        arc_step(&a->dx_hole_edge, a->hole_edge_lim, dy2);
+        arc_step(&a->dx_hole, a->hole_lim, dy2);
     }
-#undef ARC_STEP
 }
 
 /* Left corner of a scanline: the arc bites in from the left, x <= cx.
@@ -308,6 +421,7 @@ static void rect_rows(sgl_surf_t *surf, const sgl_area_t *clip, const sgl_area_t
 {
     const int mid_x = (rect->x1 + rect->x2) / 2;
     const int stride = (int)surf->w;
+    const int shared_arc = la->cy == ra->cy && la->edge_lim == ra->edge_lim;
     sgl_color_t *row = sgl_surf_get_buf(surf, clip->x1 - surf->x1, y0 - surf->y1);
     int y;
 
@@ -320,7 +434,16 @@ static void rect_rows(sgl_surf_t *surf, const sgl_area_t *clip, const sgl_area_t
         int zs, ze;
 
         if (l_on) { arc_walk(la, y); lz_hi = sgl_min(la->cx - 1, mid_x); }
-        if (r_on) { arc_walk(ra, y); rz_lo = sgl_max(ra->cx + 1, mid_x + 1); }
+        if (r_on) {
+            if (l_on && shared_arc) {
+                ra->dx_edge = la->dx_edge;
+                ra->dx_sol = la->dx_sol;
+                ra->dx_hole = la->dx_hole;
+                ra->dx_hole_edge = la->dx_hole_edge;
+            }
+            else arc_walk(ra, y);
+            rz_lo = sgl_max(ra->cx + 1, mid_x + 1);
+        }
 
         if (l_on && lo <= lz_hi)
             arc_left(row + sgl_max(lo, rect->x1) - lo, sgl_max(lo, rect->x1), sgl_min(hi, lz_hi), y, p, la);
@@ -358,6 +481,10 @@ static void rect_axis(sgl_surf_t *surf, const sgl_area_t *clip, const rect_paint
     }
 
     if (!p->ring) {
+        if (p->kind == RECT_BLIT && n == stride && n == (int)p->px->width) {
+            rect_span(row, lo, clip->y1, n * (clip->y2 - clip->y1 + 1), p);
+            return;
+        }
         for (y = clip->y1; y <= clip->y2; y++, row += stride)
             rect_span(row, lo, y, n, p);
         return;
@@ -378,8 +505,8 @@ static void rect_axis(sgl_surf_t *surf, const sgl_area_t *clip, const rect_paint
 /* Common core of all the rectangle routines.  r_* are the four corner radii
  * (they get clamped to half the box, which also fixes the old "radius larger
  * than the box" artefacts). */
-static void rect_run(sgl_surf_t *surf, const sgl_area_t *clip, const sgl_area_t *rect,
-                     int r_tl, int r_tr, int r_bl, int r_br, const rect_paint_t *p)
+static sgl_fn_shared void rect_run(sgl_surf_t *surf, const sgl_area_t *clip, const sgl_area_t *rect,
+                                   int r_tl, int r_tr, int r_bl, int r_br, const rect_paint_t *p)
 {
     rect_arc_t tl, tr, bl, br;
     int w = rect->x2 - rect->x1 + 1, h = rect->y2 - rect->y1 + 1;
@@ -387,11 +514,22 @@ static void rect_run(sgl_surf_t *surf, const sgl_area_t *clip, const sgl_area_t 
     int mid_y = (rect->y1 + rect->y2) / 2;
     int ring = p->ring;
     int in_tl = -1, in_tr = -1, in_bl = -1, in_br = -1;
+    int top_end, bottom_start;
+    sgl_area_t middle = *clip;
 
     r_tl = sgl_min(sgl_max(r_tl, 0), max_r);
     r_tr = sgl_min(sgl_max(r_tr, 0), max_r);
     r_bl = sgl_min(sgl_max(r_bl, 0), max_r);
     r_br = sgl_min(sgl_max(r_br, 0), max_r);
+
+    top_end = sgl_min(mid_y, rect->y1 + sgl_max(r_tl, r_tr) - 1);
+    bottom_start = sgl_max(mid_y + 1, rect->y2 - sgl_max(r_bl, r_br) + 1);
+    middle.y1 = sgl_max(clip->y1, top_end + 1);
+    middle.y2 = sgl_min(clip->y2, bottom_start - 1);
+    if (clip->y1 > top_end && clip->y2 < bottom_start) {
+        rect_axis(surf, &middle, p);
+        return;
+    }
 
     if (ring) {
         in_tl = sgl_max(r_tl - p->bw, 0);
@@ -401,14 +539,31 @@ static void rect_run(sgl_surf_t *surf, const sgl_area_t *clip, const sgl_area_t 
     }
 
     arc_init(&tl, rect->x1 + r_tl, rect->y1 + r_tl, r_tl, in_tl, -1, ring);
-    arc_init(&tr, rect->x2 - r_tr, rect->y1 + r_tr, r_tr, in_tr, -1, ring);
-    arc_init(&bl, rect->x1 + r_bl, rect->y2 - r_bl, r_bl, in_bl, 1, ring);
-    arc_init(&br, rect->x2 - r_br, rect->y2 - r_br, r_br, in_br, 1, ring);
+    if (r_tr == r_tl) {
+        tr = tl;
+        tr.cx = rect->x2 - r_tr;
+    }
+    else arc_init(&tr, rect->x2 - r_tr, rect->y1 + r_tr, r_tr, in_tr, -1, ring);
+    if (r_bl == r_tl) {
+        bl = tl;
+        arc_place(&bl, rect->x1 + r_bl, rect->y2 - r_bl, r_bl, in_bl, 1, ring);
+    }
+    else arc_init(&bl, rect->x1 + r_bl, rect->y2 - r_bl, r_bl, in_bl, 1, ring);
+    if (r_br == r_bl) {
+        br = bl;
+        br.cx = rect->x2 - r_br;
+    }
+    else if (r_br == r_tr) {
+        br = tr;
+        arc_place(&br, rect->x2 - r_br, rect->y2 - r_br, r_br, in_br, 1, ring);
+    }
+    else arc_init(&br, rect->x2 - r_br, rect->y2 - r_br, r_br, in_br, 1, ring);
 
-    if (clip->y1 <= mid_y)
-        rect_rows(surf, clip, rect, &tl, &tr, p, clip->y1, sgl_min(clip->y2, mid_y), 1);
-    if (clip->y2 > mid_y)
-        rect_rows(surf, clip, rect, &bl, &br, p, sgl_max(clip->y1, mid_y + 1), clip->y2, 0);
+    if (clip->y1 <= top_end)
+        rect_rows(surf, clip, rect, &tl, &tr, p, clip->y1, sgl_min(clip->y2, top_end), 1);
+    if (middle.y1 <= middle.y2) rect_axis(surf, &middle, p);
+    if (clip->y2 >= bottom_start)
+        rect_rows(surf, clip, rect, &bl, &br, p, sgl_max(clip->y1, bottom_start), clip->y2, 0);
 }
 
 /**
@@ -424,6 +579,7 @@ static void rect_run(sgl_surf_t *surf, const sgl_area_t *clip, const sgl_area_t 
  */
 void sgl_draw_wireframe(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, int16_t radius, int16_t width, sgl_color_t color, uint8_t alpha)
 {
+    if (rect_alpha_empty(alpha)) return;
     const int16_t x1 = rect->x1;
     const int16_t x2 = rect->x2;
     const int16_t y1 = rect->y1;
@@ -443,7 +599,7 @@ void sgl_draw_wireframe(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, in
 }
 
 /* Every public routine only has to fill in this descriptor. */
-static void rect_paint_init(rect_paint_t *p, const sgl_area_t *rect, sgl_color_t color, uint8_t alpha)
+static sgl_fn_shared void rect_paint_init(rect_paint_t *p, const sgl_area_t *rect, sgl_color_t color, uint8_t alpha)
 {
     p->color = color;
     p->px = NULL;
@@ -452,7 +608,7 @@ static void rect_paint_init(rect_paint_t *p, const sgl_area_t *rect, sgl_color_t
     p->rx1 = rect->x1;
     p->ry1 = rect->y1;
     p->alpha = alpha;
-    p->solid = (alpha == SGL_ALPHA_MAX);
+    p->solid = rect_alpha_solid(alpha);
     p->ring = 0;
     p->bw = 0;
     p->inner_fill = NULL;
@@ -475,11 +631,14 @@ void sgl_draw_fill_rect(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, in
     sgl_area_t clip = SGL_AREA_INVALID;
     rect_paint_t p;
 
-    sgl_surf_clip_area_return(surf, area, &clip);
-    if (!sgl_area_selfclip(&clip, rect)) return;
+    if (rect_alpha_empty(alpha)) return;
+    if (!rect_clip(surf, area, rect, &clip)) return;
 
+    if (radius <= 0) {
+        rect_axis_solid(surf, &clip, color, alpha, rect_alpha_solid(alpha));
+        return;
+    }
     rect_paint_init(&p, rect, color, alpha);
-    if (radius <= 0) { rect_axis(surf, &clip, &p); return; }
     rect_run(surf, &clip, rect, radius, radius, radius, radius, &p);
 }
 
@@ -503,14 +662,14 @@ void sgl_draw_fill_rich_rect(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rec
     sgl_area_t clip = SGL_AREA_INVALID;
     rect_paint_t p;
 
-    sgl_surf_clip_area_return(surf, area, &clip);
-    if (!sgl_area_selfclip(&clip, rect)) return;
+    if (rect_alpha_empty(alpha)) return;
+    if (!rect_clip(surf, area, rect, &clip)) return;
 
-    rect_paint_init(&p, rect, color, alpha);
     if (tl_radius <= 0 && tr_radius <= 0 && bl_radius <= 0 && br_radius <= 0) {
-        rect_axis(surf, &clip, &p);
+        rect_axis_solid(surf, &clip, color, alpha, rect_alpha_solid(alpha));
         return;
     }
+    rect_paint_init(&p, rect, color, alpha);
     rect_run(surf, &clip, rect, tl_radius, tr_radius, bl_radius, br_radius, &p);
 }
 
@@ -525,16 +684,15 @@ void sgl_draw_fill_rich_rect(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rec
  * @param border_alpha alpha of border
  * @return none
  */
-static void rect_draw_fill_border(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, int16_t radius,
-                                  sgl_color_t border_color, uint8_t border_width, uint8_t border_alpha,
-                                  const sgl_color_t *inner_fill)
+static sgl_fn_shared void rect_draw_fill_border(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, int16_t radius,
+                                                sgl_color_t border_color, uint8_t border_width, uint8_t border_alpha,
+                                                const sgl_color_t *inner_fill)
 {
     sgl_area_t clip = SGL_AREA_INVALID;
     rect_paint_t p;
 
-    if (border_width == 0) return;
-    sgl_surf_clip_area_return(surf, area, &clip);
-    if (!sgl_area_selfclip(&clip, rect)) return;
+    if (border_width == 0 || rect_alpha_empty(border_alpha)) return;
+    if (!rect_clip(surf, area, rect, &clip)) return;
 
     rect_paint_init(&p, rect, border_color, border_alpha);
     p.ring = 1;
@@ -570,16 +728,15 @@ void sgl_draw_fill_rect_border(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *r
  * @param border_alpha alpha of border
  * @return none
  */
-void sgl_draw_fill_rect_border_rich(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect,
-                                    int16_t tl_radius, int16_t tr_radius, int16_t bl_radius, int16_t br_radius,
-                                    sgl_color_t border_color, uint8_t border_width, uint8_t border_alpha)
+sgl_fn_shared void sgl_draw_fill_rect_border_rich(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect,
+                                                  int16_t tl_radius, int16_t tr_radius, int16_t bl_radius, int16_t br_radius,
+                                                  sgl_color_t border_color, uint8_t border_width, uint8_t border_alpha)
 {
     sgl_area_t clip = SGL_AREA_INVALID;
     rect_paint_t p;
 
-    if (border_width == 0) return;
-    sgl_surf_clip_area_return(surf, area, &clip);
-    if (!sgl_area_selfclip(&clip, rect)) return;
+    if (border_width == 0 || rect_alpha_empty(border_alpha)) return;
+    if (!rect_clip(surf, area, rect, &clip)) return;
 
     rect_paint_init(&p, rect, border_color, border_alpha);
     p.ring = 1;
@@ -598,7 +755,7 @@ void sgl_draw_fill_rect_border_rich(sgl_surf_t *surf, sgl_area_t *area, sgl_area
 
 /* Map the pixmap onto the rect and pick the cheapest sampler:
  * 1:1 (copy), nearest neighbour, or bilinear. */
-static void rect_paint_pixmap(rect_paint_t *p, const sgl_area_t *rect, const sgl_pixmap_t *px, uint8_t alpha)
+static sgl_fn_shared void rect_paint_pixmap(rect_paint_t *p, const sgl_area_t *rect, const sgl_pixmap_t *px, uint8_t alpha)
 {
     int32_t w = rect->x2 - rect->x1 + 1;
     int32_t h = rect->y2 - rect->y1 + 1;
@@ -607,7 +764,7 @@ static void rect_paint_pixmap(rect_paint_t *p, const sgl_area_t *rect, const sgl
     p->rx1 = rect->x1;
     p->ry1 = rect->y1;
     p->alpha = alpha;
-    p->solid = (alpha == SGL_ALPHA_MAX);
+    p->solid = rect_alpha_solid(alpha);
     p->sx = ((int32_t)px->width << SGL_FIXED_SHIFT) / w;
     p->sy = ((int32_t)px->height << SGL_FIXED_SHIFT) / h;
 #if (!CONFIG_SGL_PIXMAP_BILINEAR_INTERP)
@@ -617,7 +774,6 @@ static void rect_paint_pixmap(rect_paint_t *p, const sgl_area_t *rect, const sgl
 #endif
 }
 
-#if (!CONFIG_SGL_PIXMAP_BILINEAR_INTERP)
 /**
  * @brief fill a round rectangle pixmap with alpha
  * @param surf point to surface
@@ -633,8 +789,9 @@ void sgl_draw_fill_rect_pixmap(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *r
     sgl_area_t clip = SGL_AREA_INVALID;
     rect_paint_t p;
 
-    sgl_surf_clip_area_return(surf, area, &clip);
-    if (!sgl_area_selfclip(&clip, rect)) return;
+    if (rect_alpha_empty(alpha) || pixmap == NULL || pixmap->bitmap.array == NULL ||
+        pixmap->width == 0 || pixmap->height == 0) return;
+    if (!rect_clip(surf, area, rect, &clip)) return;
 
     rect_paint_init(&p, rect, (sgl_color_t){0}, alpha);
     rect_paint_pixmap(&p, rect, pixmap, alpha);
@@ -663,8 +820,9 @@ void sgl_draw_fill_rect_pixmap_rich(sgl_surf_t *surf, sgl_area_t *area, sgl_area
     sgl_area_t clip = SGL_AREA_INVALID;
     rect_paint_t p;
 
-    sgl_surf_clip_area_return(surf, area, &clip);
-    if (!sgl_area_selfclip(&clip, rect)) return;
+    if (rect_alpha_empty(alpha) || pixmap == NULL || pixmap->bitmap.array == NULL ||
+        pixmap->width == 0 || pixmap->height == 0) return;
+    if (!rect_clip(surf, area, rect, &clip)) return;
 
     rect_paint_init(&p, rect, (sgl_color_t){0}, alpha);
     rect_paint_pixmap(&p, rect, pixmap, alpha);
@@ -675,65 +833,6 @@ void sgl_draw_fill_rect_pixmap_rich(sgl_surf_t *surf, sgl_area_t *area, sgl_area
     }
     rect_run(surf, &clip, rect, tl_radius, tr_radius, bl_radius, br_radius, &p);
 }
-#else
-/**
- * @brief fill a round rectangle pixmap with alpha
- * @param surf point to surface
- * @param area area of rectangle that you want to draw
- * @param rect point to rectangle that you want to draw
- * @param radius radius of round
- * @param pixmap pixmap of rectangle
- * @param alpha alpha of rectangle
- * @return none
- */
-void sgl_draw_fill_rect_pixmap(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect, int16_t radius, const sgl_pixmap_t *pixmap, uint8_t alpha)
-{
-    sgl_area_t clip = SGL_AREA_INVALID;
-    rect_paint_t p;
-
-    sgl_surf_clip_area_return(surf, area, &clip);
-    if (!sgl_area_selfclip(&clip, rect)) return;
-
-    rect_paint_init(&p, rect, (sgl_color_t){0}, alpha);
-    rect_paint_pixmap(&p, rect, pixmap, alpha);
-
-    if (radius <= 0) { rect_axis(surf, &clip, &p); return; }
-    rect_run(surf, &clip, rect, radius, radius, radius, radius, &p);
-}
-
-/**
- * @brief fill a round rectangle pixmap with individual corner radii and alpha
- * @param surf point to surface
- * @param area area of rectangle that you want to draw
- * @param rect point to rectangle that you want to draw
- * @param tl_radius radius of top-left corner
- * @param tr_radius radius of top-right corner
- * @param bl_radius radius of bottom-left corner
- * @param br_radius radius of bottom-right corner
- * @param pixmap pixmap of rectangle
- * @param alpha alpha of rectangle
- * @return none
- */
-void sgl_draw_fill_rect_pixmap_rich(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *rect,
-                                    int16_t tl_radius, int16_t tr_radius, int16_t bl_radius, int16_t br_radius,
-                                    const sgl_pixmap_t *pixmap, uint8_t alpha)
-{
-    sgl_area_t clip = SGL_AREA_INVALID;
-    rect_paint_t p;
-
-    sgl_surf_clip_area_return(surf, area, &clip);
-    if (!sgl_area_selfclip(&clip, rect)) return;
-
-    rect_paint_init(&p, rect, (sgl_color_t){0}, alpha);
-    rect_paint_pixmap(&p, rect, pixmap, alpha);
-
-    if (tl_radius <= 0 && tr_radius <= 0 && bl_radius <= 0 && br_radius <= 0) {
-        rect_axis(surf, &clip, &p);
-        return;
-    }
-    rect_run(surf, &clip, rect, tl_radius, tr_radius, bl_radius, br_radius, &p);
-}
-#endif
 
 /**
  * @brief fill a round rectangle with alpha

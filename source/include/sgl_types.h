@@ -131,6 +131,19 @@ extern "C" {
 #define sgl_section(sec)                        __attribute__((section(#sec)))
 #define sgl_packed                              __attribute__((packed))
 #define sgl_align(x)                            __attribute__((aligned(x)))
+/* clang also defines __GNUC__ and lands here first: gate optimize() on GCC only */
+#if defined(__ARM_ARCH_7EM__) && !defined(__clang__)
+#define sgl_fn_shared                           __attribute__((noinline, noclone, optimize("Os")))
+#elif !defined(__clang__)
+#define sgl_fn_shared                           __attribute__((noinline, noclone))
+#else
+#define sgl_fn_shared                           __attribute__((noinline))
+#endif
+#if defined(__arm__) && !defined(__clang__)
+#define sgl_fn_novec                            __attribute__((noinline, optimize("no-tree-slp-vectorize")))
+#else
+#define sgl_fn_novec                            inline
+#endif
 #elif defined(__clang__)   /* clang compiler */
 #ifndef likely
 #  define likely(x)                             __builtin_expect(!!(x), 1)
@@ -140,6 +153,8 @@ extern "C" {
 #define sgl_section(sec)                        __attribute__((section(#sec)))
 #define sgl_packed                              __attribute__((packed))
 #define sgl_align(x)                            __attribute__((aligned(x)))
+#define sgl_fn_shared                           __attribute__((noinline))
+#define sgl_fn_novec                            __attribute__((noinline))
 #elif defined(__CC_ARM)    /* RealView compiler (Keil ARMCC) */
 #ifndef likely
 #  define likely(x)                             __builtin_expect(!!(x), 1)
@@ -149,6 +164,8 @@ extern "C" {
 #define sgl_section(sec)                        __attribute__((section(#sec)))
 #define sgl_packed                              __attribute__((packed))
 #define sgl_align(x)                            __attribute__((aligned(x)))
+#define sgl_fn_shared                           __attribute__((noinline))
+#define sgl_fn_novec                            __attribute__((noinline))
 #elif defined(__ICCARM__)  /* IAR compiler    */
 #ifndef likely
 #  if __VER__ >= 9100000
@@ -163,6 +180,8 @@ extern "C" {
 #define sgl_section(sec)                        __section(#sec)
 #define sgl_packed                              __packed
 #define sgl_align(x)                            _Pragma("data_alignment=" #x)
+#define sgl_fn_shared
+#define sgl_fn_novec
 #elif defined(_MSC_VER)    /* MSVC compiler   */
 #ifndef likely
 #  define likely(x)                             (x)
@@ -171,6 +190,8 @@ extern "C" {
 #define sgl_weak_fn                             __declspec(selectany)
 #define sgl_packed
 #define sgl_align(x)                            __declspec(align(x))
+#define sgl_fn_shared
+#define sgl_fn_novec                            inline
 #elif defined(__MINGW32__) /* MinGW compiler  */
 #ifndef likely
 #  define likely(x)                             __builtin_expect(!!(x), 1)
@@ -180,6 +201,8 @@ extern "C" {
 #define sgl_section(sec)                        __attribute__((section(#sec)))
 #define sgl_packed                              __attribute__((packed))
 #define sgl_align(x)                            __attribute__((aligned(x)))
+#define sgl_fn_shared                           __attribute__((noinline))
+#define sgl_fn_novec                            __attribute__((noinline))
 #else                      /* others compiler */
 #ifndef likely
 #  define likely(x)                             (x)
@@ -187,7 +210,9 @@ extern "C" {
 #endif
 #define sgl_packed
 #define sgl_align(x)
-#warning "Weak linkage not supported for this compiler"                    
+#define sgl_fn_shared
+#define sgl_fn_novec
+#warning "Weak linkage not supported for this compiler"
 #endif
 
 #define  sgl_check_ptr_break(ptr)               if (unlikely((ptr) == NULL)) { SGL_LOG_ERROR("Function: %s, Line: %d, "#ptr" is NULL", __func__, __LINE__); return;}
