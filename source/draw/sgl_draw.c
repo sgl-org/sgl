@@ -284,7 +284,7 @@ void sgl_draw_xform_surf(sgl_surf_t *dst, sgl_surf_t *src, sgl_area_t *area, int
  * @return none
  * @note Each pixel is stored as RGB565 (little-endian) followed by A8.
  */
-void sgl_draw_icon( sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, uint8_t alpha, const sgl_icon_pixmap_t *icon)
+void sgl_draw_icon(sgl_surf_t *surf, sgl_area_t *area, int16_t x, int16_t y, uint8_t alpha, const sgl_icon_pixmap_t *icon)
 {
     sgl_area_t clip = SGL_AREA_MAX;
     sgl_area_t icon_rect = {

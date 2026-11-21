@@ -45,7 +45,10 @@
  */
 static void calendar_date_changed_cb(sgl_obj_t *obj, int16_t year, uint8_t month, uint8_t day)
 {
-    (void)obj;
+    SGL_UNUSED(obj);
+    SGL_UNUSED(year);
+    SGL_UNUSED(month);
+    SGL_UNUSED(day);
     SGL_LOG_INFO("calendar: picked %04d-%02d-%02d", (int)year, (int)month, (int)day);
 }
 

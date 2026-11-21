@@ -72,7 +72,6 @@ static void sgl_launcher_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_even
         sgl_anim_move_obj_hori(obj, target, 200, SGL_ANIM_PATH_EASE_OUT);
     } break;
 
-    break;
     default: break;
     }
 }

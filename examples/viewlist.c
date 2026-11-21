@@ -100,6 +100,8 @@ static void music_draw_item(sgl_obj_t *list, sgl_surf_t *surf, sgl_area_t *clip,
 static void music_click_item(sgl_obj_t *list, int32_t index, const sgl_viewlist_item_t *item)
 {
     SGL_UNUSED(list);
+    SGL_UNUSED(index);
+    SGL_UNUSED(item);
     SGL_LOG_INFO("Play song %d: %s - %s", (int)index,
                  item ? item->text : "?", item ? item->subtext : "?");
 }

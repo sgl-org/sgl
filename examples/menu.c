@@ -74,6 +74,7 @@ static const char* menu_theme_selected_text(sgl_obj_t *menu)
  */
 static void menu_theme_show_msgbox(sgl_obj_t *menu, int16_t index)
 {
+    SGL_UNUSED(index);
     sgl_obj_t *msgbox = sgl_msgbox_create(NULL);
     if (msgbox == NULL) {
         return;
