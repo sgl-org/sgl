@@ -193,6 +193,8 @@ static void sgl_arc_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t *
         tb_angle = sgl_atan2(evt->pos.x - arc->desc.cx, arc->desc.cy - evt->pos.y);
         if ((tb_angle != arc->desc.end_angle) && tb_angle >= 0 && tb_angle <= 360) {
             sgl_arc_set_end_angle(obj, tb_angle);
+            // workaround for the case when the arc is drawn with a radius of 0
+            sgl_obj_set_dirty(obj);
         }
     }
 }
