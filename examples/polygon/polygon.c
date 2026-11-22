@@ -1,7 +1,7 @@
 #include <check.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../../../source/widgets/polygon/sgl_polygon.c"
+#include "../../source/widgets/polygon/sgl_polygon.c"
 
 START_TEST(test_polygon_buffer_overflow_protection)
 {

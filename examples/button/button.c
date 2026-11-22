@@ -126,10 +126,10 @@ void sgl_button_examples(sgl_obj_t *parent)
     sgl_button_set_radius(btn, 6);
 
     label = sgl_label_create(parent);
-    static uint8_t btn_text_buf[20] = {0};
+    static char btn_text_buf[20] = {0};
     sgl_obj_set_pos(label, 150, 190);
     sgl_obj_set_size(label, 160, 34);
-    sgl_obj_set_text_buffer(label, btn_text_buf, sizeof(btn_text_buf));
+    sgl_label_set_text_buffer(label, btn_text_buf, sizeof(btn_text_buf));
     sgl_label_set_font(label, &consolas24);
     sgl_label_set_text(label, "clicked 0 times");
     sgl_label_set_text_color(label, SGL_COLOR_CYAN);

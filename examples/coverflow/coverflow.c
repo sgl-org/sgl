@@ -2,12 +2,17 @@
  * @file sgl/examples/coverflow.c
  * @brief CoverFlow widget example: stacked horizontal card gallery
  *
+ * The cards come from imgs_pixmap.c: six 128x128 ARGB8565 icons. A
+ * card pixmap is mandatory, so every card below has one and the card size is
+ * exactly the pixmap size; the centered card keeps that size and the side
+ * cards shrink.
+ *
  * Interaction:
  *  - drag left / right: cards follow the finger with a live scale effect,
  *    release snaps to the nearest card (flick = inertia glide)
  *  - tap a side card: it slides to the center
- *  - tap the centered card: its own event callback fires (a label below
- *    shows the picked album and an info msgbox pops up with its details)
+ *  - tap the centered card: the card activation callback fires with its
+ *    index and an info msgbox pops up with its details
  *  - keyboard: LEFT / RIGHT / UP / DOWN arrows scroll card by card (no focus
  *    needed, the widget is a main menu); ENTER activates the centered card,
  *    running its callback and popping up the same info msgbox
@@ -15,20 +20,21 @@
 
 #include <sgl.h>
 
-/* images converted from images/image1.png / images/image2.png (RGB565) */
-extern const sgl_pixmap_t rect_pixmap_imgs[2];
+/* ARGB8565 test icons, defined in imgs_pixmap.c */
+extern const sgl_pixmap_t Icons__8__image;
+extern const sgl_pixmap_t Icons__127__image;
+extern const sgl_pixmap_t iMovie_cat_image;
+extern const sgl_pixmap_t iTunes7indigo_image;
+extern const sgl_pixmap_t My_Pictures_image;
+extern const sgl_pixmap_t Regedit_image;
 
-/* number of cards: 2 images are reused for the last two cards */
-#define COVERFLOW_EX_CARD_NUM             (5)
+/* number of cards */
+#define COVERFLOW_EX_CARD_NUM             (6)
 
-/* centered label that shows the tapped card name */
-static sgl_obj_t *ex_pick_label = NULL;
-static char ex_pick_buf[32];
-
-/* card captions, reused by the info msgbox (msg_text stores the pointer,
+/* card names, used by the info msgbox (msg_text stores the pointer,
  * so the strings must outlive the dialog) */
 static const char *const ex_card_names[COVERFLOW_EX_CARD_NUM] = {
-    "Image 1", "Plain", "Image 2", "Purple", "Orange",
+    "Icons 8", "Icons 127", "iMovie", "iTunes 7", "My Pictures", "Regedit",
 };
 
 /* body text of the info msgbox: a static buffer because sgl_msgbox_set_msg_text
@@ -59,7 +65,7 @@ static void coverflow_show_msgbox(int16_t index)
     sgl_msgbox_set_alpha(msgbox, 255);
     sgl_msgbox_set_font(msgbox, &consolas14);
 
-    /* build the message from the card index + caption */
+    /* build the message from the card index + name */
     const char *name = (index >= 0 && index < COVERFLOW_EX_CARD_NUM) ?
                        ex_card_names[index] : "Unknown";
     sgl_snprintf(ex_msg_buf, sizeof(ex_msg_buf),
@@ -85,31 +91,19 @@ static void coverflow_show_msgbox(int16_t index)
 }
 
 /**
- * @brief event callback of the centered card: show which card was activated
+ * @brief card activation callback: show which card was activated
+ * @param evt event forwarded by the widget, evt->obj is the coverflow object
+ * @param index activated card index
  * @note fired when the centered card is tapped, and also when ENTER is
  *       pressed (the widget forwards the key click to the center card)
  */
-static void coverflow_card_event_cb(sgl_event_t *evt)
+static void coverflow_card_event_cb(sgl_event_t *evt, int16_t index)
 {
     if (evt->type != SGL_EVENT_CLICKED) {
         return;
     }
 
-    /* the widget forwards clicks with the card as the event object */
-    sgl_obj_t *coverflow = evt->obj->parent;
-    int16_t index = -1;
-    for (int16_t i = 0; i < COVERFLOW_EX_CARD_NUM; i++) {
-        if (sgl_coverflow_get_card(coverflow, i) == evt->obj) {
-            index = i;
-            break;
-        }
-    }
     SGL_LOG_INFO("coverflow: card %d activated", index);
-
-    if (ex_pick_label != NULL) {
-        sgl_snprintf(ex_pick_buf, sizeof(ex_pick_buf), "Pick: #%d", index);
-        sgl_label_set_text_fmt(ex_pick_label, "%s", ex_pick_buf);
-    }
 
     /* popup an info dialog for the activated card */
     coverflow_show_msgbox(index);
@@ -122,12 +116,14 @@ static void coverflow_card_event_cb(sgl_event_t *evt)
  */
 void sgl_coverflow_examples(sgl_obj_t *parent)
 {
+    /* every card must have a pixmap: it defines the card size */
     static const sgl_coverflow_card_t cards[COVERFLOW_EX_CARD_NUM] = {
-        { .color = sgl_rgb(0x2E, 0x86, 0xC1), .pixmap = &rect_pixmap_imgs[0], .text = "Image 1" },
-        { .color = sgl_rgb(0x27, 0xAE, 0x60), .pixmap = NULL,                 .text = "Plain"   },
-        { .color = sgl_rgb(0xB0, 0x3A, 0x2E), .pixmap = &rect_pixmap_imgs[1], .text = "Image 2" },
-        { .color = sgl_rgb(0x7D, 0x3C, 0x98), .pixmap = NULL,                 .text = "Purple"  },
-        { .color = sgl_rgb(0xB4, 0x77, 0x0E), .pixmap = NULL,                 .text = "Orange"  },
+        { .pixmap = &Icons__8__image,        .text = "Icons 8"     },
+        { .pixmap = &Icons__127__image,      .text = "Icons 127"   },
+        { .pixmap = &iMovie_cat_image,       .text = "iMovie"      },
+        { .pixmap = &iTunes7indigo_image,    .text = "iTunes 7"    },
+        { .pixmap = &My_Pictures_image,      .text = "My Pictures" },
+        { .pixmap = &Regedit_image,          .text = "Regedit"     },
     };
 
     /* title */
@@ -137,28 +133,19 @@ void sgl_coverflow_examples(sgl_obj_t *parent)
     sgl_label_set_text_color(title, SGL_COLOR_BLACK);
     sgl_obj_set_pos(title, 320, 20);
 
-    /* card gallery */
+    /* card gallery: the centered 256 px icon keeps its size, its neighbours
+     * shrink, so the widget only has to be as tall as one card */
     sgl_obj_t *coverflow = sgl_coverflow_create(parent, cards, COVERFLOW_EX_CARD_NUM);
     if (coverflow == NULL) {
         return;
     }
     sgl_obj_set_pos(coverflow, 0, 80);
-    sgl_obj_set_size(coverflow, 800, 280);
-    sgl_coverflow_set_border(coverflow, SGL_COLOR_WHITE, 2);
-    sgl_coverflow_set_font(coverflow, &consolas14);
-    /* the caption is drawn below the card on the (white) background, so the
-     * default white text would be invisible: use a dark color */
-    sgl_coverflow_set_text_color(coverflow, SGL_COLOR_BLACK);
+    sgl_obj_set_size(coverflow, 800, 300);
 
-    /* click callbacks: when a card is centered and tapped, the widget
-     * forwards the click to that card's own event callback. NOTE: only
-     * set the event_fn field — making the cards clickable (e.g. with
-     * sgl_obj_set_event_cb) would let them steal the click from the
-     * coverflow widget, which must keep receiving events to work */
-    for (int i = 0; i < COVERFLOW_EX_CARD_NUM; i++) {
-        sgl_coverflow_get_card(coverflow, i)->event_fn = coverflow_card_event_cb;
-    }
+    /* card activation callback: when the centered card is tapped (or ENTER
+     * is pressed), the widget fires this callback with the card index */
+    sgl_coverflow_set_card_event_cb(coverflow, coverflow_card_event_cb, NULL);
 
-    /* start on the image card */
+    /* start on the third card */
     sgl_coverflow_set_index(coverflow, 2);
 }

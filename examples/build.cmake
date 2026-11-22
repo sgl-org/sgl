@@ -52,59 +52,60 @@ get_filename_component(SGL_EXAMPLE_REPO_DIR ${SGL_EXAMPLE_SGL_DIR} DIRECTORY)
 
 set(SGL_EXAMPLE_SOURCE
     # ---- basic widgets ----------------------------------------------------
-    ${SGL_EXAMPLE_DIR}/2dball.c             # sgl_2dball_examples
-    ${SGL_EXAMPLE_DIR}/analogclock.c        # sgl_analogclock_examples
-    ${SGL_EXAMPLE_DIR}/digitalclock.c       # sgl_digitalclock_examples
-    ${SGL_EXAMPLE_DIR}/arc.c                # sgl_arc_examples
-    ${SGL_EXAMPLE_DIR}/bar.c                # sgl_bar_examples
-    ${SGL_EXAMPLE_DIR}/barcode.c            # sgl_barcode_examples
-    ${SGL_EXAMPLE_DIR}/battery.c            # sgl_battery_examples
-    ${SGL_EXAMPLE_DIR}/button.c             # sgl_button_examples
-    ${SGL_EXAMPLE_DIR}/calendar.c           # sgl_calendar_examples
-    ${SGL_EXAMPLE_DIR}/checkbox.c           # sgl_checkbox_examples
-    ${SGL_EXAMPLE_DIR}/coverflow.c          # sgl_coverflow_examples
-    ${SGL_EXAMPLE_DIR}/dropdown.c           # sgl_dropdown_examples
-    ${SGL_EXAMPLE_DIR}/img_ext.c            # sgl_img_ext_examples
-    ${SGL_EXAMPLE_DIR}/icon_test.c          # sgl_icon_test_examples
-    ${SGL_EXAMPLE_DIR}/label.c              # sgl_label_examples
-    ${SGL_EXAMPLE_DIR}/label_ext.c          # sgl_label_ext_examples
-    ${SGL_EXAMPLE_DIR}/launcher.c           # sgl_launcher_examples
-    ${SGL_EXAMPLE_DIR}/led.c                # sgl_led_examples
-    ${SGL_EXAMPLE_DIR}/menu.c               # sgl_menu_examples
-    ${SGL_EXAMPLE_DIR}/msgbox.c             # sgl_msgbox_examples
-    ${SGL_EXAMPLE_DIR}/physical_key.c       # sgl_physical_key_handler
-    ${SGL_EXAMPLE_DIR}/progress.c           # sgl_progress_examples
-    ${SGL_EXAMPLE_DIR}/rect.c               # sgl_rect_examples
-    ${SGL_EXAMPLE_DIR}/rect_ext.c           # sgl_rect_ext_examples
-    ${SGL_EXAMPLE_DIR}/roller.c             # sgl_roller_examples
-    ${SGL_EXAMPLE_DIR}/scope.c              # sgl_scope_examples
-    ${SGL_EXAMPLE_DIR}/scrollview.c         # sgl_scrollview_demo
-    ${SGL_EXAMPLE_DIR}/slider.c             # sgl_slider_examples
-    ${SGL_EXAMPLE_DIR}/span.c               # sgl_span_examples
-    ${SGL_EXAMPLE_DIR}/spinner.c            # sgl_spinner_examples
-    ${SGL_EXAMPLE_DIR}/spectrum.c           # sgl_spectrum_examples
-    ${SGL_EXAMPLE_DIR}/stepper.c            # sgl_stepper_examples
-    ${SGL_EXAMPLE_DIR}/switch.c             # sgl_switch_examples
-    ${SGL_EXAMPLE_DIR}/tabview.c            # sgl_tabview_examples
-    ${SGL_EXAMPLE_DIR}/toast.c              # sgl_toast_examples
-    ${SGL_EXAMPLE_DIR}/textedit.c           # sgl_textedit_examples
-    ${SGL_EXAMPLE_DIR}/textlist.c           # sgl_textlist_examples
-    ${SGL_EXAMPLE_DIR}/table.c              # sgl_table_examples
-    ${SGL_EXAMPLE_DIR}/viewlist.c           # sgl_viewlist_examples
+    ${SGL_EXAMPLE_DIR}/2dball/2dball.c             # sgl_2dball_examples
+    ${SGL_EXAMPLE_DIR}/analogclock/analogclock.c        # sgl_analogclock_examples
+    ${SGL_EXAMPLE_DIR}/digitalclock/digitalclock.c       # sgl_digitalclock_examples
+    ${SGL_EXAMPLE_DIR}/arc/arc.c                # sgl_arc_examples
+    ${SGL_EXAMPLE_DIR}/bar/bar.c                # sgl_bar_examples
+    ${SGL_EXAMPLE_DIR}/barcode/barcode.c            # sgl_barcode_examples
+    ${SGL_EXAMPLE_DIR}/battery/battery.c            # sgl_battery_examples
+    ${SGL_EXAMPLE_DIR}/button/button.c             # sgl_button_examples
+    ${SGL_EXAMPLE_DIR}/calendar/calendar.c           # sgl_calendar_examples
+    ${SGL_EXAMPLE_DIR}/checkbox/checkbox.c           # sgl_checkbox_examples
+    ${SGL_EXAMPLE_DIR}/coverflow/coverflow.c          # sgl_coverflow_examples
+    ${SGL_EXAMPLE_DIR}/dropdown/dropdown.c           # sgl_dropdown_examples
+    ${SGL_EXAMPLE_DIR}/img_ext/img_ext.c            # sgl_img_ext_examples
+    ${SGL_EXAMPLE_DIR}/icon_test/icon_test.c          # sgl_icon_test_examples
+    ${SGL_EXAMPLE_DIR}/label/label.c              # sgl_label_examples
+    ${SGL_EXAMPLE_DIR}/label_ext/label_ext.c          # sgl_label_ext_examples
+    ${SGL_EXAMPLE_DIR}/launcher/launcher.c           # sgl_launcher_examples
+    ${SGL_EXAMPLE_DIR}/led/led.c                # sgl_led_examples
+    ${SGL_EXAMPLE_DIR}/menu/menu.c               # sgl_menu_examples
+    ${SGL_EXAMPLE_DIR}/msgbox/msgbox.c             # sgl_msgbox_examples
+    ${SGL_EXAMPLE_DIR}/physical_key/physical_key.c       # sgl_physical_key_handler
+    ${SGL_EXAMPLE_DIR}/progress/progress.c           # sgl_progress_examples
+    ${SGL_EXAMPLE_DIR}/rect/rect.c               # sgl_rect_examples
+    ${SGL_EXAMPLE_DIR}/rect_ext/rect_ext.c           # sgl_rect_ext_examples
+    ${SGL_EXAMPLE_DIR}/roller/roller.c             # sgl_roller_examples
+    ${SGL_EXAMPLE_DIR}/scope/scope.c              # sgl_scope_examples
+    ${SGL_EXAMPLE_DIR}/scale/scale.c              # sgl_scale_examples
+    ${SGL_EXAMPLE_DIR}/scrollview/scrollview.c         # sgl_scrollview_demo
+    ${SGL_EXAMPLE_DIR}/slider/slider.c             # sgl_slider_examples
+    ${SGL_EXAMPLE_DIR}/span/span.c               # sgl_span_examples
+    ${SGL_EXAMPLE_DIR}/spinner/spinner.c            # sgl_spinner_examples
+    ${SGL_EXAMPLE_DIR}/spectrum/spectrum.c           # sgl_spectrum_examples
+    ${SGL_EXAMPLE_DIR}/stepper/stepper.c            # sgl_stepper_examples
+    ${SGL_EXAMPLE_DIR}/switch/switch.c             # sgl_switch_examples
+    ${SGL_EXAMPLE_DIR}/tabview/tabview.c            # sgl_tabview_examples
+    ${SGL_EXAMPLE_DIR}/toast/toast.c              # sgl_toast_examples
+    ${SGL_EXAMPLE_DIR}/textedit/textedit.c           # sgl_textedit_examples
+    ${SGL_EXAMPLE_DIR}/textlist/textlist.c           # sgl_textlist_examples
+    ${SGL_EXAMPLE_DIR}/table/table.c              # sgl_table_examples
+    ${SGL_EXAMPLE_DIR}/viewlist/viewlist.c           # sgl_viewlist_examples
 
     # ---- composite widgets ------------------------------------------------
-    ${SGL_EXAMPLE_DIR}/explorer.c             # sgl_explorer_examples
-    ${SGL_EXAMPLE_DIR}/filebrowser.c        # sgl_filebrowser_examples
-    ${SGL_EXAMPLE_DIR}/filedialog.c         # sgl_filedialog_examples
-    ${SGL_EXAMPLE_DIR}/qrcode.c             # sgl_qrcode_examples
-    ${SGL_EXAMPLE_DIR}/win.c                # sgl_win_examples
-    ${SGL_EXAMPLE_DIR}/winslate.c           # sgl_winslate_examples
-    ${SGL_EXAMPLE_DIR}/charge.c             # sgl_charge_examples
+    ${SGL_EXAMPLE_DIR}/explorer/explorer.c             # sgl_explorer_examples
+    ${SGL_EXAMPLE_DIR}/filebrowser/filebrowser.c        # sgl_filebrowser_examples
+    ${SGL_EXAMPLE_DIR}/filedialog/filedialog.c         # sgl_filedialog_examples
+    ${SGL_EXAMPLE_DIR}/qrcode/qrcode.c             # sgl_qrcode_examples
+    ${SGL_EXAMPLE_DIR}/win/win.c                # sgl_win_examples
+    ${SGL_EXAMPLE_DIR}/winslate/winslate.c           # sgl_winslate_examples
+    ${SGL_EXAMPLE_DIR}/charge/charge.c             # sgl_charge_examples
 
     # ---- examples with external assets (see SGL_EXAMPLE_EXTRA_SOURCE) ------
-    ${SGL_EXAMPLE_DIR}/avi.c                # sgl_avi_examples
-    ${SGL_EXAMPLE_DIR}/music_player.c       # sgl_music_player_create
-    ${SGL_EXAMPLE_DIR}/rect_pixmap.c        # sgl_rect_pixmap_examples
+    ${SGL_EXAMPLE_DIR}/avi/avi.c                # sgl_avi_examples
+    ${SGL_EXAMPLE_DIR}/music_player/music_player.c       # sgl_music_player_create
+    ${SGL_EXAMPLE_DIR}/rect_pixmap/rect_pixmap.c        # sgl_rect_pixmap_examples
 )
 
 # Extra translation units the examples above link against.  Keeping them here
@@ -113,10 +114,15 @@ set(SGL_EXAMPLE_SOURCE
 #   rect_pixmap.c  -> rect_pixmap_imgs[]   images/output/rect_pixmap_imgs.c
 #   music_player.c -> music_img_image[]    images/output/music_img.c
 #                     sgl_icon_player32    sgl/demos/music/sgl_icon_player32.c
+#   coverflow.c    -> Icons__8__image[]    examples/coverflow/imgs_pixmap.c
 #
 # avi.c plays ${SGL_AVI_DEMO_BASE_DIR}/movie.avi at run time and gif_test.c has
 # its GIF embedded, so neither needs an extra translation unit.
 set(SGL_EXAMPLE_ASSET_DIR ${SGL_EXAMPLE_REPO_DIR}/images/output)
+
+set(SGL_EXAMPLE_EXTRA_coverflow
+    ${SGL_EXAMPLE_DIR}/coverflow/imgs_pixmap.c
+)
 
 set(SGL_EXAMPLE_EXTRA_rect_pixmap
     ${SGL_EXAMPLE_ASSET_DIR}/rect_pixmap_imgs.c
@@ -128,6 +134,7 @@ set(SGL_EXAMPLE_EXTRA_music_player
 )
 
 set(SGL_EXAMPLE_EXTRA_SOURCE
+    ${SGL_EXAMPLE_EXTRA_coverflow}
     ${SGL_EXAMPLE_EXTRA_rect_pixmap}
     ${SGL_EXAMPLE_EXTRA_music_player}
 )
@@ -146,7 +153,7 @@ function(sgl_examples_select out_var)
 
     set(_selected "")
     foreach(_name IN LISTS ARGN)
-        set(_file ${SGL_EXAMPLE_DIR}/${_name}.c)
+        set(_file ${SGL_EXAMPLE_DIR}/${_name}/${_name}.c)
         if(NOT EXISTS ${_file})
             message(FATAL_ERROR
                 "sgl_examples_select: no example named '${_name}' "
