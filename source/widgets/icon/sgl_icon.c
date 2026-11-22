@@ -31,7 +31,6 @@
 #include <string.h>
 #include "sgl_icon.h"
 
-
 /**
  * @brief icon construct callback
  * @param surf pointer to surface
@@ -49,7 +48,6 @@ static void sgl_icon_construct_cb(sgl_surf_t *surf, sgl_obj_t* obj, sgl_event_t 
         sgl_draw_icon(surf, &obj->area, icon_pos.x, icon_pos.y, icon->alpha, icon->icon);
     }
 }
-
 
 /**
  * @brief create icon object
@@ -78,7 +76,6 @@ sgl_obj_t* sgl_icon_create(sgl_obj_t* parent)
 
     return obj;
 }
-
 
 /**
  * @brief set icon color

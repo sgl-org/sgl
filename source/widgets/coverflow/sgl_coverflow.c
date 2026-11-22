@@ -23,121 +23,509 @@
  */
 
 #include <string.h>
-#include "../rect/sgl_rect.h"
-#include "../label/sgl_label.h"
+#include <sgl_draw.h>
+#include <sgl_math.h>
 #include "sgl_coverflow.h"
 
-#define COVERFLOW_DEFAULT_SPACING    (170)   /* resting distance between adjacent card centers, px */
-#define COVERFLOW_DEFAULT_CARD_W     (170)   /* focused card width, px */
-#define COVERFLOW_DEFAULT_CARD_H     (200)   /* focused card height, px */
-#define COVERFLOW_DEFAULT_MIN_SCALE  (560)   /* side card scale, permille of the focused card */
+#define COVERFLOW_FOCUS_SCALE        (1000)  /* focused card scale, permille (pixmap size, no upscale) */
+#define COVERFLOW_SIDE_SCALE         (750)   /* cards one slot away and beyond, permille */
+#define COVERFLOW_CARD_GAP           (8)     /* gap between two adjacent cards, px */
 #define COVERFLOW_DEFAULT_ANIM_MS    (260)   /* snap animation duration, ms */
 #define COVERFLOW_DEFAULT_RADIUS     (24)    /* focused card corner radius, px */
-#define COVERFLOW_DEFAULT_BORDER_W   (2)     /* card border width, px */
-#define COVERFLOW_CAPTION_GAP        (8)     /* gap between the focused card and its caption, px */
+#define COVERFLOW_PRESS_ZOOM         (2)     /* pressed card growth per side, px */
+
+/**
+ * @brief bilinear blend of four RGB565 samples
+ * @param c00 top-left sample, c01 top-right, c10 bottom-left, c11 bottom-right
+ * @param w00 weight of c00, w01 of c01, w10 of c10, w11 of c11 (sum 65536)
+ * @return blended RGB565 color
+ */
+static inline uint16_t coverflow_bilinear565(uint16_t c00, uint16_t c01,
+                                             uint16_t c10, uint16_t c11,
+                                             uint32_t w00, uint32_t w01,
+                                             uint32_t w10, uint32_t w11)
+{
+    const uint32_t r = (((c00 >> 11) & 0x1F) * w00 + ((c01 >> 11) & 0x1F) * w01 +
+                        ((c10 >> 11) & 0x1F) * w10 + ((c11 >> 11) & 0x1F) * w11) >> 16;
+    const uint32_t g = (((c00 >> 5) & 0x3F) * w00 + ((c01 >> 5) & 0x3F) * w01 +
+                        ((c10 >> 5) & 0x3F) * w10 + ((c11 >> 5) & 0x3F) * w11) >> 16;
+    const uint32_t b = ((c00 & 0x1F) * w00 + (c01 & 0x1F) * w01 +
+                        (c10 & 0x1F) * w10 + (c11 & 0x1F) * w11) >> 16;
+
+    return (uint16_t)((r << 11) | (g << 5) | b);
+}
+
+/**
+ * @brief draw an ARGB8565 pixmap scaled into a rounded rectangle
+ * @param surf surface to draw to
+ * @param area clip area (usually the widget area)
+ * @param coords rounded rectangle in screen coordinates
+ * @param radius corner radius, px
+ * @param alpha extra opacity applied on top of the per-pixel alpha
+ * @param pixmap source image
+ * @return none
+ */
+static void coverflow_draw_argb8565(sgl_surf_t *surf, sgl_area_t *area, sgl_area_t *coords,
+                                    int16_t radius, uint8_t alpha,
+                                    const sgl_pixmap_t *pixmap)
+{
+    if (alpha == SGL_ALPHA_MIN || pixmap == NULL || pixmap->bitmap.array == NULL ||
+        pixmap->width == 0 || pixmap->height == 0) {
+        return;
+    }
+
+    sgl_area_t image = *coords;
+    const int32_t dst_w = image.x2 - image.x1 + 1;
+    const int32_t dst_h = image.y2 - image.y1 + 1;
+    if (dst_w <= 0 || dst_h <= 0) {
+        return;
+    }
+
+    sgl_area_t card_clip;
+    sgl_area_t clip;
+    if (!sgl_area_clip(area, &image, &card_clip) ||
+        !sgl_surf_clip(surf, &card_clip, &clip)) {
+        return;
+    }
+
+    const int32_t max_radius = sgl_min(dst_w, dst_h) / 2;
+    if (radius > max_radius) {
+        radius = max_radius;
+    }
+    const int32_t radius_sq = radius * radius;
+    const int32_t src_w = (int32_t)pixmap->width;
+    const int32_t src_h = (int32_t)pixmap->height;
+    const int32_t step_x = (src_w << SGL_FIXED_SHIFT) / dst_w;
+    const int32_t step_y = (src_h << SGL_FIXED_SHIFT) / dst_h;
+    const size_t src_stride = (size_t)pixmap->width * 3;
+    /* shrinking must be sampled bilinearly, otherwise whole source pixels are
+     * dropped and the scaled bitmap looks aliased */
+    const bool bilinear = step_x > (1 << SGL_FIXED_SHIFT) || step_y > (1 << SGL_FIXED_SHIFT);
+    sgl_color_t *dst_row = sgl_surf_get_buf(surf, clip.x1 - surf->x1, clip.y1 - surf->y1);
+
+    for (int32_t y = clip.y1; y <= clip.y2; y++, dst_row += surf->w) {
+        int32_t span_x1 = image.x1;
+        int32_t span_x2 = image.x2;
+        int32_t dy;
+        if (radius > 0 && y < image.y1 + radius) {
+            dy = radius - (y - image.y1);
+        }
+        else if (radius > 0 && y > image.y2 - radius) {
+            dy = radius - (image.y2 - y);
+        }
+        else {
+            dy = 0;
+        }
+        if (dy > 0) {
+            const int32_t dx = sgl_sqrt((uint32_t)(radius_sq - dy * dy));
+            const int32_t inset = radius - dx;
+            span_x1 += inset;
+            span_x2 -= inset;
+        }
+
+        const int32_t x1 = sgl_max(span_x1, clip.x1);
+        const int32_t x2 = sgl_min(span_x2, clip.x2);
+        if (x1 > x2) {
+            continue;
+        }
+
+        sgl_color_t *dst = dst_row + (x1 - clip.x1);
+
+        if (bilinear) {
+            const int32_t y_src_fp = (y - image.y1) * step_y;
+            const int32_t sy0 = y_src_fp >> SGL_FIXED_SHIFT;
+            const int32_t sy1 = sgl_min(sy0 + 1, src_h - 1);
+            const uint32_t fy = (uint32_t)((y_src_fp >> (SGL_FIXED_SHIFT - 8)) & 0xFF);
+            const uint8_t *row0 = pixmap->bitmap.array + (size_t)sy0 * src_stride;
+            const uint8_t *row1 = pixmap->bitmap.array + (size_t)sy1 * src_stride;
+
+            for (int32_t x = x1; x <= x2; x++, dst++) {
+                const int32_t x_src_fp = (x - image.x1) * step_x;
+                const int32_t sx0 = x_src_fp >> SGL_FIXED_SHIFT;
+                const int32_t sx1 = sgl_min(sx0 + 1, src_w - 1);
+                const uint32_t fx = (uint32_t)((x_src_fp >> (SGL_FIXED_SHIFT - 8)) & 0xFF);
+                const uint8_t *p00 = row0 + (size_t)sx0 * 3;
+                const uint8_t *p01 = row0 + (size_t)sx1 * 3;
+                const uint8_t *p10 = row1 + (size_t)sx0 * 3;
+                const uint8_t *p11 = row1 + (size_t)sx1 * 3;
+                const uint32_t w00 = (256 - fx) * (256 - fy);
+                const uint32_t w01 = fx * (256 - fy);
+                const uint32_t w10 = (256 - fx) * fy;
+                const uint32_t w11 = fx * fy;
+                uint32_t pixel_alpha = ((uint32_t)p00[2] * w00 + (uint32_t)p01[2] * w01 +
+                                        (uint32_t)p10[2] * w10 + (uint32_t)p11[2] * w11) >> 16;
+
+                if (pixel_alpha != SGL_ALPHA_MIN) {
+                    if (alpha != SGL_ALPHA_MAX) {
+                        pixel_alpha = (pixel_alpha * alpha + SGL_ALPHA_MAX / 2) / SGL_ALPHA_MAX;
+                    }
+                    if (pixel_alpha != SGL_ALPHA_MIN) {
+                        const uint16_t c00 = (uint16_t)p00[0] | ((uint16_t)p00[1] << 8);
+                        const uint16_t c01 = (uint16_t)p01[0] | ((uint16_t)p01[1] << 8);
+                        const uint16_t c10 = (uint16_t)p10[0] | ((uint16_t)p10[1] << 8);
+                        const uint16_t c11 = (uint16_t)p11[0] | ((uint16_t)p11[1] << 8);
+                        const uint16_t rgb565 = coverflow_bilinear565(c00, c01, c10, c11,
+                                                                     w00, w01, w10, w11);
+                        const sgl_color_t color = sgl_rgb565_to_color(rgb565);
+                        *dst = (pixel_alpha == SGL_ALPHA_MAX) ? color :
+                               sgl_color_mixer(color, *dst, (uint8_t)pixel_alpha);
+                    }
+                }
+            }
+        }
+        else {
+            const int32_t src_y = ((y - image.y1) * step_y) >> SGL_FIXED_SHIFT;
+            const uint8_t *src_pixel = pixmap->bitmap.array + (size_t)src_y * src_stride;
+            int32_t src_x_fp = (x1 - image.x1) * step_x;
+            int32_t src_x = src_x_fp >> SGL_FIXED_SHIFT;
+            src_pixel += (size_t)src_x * 3;
+
+            for (int32_t x = x1; x <= x2; x++, dst++) {
+                uint8_t pixel_alpha = src_pixel[2];
+                if (pixel_alpha != SGL_ALPHA_MIN) {
+                    if (alpha != SGL_ALPHA_MAX) {
+                        pixel_alpha = (uint8_t)(((uint16_t)pixel_alpha * alpha + SGL_ALPHA_MAX / 2) / SGL_ALPHA_MAX);
+                    }
+                    if (pixel_alpha != SGL_ALPHA_MIN) {
+                        const uint16_t rgb565 = (uint16_t)src_pixel[0] | ((uint16_t)src_pixel[1] << 8);
+                        const sgl_color_t color = sgl_rgb565_to_color(rgb565);
+                        *dst = (pixel_alpha == SGL_ALPHA_MAX) ? color : sgl_color_mixer(color, *dst, pixel_alpha);
+                    }
+                }
+
+                src_x_fp += step_x;
+                const int32_t next_src_x = src_x_fp >> SGL_FIXED_SHIFT;
+                src_pixel += (size_t)(next_src_x - src_x) * 3;
+                src_x = next_src_x;
+            }
+        }
+    }
+}
+
+/**
+ * @brief convert a widget-local area into screen coordinates
+ * @param coverflow coverflow object
+ * @param local area relative to the widget origin
+ * @param out screen area
+ * @return none
+ */
+static inline void coverflow_to_screen(sgl_coverflow_t *coverflow, const sgl_area_t *local, sgl_area_t *out)
+{
+    out->x1 = coverflow->obj.coords.x1 + local->x1;
+    out->y1 = coverflow->obj.coords.y1 + local->y1;
+    out->x2 = coverflow->obj.coords.x1 + local->x2;
+    out->y2 = coverflow->obj.coords.y1 + local->y2;
+}
+
+/**
+ * @brief get the screen area of a card
+ * @param coverflow coverflow object
+ * @param index card index
+ * @param out card area in screen coordinates
+ * @return none
+ */
+static void coverflow_card_area(sgl_coverflow_t *coverflow, int16_t index, sgl_area_t *out)
+{
+    coverflow_to_screen(coverflow, &coverflow->items[index].coords, out);
+}
+
+/**
+ * @brief base (unscaled) card width: the pixmap width
+ * @param coverflow coverflow object
+ * @param index card index
+ * @return card width in pixels
+ * @note  the pixmap is mandatory (checked at creation), so it is never NULL
+ */
+static int16_t coverflow_base_width(sgl_coverflow_t *coverflow, int16_t index)
+{
+    return (int16_t)coverflow->cards[index].pixmap->width;
+}
+
+/**
+ * @brief base (unscaled) card height: the pixmap height
+ * @param coverflow coverflow object
+ * @param index card index
+ * @return card height in pixels
+ */
+static int16_t coverflow_base_height(sgl_coverflow_t *coverflow, int16_t index)
+{
+    return (int16_t)coverflow->cards[index].pixmap->height;
+}
+
+/**
+ * @brief resting distance between adjacent card centers
+ * @param coverflow coverflow object
+ * @return pitch in pixels
+ * @note  half of (focused card width + base card width) plus the gap: at rest
+ *        the focused card is at FOCUS_SCALE and its neighbour at 100%, so the
+ *        visible edge gap is exactly COVERFLOW_CARD_GAP and the cards never
+ *        overlap
+ */
+static int16_t coverflow_calc_pitch(sgl_coverflow_t *coverflow)
+{
+    int32_t max_w = 1;
+
+    for (int16_t i = 0; i < coverflow->card_num; i++) {
+        const int16_t w = coverflow_base_width(coverflow, i);
+        if (w > max_w) {
+            max_w = w;
+        }
+    }
+
+    return (int16_t)(max_w * (COVERFLOW_FOCUS_SCALE + COVERFLOW_SIDE_SCALE) / 2000 +
+                     COVERFLOW_CARD_GAP);
+}
+
+/**
+ * @brief draw one card (body pixmap)
+ * @param coverflow coverflow object
+ * @param surf surface to draw to
+ * @param index card index
+ * @return none
+ */
+static void coverflow_draw_card(sgl_coverflow_t *coverflow, sgl_surf_t *surf, int16_t index)
+{
+    sgl_obj_t *obj = &coverflow->obj;
+    const sgl_coverflow_card_t *card = &coverflow->cards[index];
+    const sgl_coverflow_item_t *item = &coverflow->items[index];
+    sgl_area_t rect;
+
+    coverflow_card_area(coverflow, index, &rect);
+
+    if (card->pixmap->format == SGL_PIXMAP_FMT_ARGB8565) {
+        coverflow_draw_argb8565(surf, &obj->area, &rect, item->radius,
+                                SGL_ALPHA_MAX, card->pixmap);
+    }
+    else {
+        sgl_draw_rect_t desc = {
+            .color = SGL_COLOR_WHITE,
+            .alpha = SGL_ALPHA_MAX,
+            .border_alpha = SGL_ALPHA_MAX,
+            .border = 0,
+            .pixmap = card->pixmap,
+            .radius = item->radius,
+        };
+        sgl_draw_rect(surf, &obj->area, &rect, &desc);
+    }
+}
+
+/**
+ * @brief current scale of a card, permille of its base size
+ * @param coverflow coverflow object
+ * @param index card index
+ * @return scale in permille: COVERFLOW_FOCUS_SCALE at the widget center down
+ *         to COVERFLOW_SIDE_SCALE one slot away
+ */
+static int32_t coverflow_scale_at(const sgl_coverflow_t *coverflow, int16_t index)
+{
+    int32_t dist = sgl_abs((int32_t)index * coverflow->spacing - coverflow->scroll);
+    if (dist > coverflow->spacing) {
+        dist = coverflow->spacing;
+    }
+
+    return COVERFLOW_SIDE_SCALE + (COVERFLOW_FOCUS_SCALE - COVERFLOW_SIDE_SCALE) *
+                                  (coverflow->spacing - dist) / coverflow->spacing;
+}
+
+/**
+ * @brief center distance that keeps COVERFLOW_CARD_GAP between two neighbours
+ * @param coverflow coverflow object
+ * @param left left card index
+ * @param right right card index
+ * @return distance between the two card centers, px
+ * @note  half of both current widths plus the gap, so the visible edge gap is
+ *        the same whether the pair is focused, half way or both unscaled
+ */
+static int32_t coverflow_pair_dist(const sgl_coverflow_t *coverflow, int16_t left, int16_t right)
+{
+    const int32_t lw = coverflow_base_width((sgl_coverflow_t *)coverflow, left) *
+                       coverflow_scale_at(coverflow, left) / 1000;
+    const int32_t rw = coverflow_base_width((sgl_coverflow_t *)coverflow, right) *
+                       coverflow_scale_at(coverflow, right) / 1000;
+
+    return lw / 2 + rw / 2 + COVERFLOW_CARD_GAP;
+}
+
+/**
+ * @brief place one card at the given horizontal offset from the widget center
+ * @param coverflow coverflow object
+ * @param index card index
+ * @param off card center offset, px
+ * @param top card currently on the top layer
+ * @param old_top top layer of the previous layout pass
+ * @return none
+ * @note pushes only the region the card occupied or now occupies
+ */
+static void coverflow_place_card(sgl_coverflow_t *coverflow, int16_t index, int32_t off,
+                                 int16_t top, int16_t old_top)
+{
+    sgl_obj_t *obj = &coverflow->obj;
+    const int16_t center_x = sgl_obj_get_width(obj) / 2;
+    const int16_t center_y = sgl_obj_get_height(obj) / 2;
+    const int32_t scale = coverflow_scale_at(coverflow, index);
+    int16_t w = coverflow_base_width(coverflow, index) * scale / 1000;
+    int16_t h = coverflow_base_height(coverflow, index) * scale / 1000;
+    int16_t radius = coverflow->radius * scale / 1000;
+
+    if (w < 1) {
+        w = 1;
+    }
+    if (h < 1) {
+        h = 1;
+    }
+    const int16_t max_radius = sgl_min(w, h) / 2;
+    if (radius > max_radius) {
+        radius = max_radius;
+    }
+    if (radius < 0) {
+        radius = 0;
+    }
+
+    sgl_coverflow_item_t *item = &coverflow->items[index];
+    const sgl_area_t old_rect = item->coords;
+    const int16_t old_radius = item->radius;
+
+    item->coords.x1 = center_x + (int16_t)off - w / 2;
+    item->coords.y1 = center_y - h / 2;
+    item->coords.x2 = item->coords.x1 + w - 1;
+    item->coords.y2 = item->coords.y1 + h - 1;
+
+    /* press feedback: grow the touched card a little, like the core does
+     * for flexible objects */
+    if (index == coverflow->press_card) {
+        item->coords.x1 -= COVERFLOW_PRESS_ZOOM;
+        item->coords.y1 -= COVERFLOW_PRESS_ZOOM;
+        item->coords.x2 += COVERFLOW_PRESS_ZOOM;
+        item->coords.y2 += COVERFLOW_PRESS_ZOOM;
+    }
+
+    item->radius = radius;
+
+    const bool moved = old_rect.x1 != item->coords.x1 || old_rect.y1 != item->coords.y1 ||
+                       old_rect.x2 != item->coords.x2 || old_rect.y2 != item->coords.y2 ||
+                       old_radius != radius;
+    /* nothing moved and the draw order stays the same */
+    if (!moved && top == old_top) {
+        return;
+    }
+
+    /* dirty region: where the card was plus where it is now */
+    sgl_area_t dirty;
+    sgl_area_t old_abs;
+    coverflow_card_area(coverflow, index, &dirty);
+    coverflow_to_screen(coverflow, &old_rect, &old_abs);
+    sgl_area_selfmerge(&dirty, &old_abs);
+
+    sgl_update_area(&dirty);
+}
 
 /**
  * @brief place and scale every card from the current camera position
  * @param coverflow coverflow object
  * @return none
- * @note  card scale is derived from its distance to the widget center; the
- *        nearest card is raised above its neighbours
+ * @note  card geometry is stored in widget-local coordinates. Each card uses
+ *        its pixmap width / height as base size: the centered card keeps that
+ *        size (no upscale, so the bitmap stays sharp) and the others shrink
+ *        down to COVERFLOW_SIDE_SCALE one slot away. Card centers are
+ *        accumulated with the per-pair distance, so every neighbouring pair
+ *        keeps exactly COVERFLOW_CARD_GAP, focused or not. Only the cards
+ *        that actually moved are pushed through sgl_update_area()
  */
 static void coverflow_layout(sgl_coverflow_t *coverflow)
 {
-    const int16_t center_x = sgl_obj_get_width(&coverflow->obj) / 2;
-    const int16_t center_y = sgl_obj_get_height(&coverflow->obj) / 2;
+    const int16_t old_top = coverflow->top;
+
+    /* the pitch follows the card sizes: when it changes keep the camera on
+     * the same relative position */
+    const int16_t pitch = coverflow_calc_pitch(coverflow);
+    if (pitch != coverflow->spacing) {
+        if (coverflow->spacing > 0) {
+            coverflow->scroll = coverflow->scroll * pitch / coverflow->spacing;
+        }
+        coverflow->spacing = pitch;
+    }
+
     int16_t top = 0;
     int32_t top_dist = INT32_MAX;
 
+    /* the focused card is the nearest one and is drawn last, on top of its
+     * neighbours */
     for (int16_t i = 0; i < coverflow->card_num; i++) {
-        const int32_t off = i * coverflow->spacing - coverflow->scroll;
-        int32_t dist = sgl_abs(off);
-        if (dist > coverflow->spacing) {
-            dist = coverflow->spacing;
-        }
-
-        /* permille scale: 1000 at the center, min_scale one card away */
-        const int32_t scale = 1000 - dist * (1000 - coverflow->min_scale) / coverflow->spacing;
-        const int16_t w = coverflow->card_w * scale / 1000;
-        const int16_t h = coverflow->card_h * scale / 1000;
-        /* side cards are pushed towards the center (x compressed to 3/5),
-         * so neighbours partially stack behind the focused card */
-        const int16_t cx = center_x + off * 3 / 5;
-        const uint16_t radius = coverflow->radius * scale / 1000;
-
-        sgl_obj_set_pos(coverflow->cards[i], cx - w / 2, center_y - h / 2);
-        sgl_obj_set_size(coverflow->cards[i], w, h);
-        sgl_rect_set_radius(coverflow->cards[i], radius);
-        /* the caption is a direct child of the widget. a sgl_label keeps the
-         * box it was created with (the parent size) and centers its text in
-         * that box, so shrink the box to the text before placing it centered
-         * just below the card (widget-local coordinates); the caption is only
-         * shown for the focused card (see the visibility pass below) */
-        if (coverflow->labels[i] != NULL) {
-            sgl_obj_t *label = coverflow->labels[i];
-            sgl_label_t *lbl = sgl_container_of(label, sgl_label_t, obj);
-            /* measure with the label's current font: sgl_label keeps its
-             * text_length from creation and does not refresh it on
-             * sgl_label_set_font, so it may be stale / zero here */
-            const int16_t tw = sgl_font_get_string_width(lbl->text, lbl->font);
-            const int16_t th = sgl_font_get_height(lbl->font);
-            sgl_obj_set_size(label, tw, th);
-            sgl_obj_set_pos(label, cx - tw / 2,
-                            center_y + h / 2 + COVERFLOW_CAPTION_GAP);
-        }
-
-        const int32_t true_dist = sgl_abs(off);
-        if (true_dist < top_dist) {
-            top_dist = true_dist;
+        const int32_t dist = sgl_abs(i * coverflow->spacing - coverflow->scroll);
+        if (dist < top_dist) {
+            top_dist = dist;
             top = i;
         }
     }
 
-    /* only the centered (top) card shows its caption, the side cards hide
-     * theirs; toggle the flags only when they really change so a drag does
-     * not push redundant dirty areas on every frame */
-    for (int16_t i = 0; i < coverflow->card_num; i++) {
-        if (coverflow->labels[i] == NULL) {
-            continue;
+    /* camera: an anchor card plus the fractional part (1/256 slot) between it
+     * and the next card; the anchor is clamped to an existing pair so the
+     * extrapolation still works during the rubber band overscroll */
+    int32_t anchor = 0;
+    int32_t t_fp = 0;
+    if (coverflow->card_num > 1) {
+        const int32_t last = coverflow->card_num - 1;
+        if (coverflow->scroll <= 0) {
+            anchor = 0;
+            t_fp = coverflow->scroll * 256 / coverflow->spacing;
         }
-        const bool show = (i == top);
-        if (show && sgl_obj_is_hidden(coverflow->labels[i])) {
-            sgl_obj_set_visible(coverflow->labels[i]);
+        else if (coverflow->scroll >= last * coverflow->spacing) {
+            anchor = last - 1;
+            t_fp = (coverflow->scroll - anchor * coverflow->spacing) * 256 / coverflow->spacing;
         }
-        else if (!show && !sgl_obj_is_hidden(coverflow->labels[i])) {
-            sgl_obj_set_hidden(coverflow->labels[i]);
+        else {
+            anchor = coverflow->scroll / coverflow->spacing;
+            t_fp = (coverflow->scroll - anchor * coverflow->spacing) * 256 / coverflow->spacing;
         }
     }
 
-    if (top != coverflow->top) {
-        coverflow->top = top;
-        sgl_obj_move_top(coverflow->cards[top]);
-        /* keep the focused caption above its card */
-        if (coverflow->labels[top] != NULL) {
-            sgl_obj_move_top(coverflow->labels[top]);
+    int32_t anchor_off = 0;
+    if (coverflow->card_num > 1) {
+        anchor_off = -(t_fp * coverflow_pair_dist(coverflow, (int16_t)anchor,
+                                                  (int16_t)(anchor + 1))) / 256;
+    }
+
+    /* walk right from the anchor, then left, accumulating the pair distance */
+    int32_t off = anchor_off;
+    for (int16_t i = (int16_t)anchor; i < coverflow->card_num; i++) {
+        coverflow_place_card(coverflow, i, off, top, old_top);
+        if (i + 1 < coverflow->card_num) {
+            off += coverflow_pair_dist(coverflow, i, (int16_t)(i + 1));
         }
     }
+
+    off = anchor_off;
+    for (int16_t i = (int16_t)(anchor - 1); i >= 0; i--) {
+        off -= coverflow_pair_dist(coverflow, i, (int16_t)(i + 1));
+        coverflow_place_card(coverflow, i, off, top, old_top);
+    }
+
+    coverflow->top = top;
 }
 
 /**
  * @brief animation frame callback, value is the new camera position
+ * @note  the animation carries the widget object as its private data
  */
 static void coverflow_anim_path_cb(sgl_anim_t *anim, int32_t value)
 {
-    sgl_coverflow_t *coverflow = (sgl_coverflow_t *)sgl_anim_get_data(anim);
+    sgl_coverflow_t *coverflow = sgl_container_of((sgl_obj_t *)sgl_anim_get_data(anim),
+                                                 sgl_coverflow_t, obj);
     coverflow->scroll = value;
     coverflow_layout(coverflow);
 }
 
 /**
- * @brief animation finished callback
- * @note  the animation frees itself (auto free), just drop the reference
+ * @brief cancel the running snap animation, if any
+ * @param coverflow coverflow object
+ * @return none
  */
-static void coverflow_anim_finish_cb(sgl_anim_t *anim)
+static void coverflow_anim_cancel(sgl_coverflow_t *coverflow)
 {
-    sgl_coverflow_t *coverflow = (sgl_coverflow_t *)sgl_anim_get_data(anim);
-    coverflow->anim = NULL;
+    sgl_anim_t *anim = sgl_anim_get_by_obj(&coverflow->obj);
+    if (anim != NULL) {
+        sgl_anim_delete(anim);
+    }
 }
 
 /**
@@ -151,10 +539,7 @@ static void coverflow_scroll_to(sgl_coverflow_t *coverflow, int32_t target)
     target = sgl_clamp(target, 0, (coverflow->card_num - 1) * coverflow->spacing);
     coverflow->index = target / coverflow->spacing;
 
-    if (coverflow->anim != NULL) {
-        sgl_anim_delete(coverflow->anim);
-        coverflow->anim = NULL;
-    }
+    coverflow_anim_cancel(coverflow);
     if (target == coverflow->scroll) {
         /* already at the target camera position, but the widget geometry may
          * have changed since the last layout (the caller resized / moved it
@@ -163,21 +548,9 @@ static void coverflow_scroll_to(sgl_coverflow_t *coverflow, int32_t target)
         return;
     }
 
-    coverflow->anim = sgl_anim_create();
-    if (coverflow->anim == NULL) {
-        coverflow->scroll = target;
-        coverflow_layout(coverflow);
-        return;
-    }
-
-    sgl_anim_set_data(coverflow->anim, coverflow);
-    sgl_anim_set_start_value(coverflow->anim, coverflow->scroll);
-    sgl_anim_set_end_value(coverflow->anim, target);
-    sgl_anim_set_act_duration(coverflow->anim, coverflow->anim_ms);
-    sgl_anim_set_path(coverflow->anim, coverflow_anim_path_cb, SGL_ANIM_PATH_EASE_OUT);
-    sgl_anim_set_finish_cb(coverflow->anim, coverflow_anim_finish_cb);
-    sgl_anim_set_auto_free(coverflow->anim);
-    sgl_anim_start(coverflow->anim, SGL_ANIM_REPEAT_ONCE);
+    sgl_anim_setup_obj_action(&coverflow->obj, (int16_t)coverflow->scroll, (int16_t)target,
+                              (uint16_t)coverflow->anim_ms, coverflow_anim_path_cb,
+                              SGL_ANIM_PATH_EASE_OUT, NULL);
 }
 
 /**
@@ -208,17 +581,22 @@ static void coverflow_scroll_commit(sgl_scroll_t *sc)
  */
 static int16_t coverflow_hit_card(sgl_coverflow_t *coverflow, sgl_event_pos_t pos)
 {
+    sgl_obj_t *obj = &coverflow->obj;
     int16_t hit = -1;
     int32_t hit_dist = INT32_MAX;
 
     for (int16_t i = 0; i < coverflow->card_num; i++) {
-        const sgl_area_t *coords = &coverflow->cards[i]->coords;
-        if (pos.x < coords->x1 || pos.x > coords->x2 ||
-            pos.y < coords->y1 || pos.y > coords->y2) {
+        const sgl_area_t *rect = &coverflow->items[i].coords;
+        const int16_t x1 = obj->coords.x1 + rect->x1;
+        const int16_t x2 = obj->coords.x1 + rect->x2;
+        const int16_t y1 = obj->coords.y1 + rect->y1;
+        const int16_t y2 = obj->coords.y1 + rect->y2;
+
+        if (pos.x < x1 || pos.x > x2 || pos.y < y1 || pos.y > y2) {
             continue;
         }
 
-        const int32_t dist = sgl_abs(pos.x - (coords->x1 + coords->x2) / 2);
+        const int32_t dist = sgl_abs(pos.x - (x1 + x2) / 2);
         if (dist < hit_dist) {
             hit_dist = dist;
             hit = i;
@@ -229,57 +607,61 @@ static int16_t coverflow_hit_card(sgl_coverflow_t *coverflow, sgl_event_pos_t po
 }
 
 /**
- * @brief forward an event to a card: its construct callback produces the
- *        press visual feedback, then the user event callback (if any) is
- *        invoked with the card as the event object
+ * @brief forward an event to the card activation callback
  * @param coverflow coverflow object
  * @param index target card index
  * @param evt event to forward
  * @return none
  */
-static void coverflow_forward_event(sgl_coverflow_t *coverflow, int16_t index, sgl_event_t *evt)
+static void coverflow_emit_card_event(sgl_coverflow_t *coverflow, int16_t index, sgl_event_t *evt)
 {
-    sgl_obj_t *card = coverflow->cards[index];
-    sgl_event_t ce = *evt;
-    ce.obj = card;
-    ce.event_data = card->event_data;
-
-    card->construct_fn(NULL, card, &ce);
-    if (card->event_fn != NULL) {
-        card->event_fn(&ce);
+    if (coverflow->card_event_cb == NULL) {
+        return;
     }
+
+    sgl_event_t ce = *evt;
+    ce.obj = &coverflow->obj;
+    ce.event_data = coverflow->card_event_data;
+    coverflow->card_event_cb(&ce, index);
 }
 
 /**
- * @brief coverflow construct callback, the widget itself draws nothing;
- *        it handles the touch / key scrolling and releases its resources
- *        on destroy
+ * @brief coverflow construct callback; it draws every card and handles the
+ *        touch / key scrolling, and releases its resources on destroy
  * @note  tapping a side card scrolls it to the center; tapping the
- *        centered card forwards the click to the card's own event
- *        callback so the user can handle it
+ *        centered card fires the card activation callback
  */
 static void sgl_coverflow_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_event_t *evt)
 {
-    SGL_UNUSED(surf);
     sgl_coverflow_t *coverflow = sgl_container_of(obj, sgl_coverflow_t, obj);
     const int32_t range = (coverflow->card_num - 1) * coverflow->spacing;
 
     switch (evt->type) {
+    case SGL_EVENT_DRAW_MAIN:
+        /* side cards first, the focused card on top */
+        for (int16_t i = 0; i < coverflow->card_num; i++) {
+            if (i != coverflow->top) {
+                coverflow_draw_card(coverflow, surf, i);
+            }
+        }
+        if (coverflow->top >= 0 && coverflow->top < coverflow->card_num) {
+            coverflow_draw_card(coverflow, surf, coverflow->top);
+        }
+        break;
+
     case SGL_EVENT_PRESSED:
         /* grab the menu: stop the snap animation and any coasting inertia,
          * sync the engine with the current camera, then start tracking */
-        if (coverflow->anim != NULL) {
-            sgl_anim_delete(coverflow->anim);
-            coverflow->anim = NULL;
-        }
+        coverflow_anim_cancel(coverflow);
         sgl_scroll_anim_stop(&coverflow->sc);
         coverflow->sc.offset = coverflow->scroll;
         sgl_scroll_press(&coverflow->sc, evt->pos.x);
 
-        /* press feedback on the touched card (flexible zoom) */
+        /* press feedback on the touched card, then notify the user */
         coverflow->press_card = coverflow_hit_card(coverflow, evt->pos);
         if (coverflow->press_card >= 0) {
-            coverflow_forward_event(coverflow, coverflow->press_card, evt);
+            coverflow_layout(coverflow);
+            coverflow_emit_card_event(coverflow, coverflow->press_card, evt);
         }
         break;
 
@@ -311,8 +693,10 @@ static void sgl_coverflow_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_eve
 
         /* release feedback on the card the press started on */
         if (coverflow->press_card >= 0) {
-            coverflow_forward_event(coverflow, coverflow->press_card, evt);
+            const int16_t card = coverflow->press_card;
             coverflow->press_card = -1;
+            coverflow_layout(coverflow);
+            coverflow_emit_card_event(coverflow, card, evt);
         }
         break;
 
@@ -340,9 +724,9 @@ static void sgl_coverflow_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_eve
             coverflow_scroll_to(coverflow, hit * coverflow->spacing);
         }
         else {
-            /* centered card tapped: fire the user event callback */
+            /* centered card tapped: fire the card activation callback */
             SGL_LOG_INFO("coverflow: center card %d clicked, forward to user cb", hit);
-            coverflow_forward_event(coverflow, hit, evt);
+            coverflow_emit_card_event(coverflow, hit, evt);
         }
         break;
     }
@@ -364,19 +748,16 @@ static void sgl_coverflow_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_eve
         break;
 
     case SGL_EVENT_DESTROYED:
-        if (coverflow->anim != NULL) {
-            sgl_anim_delete(coverflow->anim);
-            coverflow->anim = NULL;
-        }
+        coverflow_anim_cancel(coverflow);
         sgl_scroll_anim_stop(&coverflow->sc);
         if (coverflow->group != NULL) {
             sgl_key_group_delete(coverflow->group);
             coverflow->group = NULL;
         }
         sgl_free(coverflow->cards);
-        sgl_free(coverflow->labels);
+        sgl_free(coverflow->items);
         coverflow->cards = NULL;
-        coverflow->labels = NULL;
+        coverflow->items = NULL;
         break;
 
     default:
@@ -387,7 +768,7 @@ static void sgl_coverflow_construct_cb(sgl_surf_t *surf, sgl_obj_t *obj, sgl_eve
 /**
  * @brief create a coverflow object
  * @param parent parent object, NULL creates the menu on the active screen
- * @param cards card descriptor array (copied into the created cards)
+ * @param cards card descriptor array (copied into the widget)
  * @param card_num number of cards
  * @return coverflow object, NULL on failure
  */
@@ -398,6 +779,17 @@ sgl_obj_t* sgl_coverflow_create(sgl_obj_t *parent, const sgl_coverflow_card_t *c
         return NULL;
     }
 
+    /* every card needs a pixmap: its width / height define the card size */
+    for (int16_t i = 0; i < card_num; i++) {
+        const sgl_pixmap_t *pixmap = cards[i].pixmap;
+        if (pixmap == NULL || pixmap->bitmap.array == NULL ||
+            pixmap->width == 0 || pixmap->height == 0) {
+            SGL_LOG_ERROR("sgl_coverflow_create: card %d has no valid pixmap, "
+                          "the pixmap is mandatory", i);
+            return NULL;
+        }
+    }
+
     sgl_coverflow_t *coverflow = sgl_malloc(sizeof(sgl_coverflow_t));
     if (coverflow == NULL) {
         SGL_LOG_ERROR("sgl_coverflow_create: malloc failed");
@@ -405,41 +797,35 @@ sgl_obj_t* sgl_coverflow_create(sgl_obj_t *parent, const sgl_coverflow_card_t *c
     }
     memset(coverflow, 0, sizeof(sgl_coverflow_t));
 
-    coverflow->cards = sgl_malloc(card_num * sizeof(sgl_obj_t*));
-    coverflow->labels = sgl_malloc(card_num * sizeof(sgl_obj_t*));
-    if (coverflow->cards == NULL || coverflow->labels == NULL) {
+    coverflow->cards = sgl_malloc(card_num * sizeof(sgl_coverflow_card_t));
+    coverflow->items = sgl_malloc(card_num * sizeof(sgl_coverflow_item_t));
+    if (coverflow->cards == NULL || coverflow->items == NULL) {
         SGL_LOG_ERROR("sgl_coverflow_create: malloc failed");
         sgl_free(coverflow->cards);
-        sgl_free(coverflow->labels);
+        sgl_free(coverflow->items);
         sgl_free(coverflow);
         return NULL;
     }
-    memset(coverflow->cards, 0, card_num * sizeof(sgl_obj_t*));
-    memset(coverflow->labels, 0, card_num * sizeof(sgl_obj_t*));
+    memcpy(coverflow->cards, cards, card_num * sizeof(sgl_coverflow_card_t));
+    memset(coverflow->items, 0, card_num * sizeof(sgl_coverflow_item_t));
 
     sgl_obj_t *obj = &coverflow->obj;
     sgl_obj_init(obj, parent);
     obj->construct_fn = sgl_coverflow_construct_cb;
-    /* the widget itself is the event target: cards stay unclickable so the
-     * click detection falls through to this object; movable enables drag
-     * tracking, editable lets ENTER activate the centered card while the
+    /* the widget itself is the event target: it has no child objects, so it
+     * must be clickable for the click detection to reach it; movable enables
+     * drag tracking, editable lets ENTER activate the centered card while the
      * group is in the (auto-enabled) key scroll mode */
+    sgl_obj_set_clickable(obj);
     sgl_obj_set_movable(obj);
     sgl_obj_set_editable(obj);
     /* default to the parent size, the focused card rests at the center */
     sgl_obj_set_size(obj, sgl_obj_get_width(obj->parent), sgl_obj_get_height(obj->parent));
 
-    obj->border = COVERFLOW_DEFAULT_BORDER_W;
     coverflow->card_num = card_num;
-    coverflow->spacing = COVERFLOW_DEFAULT_SPACING;
-    coverflow->card_w = COVERFLOW_DEFAULT_CARD_W;
-    coverflow->card_h = COVERFLOW_DEFAULT_CARD_H;
-    coverflow->min_scale = COVERFLOW_DEFAULT_MIN_SCALE;
+    coverflow->spacing = coverflow_calc_pitch(coverflow);
     coverflow->anim_ms = COVERFLOW_DEFAULT_ANIM_MS;
     coverflow->radius = COVERFLOW_DEFAULT_RADIUS;
-    coverflow->border_color = SGL_COLOR_WHITE;
-    coverflow->text_color = SGL_COLOR_WHITE;
-    coverflow->font = sgl_get_system_font();
     coverflow->top = -1;
     coverflow->press_card = -1;
     sgl_scroll_reset(&coverflow->sc);
@@ -454,27 +840,6 @@ sgl_obj_t* sgl_coverflow_create(sgl_obj_t *parent, const sgl_coverflow_card_t *c
     }
     else {
         sgl_key_group_add_obj(coverflow->group, obj);
-    }
-
-    for (int16_t i = 0; i < card_num; i++) {
-        sgl_obj_t *card = sgl_rect_create(obj);
-        coverflow->cards[i] = card;
-        sgl_obj_set_flexible(card);
-        sgl_rect_set_color(card, cards[i].color);
-        sgl_rect_set_border_width(card, obj->border);
-        sgl_rect_set_border_color(card, coverflow->border_color);
-        sgl_rect_set_pixmap(card, cards[i].pixmap);
-
-        /* card caption: a direct child of the widget (not of the card) so
-         * the click detection always resolves to the widget itself; it is
-         * kept centered on its card by coverflow_layout() */
-        if (cards[i].text != NULL) {
-            sgl_obj_t *label = sgl_label_create(obj);
-            sgl_label_set_font(label, coverflow->font);
-            sgl_label_set_text(label, cards[i].text);
-            sgl_label_set_text_color(label, coverflow->text_color);
-            coverflow->labels[i] = label;
-        }
     }
 
     /* start with the middle card focused */
@@ -524,61 +889,17 @@ int16_t sgl_coverflow_get_index(sgl_obj_t *obj)
 }
 
 /**
- * @brief get a card rect object
+ * @brief set the card activation callback
  * @param obj coverflow object
- * @param index card index
- * @return card object, NULL if index is out of range
- */
-sgl_obj_t* sgl_coverflow_get_card(sgl_obj_t *obj, int16_t index)
-{
-    sgl_coverflow_t *coverflow = sgl_container_of(obj, sgl_coverflow_t, obj);
-    if (index < 0 || index >= coverflow->card_num) {
-        return NULL;
-    }
-    return coverflow->cards[index];
-}
-
-/**
- * @brief set the resting distance between adjacent card centers
- * @param obj coverflow object
- * @param spacing distance in pixels
+ * @param cb callback fired when the centered card is activated
+ * @param data user data passed as evt->event_data
  * @return none
  */
-void sgl_coverflow_set_spacing(sgl_obj_t *obj, int16_t spacing)
+void sgl_coverflow_set_card_event_cb(sgl_obj_t *obj, sgl_coverflow_card_event_cb_t cb, void *data)
 {
     sgl_coverflow_t *coverflow = sgl_container_of(obj, sgl_coverflow_t, obj);
-    if (spacing <= 0 || coverflow->spacing == spacing) return;
-    coverflow->spacing = spacing;
-    coverflow->scroll = coverflow->index * spacing;
-    coverflow_layout(coverflow);
-}
-
-/**
- * @brief set the focused card size
- * @param obj coverflow object
- * @param width focused card width, px
- * @param height focused card height, px
- * @return none
- */
-void sgl_coverflow_set_card_size(sgl_obj_t *obj, int16_t width, int16_t height)
-{
-    sgl_coverflow_t *coverflow = sgl_container_of(obj, sgl_coverflow_t, obj);
-    coverflow->card_w = width;
-    coverflow->card_h = height;
-    coverflow_layout(coverflow);
-}
-
-/**
- * @brief set the side card scale
- * @param obj coverflow object
- * @param scale permille of the focused card size
- * @return none
- */
-void sgl_coverflow_set_min_scale(sgl_obj_t *obj, int16_t scale)
-{
-    sgl_coverflow_t *coverflow = sgl_container_of(obj, sgl_coverflow_t, obj);
-    coverflow->min_scale = sgl_clamp(scale, 0, 1000);
-    coverflow_layout(coverflow);
+    coverflow->card_event_cb = cb;
+    coverflow->card_event_data = data;
 }
 
 /**
@@ -603,59 +924,5 @@ void sgl_coverflow_set_radius(sgl_obj_t *obj, int16_t radius)
 {
     sgl_coverflow_t *coverflow = sgl_container_of(obj, sgl_coverflow_t, obj);
     coverflow->radius = radius;
-    coverflow_layout(coverflow);
-}
-
-/**
- * @brief set the card border
- * @param obj coverflow object
- * @param color border color
- * @param width border width, px
- * @return none
- */
-void sgl_coverflow_set_border(sgl_obj_t *obj, sgl_color_t color, uint8_t width)
-{
-    sgl_coverflow_t *coverflow = sgl_container_of(obj, sgl_coverflow_t, obj);
-    coverflow->border_color = color;
-    obj->border = width;
-    for (int16_t i = 0; i < coverflow->card_num; i++) {
-        sgl_rect_set_border_color(coverflow->cards[i], color);
-        sgl_rect_set_border_width(coverflow->cards[i], width);
-    }
-}
-
-/**
- * @brief set the caption text color
- * @param obj coverflow object
- * @param color text color
- * @return none
- */
-void sgl_coverflow_set_text_color(sgl_obj_t *obj, sgl_color_t color)
-{
-    sgl_coverflow_t *coverflow = sgl_container_of(obj, sgl_coverflow_t, obj);
-    coverflow->text_color = color;
-    for (int16_t i = 0; i < coverflow->card_num; i++) {
-        if (coverflow->labels[i] != NULL) {
-            sgl_label_set_text_color(coverflow->labels[i], color);
-        }
-    }
-}
-
-/**
- * @brief set the caption font
- * @param obj coverflow object
- * @param font font to use
- * @return none
- */
-void sgl_coverflow_set_font(sgl_obj_t *obj, const sgl_font_t *font)
-{
-    sgl_coverflow_t *coverflow = sgl_container_of(obj, sgl_coverflow_t, obj);
-    coverflow->font = font;
-    for (int16_t i = 0; i < coverflow->card_num; i++) {
-        if (coverflow->labels[i] != NULL) {
-            sgl_label_set_font(coverflow->labels[i], font);
-        }
-    }
-    /* the caption box is sized from the font metrics, so re-layout */
     coverflow_layout(coverflow);
 }
