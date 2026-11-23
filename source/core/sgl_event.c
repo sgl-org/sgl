@@ -138,15 +138,24 @@ static inline bool sgl_event_queue_is_full(void)
  */
 void sgl_event_queue_push(sgl_event_t event)
 {
-    uint16_t index;
+    const uint16_t in = evt_ctx.evtq.in;
+
+    /* coalesce touch motion into the newest queued motion, see the note above */
+    if (event.type == SGL_EVENT_MOTION && !sgl_event_queue_is_empty()) {
+        sgl_event_t *newest = &evt_ctx.evtq.buffer[(uint16_t)(in - 1) & SGL_EVENT_QUEUE_SIZE_MASK];
+        if (newest->type == SGL_EVENT_MOTION) {
+            newest->pos = event.pos;
+            return;
+        }
+    }
+
     if (unlikely(sgl_event_queue_is_full())) {
         SGL_LOG_ERROR("Event queue is full, maybe system is too slow");
         return;
     }
 
-    index = evt_ctx.evtq.in % SGL_EVENT_QUEUE_SIZE;
-    evt_ctx.evtq.buffer[index] = event;
-    evt_ctx.evtq.in++;
+    evt_ctx.evtq.buffer[in & SGL_EVENT_QUEUE_SIZE_MASK] = event;
+    evt_ctx.evtq.in = in + 1;
 }
 
 /**

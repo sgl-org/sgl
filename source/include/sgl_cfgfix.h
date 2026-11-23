@@ -69,7 +69,7 @@ extern "C" {
 #endif
 
 #ifndef CONFIG_SGL_EVENT_QUEUE_SIZE
-#define CONFIG_SGL_EVENT_QUEUE_SIZE                                (16)  /* Max input event queue size */
+#define CONFIG_SGL_EVENT_QUEUE_SIZE                                (16)  /* Max input event queue size， this is a power of 2 */
 #endif
 
 #ifndef CONFIG_SGL_FOCUSED_COLOR
