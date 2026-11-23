@@ -615,6 +615,28 @@ void sgl_draw_line(sgl_surf_t *surf, sgl_area_t *area, sgl_draw_line_t *desc);
 void sgl_draw_fill_arc(sgl_surf_t *surf, sgl_area_t *area, sgl_draw_arc_t *desc);
 
 /**
+ * @brief blend four colors with bilinear weights
+ * @param c00 top-left sample, c01 top-right, c10 bottom-left, c11 bottom-right
+ * @param w00 weight of c00, w01 of c01, w10 of c10, w11 of c11 (sum 65536)
+ * @return interpolated color
+ * @note shared by sgl_draw_biln_color() and widgets that scale their own
+ *       bitmaps (e.g. the ARGB8565 pixmaps of coverflow), so both use the same
+ *       RGB weighting regardless of the configured color depth
+ */
+static inline sgl_color_t sgl_draw_biln_color_mix(sgl_color_t c00, sgl_color_t c01, sgl_color_t c10, sgl_color_t c11,
+                                                  uint32_t w00, uint32_t w01, uint32_t w10, uint32_t w11)
+{
+    sgl_color_t ret;
+    ret.ch.red   = (c00.ch.red   * w00 + c01.ch.red   * w01 +
+                    c10.ch.red   * w10 + c11.ch.red   * w11) >> 16;
+    ret.ch.green = (c00.ch.green * w00 + c01.ch.green * w01 +
+                    c10.ch.green * w10 + c11.ch.green * w11) >> 16;
+    ret.ch.blue  = (c00.ch.blue  * w00 + c01.ch.blue  * w01 +
+                    c10.ch.blue  * w10 + c11.ch.blue  * w11) >> 16;
+    return ret;
+}
+
+/**
  * @brief calculate a point color by bilinear interpolate (with mask support)
  * @param buffer point to image pixmap start buffer (RGB)
  * @param w      width of buffer

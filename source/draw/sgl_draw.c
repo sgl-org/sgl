@@ -39,8 +39,6 @@
  */
 sgl_color_t sgl_draw_biln_color(const sgl_color_t *buffer, int16_t w, int16_t h, int32_t fx, int32_t fy)
 {
-    sgl_color_t ret = {0};
-
     const int32_t max_x = ((int32_t)w - 1) << SGL_FIXED_SHIFT;
     const int32_t max_y = ((int32_t)h - 1) << SGL_FIXED_SHIFT;
     fx = (fx < 0) ? 0 : (fx > max_x) ? max_x : fx;
@@ -63,19 +61,13 @@ sgl_color_t sgl_draw_biln_color(const sgl_color_t *buffer, int16_t w, int16_t h,
     const sgl_color_t p10 = buffer[idx10];
     const sgl_color_t p11 = buffer[idx11];
 
-    const int32_t r_y0 = (p00.ch.red * dx1 + p01.ch.red * dx) >> SGL_FIXED_SHIFT;
-    const int32_t r_y1 = (p10.ch.red * dx1 + p11.ch.red * dx) >> SGL_FIXED_SHIFT;
-    ret.ch.red = (r_y0 * dy1 + r_y1 * dy) >> SGL_FIXED_SHIFT;
+    /* corner weights are normalized to 65536, see sgl_draw_biln_color_mix() */
+    const uint32_t w00 = ((uint32_t)dx1 * (uint32_t)dy1) >> SGL_FIXED_SHIFT;
+    const uint32_t w01 = ((uint32_t)dx  * (uint32_t)dy1) >> SGL_FIXED_SHIFT;
+    const uint32_t w10 = ((uint32_t)dx1 * (uint32_t)dy ) >> SGL_FIXED_SHIFT;
+    const uint32_t w11 = ((uint32_t)dx  * (uint32_t)dy ) >> SGL_FIXED_SHIFT;
 
-    const int32_t g_y0 = (p00.ch.green * dx1 + p01.ch.green * dx) >> SGL_FIXED_SHIFT;
-    const int32_t g_y1 = (p10.ch.green * dx1 + p11.ch.green * dx) >> SGL_FIXED_SHIFT;
-    ret.ch.green = (g_y0 * dy1 + g_y1 * dy) >> SGL_FIXED_SHIFT;
-
-    const int32_t b_y0 = (p00.ch.blue * dx1 + p01.ch.blue * dx) >> SGL_FIXED_SHIFT;
-    const int32_t b_y1 = (p10.ch.blue * dx1 + p11.ch.blue * dx) >> SGL_FIXED_SHIFT;
-    ret.ch.blue = (b_y0 * dy1 + b_y1 * dy) >> SGL_FIXED_SHIFT;
-
-    return ret;
+    return sgl_draw_biln_color_mix(p00, p01, p10, p11, w00, w01, w10, w11);
 }
 
 /**

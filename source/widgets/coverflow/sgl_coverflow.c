@@ -35,27 +35,6 @@
 #define COVERFLOW_PRESS_ZOOM         (2)     /* pressed card growth per side, px */
 
 /**
- * @brief bilinear blend of four RGB565 samples
- * @param c00 top-left sample, c01 top-right, c10 bottom-left, c11 bottom-right
- * @param w00 weight of c00, w01 of c01, w10 of c10, w11 of c11 (sum 65536)
- * @return blended RGB565 color
- */
-static inline uint16_t coverflow_bilinear565(uint16_t c00, uint16_t c01,
-                                             uint16_t c10, uint16_t c11,
-                                             uint32_t w00, uint32_t w01,
-                                             uint32_t w10, uint32_t w11)
-{
-    const uint32_t r = (((c00 >> 11) & 0x1F) * w00 + ((c01 >> 11) & 0x1F) * w01 +
-                        ((c10 >> 11) & 0x1F) * w10 + ((c11 >> 11) & 0x1F) * w11) >> 16;
-    const uint32_t g = (((c00 >> 5) & 0x3F) * w00 + ((c01 >> 5) & 0x3F) * w01 +
-                        ((c10 >> 5) & 0x3F) * w10 + ((c11 >> 5) & 0x3F) * w11) >> 16;
-    const uint32_t b = ((c00 & 0x1F) * w00 + (c01 & 0x1F) * w01 +
-                        (c10 & 0x1F) * w10 + (c11 & 0x1F) * w11) >> 16;
-
-    return (uint16_t)((r << 11) | (g << 5) | b);
-}
-
-/**
  * @brief draw an ARGB8565 pixmap scaled into a rounded rectangle
  * @param surf surface to draw to
  * @param area clip area (usually the widget area)
@@ -160,13 +139,11 @@ static void coverflow_draw_argb8565(sgl_surf_t *surf, sgl_area_t *area, sgl_area
                         pixel_alpha = (pixel_alpha * alpha + SGL_ALPHA_MAX / 2) / SGL_ALPHA_MAX;
                     }
                     if (pixel_alpha != SGL_ALPHA_MIN) {
-                        const uint16_t c00 = (uint16_t)p00[0] | ((uint16_t)p00[1] << 8);
-                        const uint16_t c01 = (uint16_t)p01[0] | ((uint16_t)p01[1] << 8);
-                        const uint16_t c10 = (uint16_t)p10[0] | ((uint16_t)p10[1] << 8);
-                        const uint16_t c11 = (uint16_t)p11[0] | ((uint16_t)p11[1] << 8);
-                        const uint16_t rgb565 = coverflow_bilinear565(c00, c01, c10, c11,
-                                                                     w00, w01, w10, w11);
-                        const sgl_color_t color = sgl_rgb565_to_color(rgb565);
+                        const sgl_color_t c00 = sgl_rgb565_to_color((uint16_t)((uint16_t)p00[0] | ((uint16_t)p00[1] << 8)));
+                        const sgl_color_t c01 = sgl_rgb565_to_color((uint16_t)((uint16_t)p01[0] | ((uint16_t)p01[1] << 8)));
+                        const sgl_color_t c10 = sgl_rgb565_to_color((uint16_t)((uint16_t)p10[0] | ((uint16_t)p10[1] << 8)));
+                        const sgl_color_t c11 = sgl_rgb565_to_color((uint16_t)((uint16_t)p11[0] | ((uint16_t)p11[1] << 8)));
+                        const sgl_color_t color = sgl_draw_biln_color_mix(c00, c01, c10, c11, w00, w01, w10, w11);
                         *dst = (pixel_alpha == SGL_ALPHA_MAX) ? color :
                                sgl_color_mixer(color, *dst, (uint8_t)pixel_alpha);
                     }
