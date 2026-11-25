@@ -53,6 +53,10 @@
 /* maximum radius used for the rounded bar caps */
 #define SGL_SPECTRUM_ROUND_MAX                     (12)
 
+/* above this bar count a value update refreshes the whole widget instead of
+ * marking a small per-bar dirty area (too many tiny areas cost more) */
+#define SGL_SPECTRUM_DIRTY_BAR_MAX                 (32)
+
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -393,7 +393,9 @@ void sgl_spectrum_set_bar_number(sgl_obj_t *obj, uint16_t number)
  * @param value bar value, 0..widget height in px (clamped)
  * @return none
  * @note only the rows that actually changed are marked dirty, so a value
- *       update costs O(delta) instead of O(widget height).
+ *       update costs O(delta) instead of O(widget height). With more than
+ *       SGL_SPECTRUM_DIRTY_BAR_MAX bars the whole widget is marked dirty
+ *       instead, since per-bar dirty areas would fragment too much.
  */
 void sgl_spectrum_set_bar_value(sgl_obj_t *obj, uint16_t index, uint16_t value)
 {
@@ -428,6 +430,14 @@ void sgl_spectrum_set_bar_value(sgl_obj_t *obj, uint16_t index, uint16_t value)
     spectrum->bar_peek[index] = (uint16_t)(peek_new > 0 ? peek_new : 0);
 
     if (new == old && peek_new == peek_old) {
+        return;
+    }
+
+    /* too many bars: the per-bar dirty rects would fragment into dozens of
+     * tiny areas, so just refresh the whole widget */
+    if (spectrum->bar_num > SGL_SPECTRUM_DIRTY_BAR_MAX) {
+        spectrum->bar_value[index] = value;
+        sgl_obj_set_dirty(obj);
         return;
     }
 
