@@ -41,6 +41,7 @@
 #define  SGL_MENU_SOFT_PAD         (2)   /* softkey bar vertical padding */
 #define  SGL_MENU_ITEM_PAD         (6)   /* item row vertical padding    */
 #define  SGL_MENU_TEXT_PAD         (6)   /* horizontal text margin       */
+#define  SGL_MENU_ICON_PAD         (4)   /* gap between icon and text    */
 #define  SGL_MENU_ARROW_PAD        (6)   /* arrow margin */
 #define  SGL_MENU_CARD_VMARGIN     (2)   /* gap between item card and row edge */
 
@@ -285,11 +286,27 @@ static void sgl_menu_draw_page(sgl_menu_t *menu, sgl_surf_t *surf,
                                       menu->card_border_color, 1, menu->alpha);
         }
 
-        /* text starts where the card corner arc ends */
-        sgl_draw_string(surf, &clip, x1 + menu->card_hpad + radius,
-                        item_y + SGL_MENU_ITEM_PAD,
-                        item->text, selected ? menu->sel_text_color : menu->text_color,
-                        menu->alpha, menu->font);
+        /* text starts where the card corner arc ends; an optional icon is
+         * drawn first and shifts the text to the right */
+        {
+            int16_t text_x = (int16_t)(x1 + menu->card_hpad + radius);
+
+            if (item->icon) {
+                /* keep the icon inside the card body, centred vertically */
+                const int16_t card_h = (int16_t)(box.y2 - box.y1 + 1);
+                const int16_t icon_y = (int16_t)(box.y1 + (card_h - (int16_t)item->icon->height) / 2);
+                sgl_area_t card_clip = box;
+
+                sgl_area_selfclip(&card_clip, &clip);
+                sgl_draw_icon(surf, &card_clip, text_x, icon_y, menu->alpha, item->icon);
+                text_x = (int16_t)(text_x + item->icon->width + SGL_MENU_ICON_PAD);
+            }
+
+            sgl_draw_string(surf, &clip, text_x,
+                            item_y + SGL_MENU_ITEM_PAD,
+                            item->text, selected ? menu->sel_text_color : menu->text_color,
+                            menu->alpha, menu->font);
+        }
 
         /* cascade arrow of submenu items: right facing chevron sized to
          * match the item text height */

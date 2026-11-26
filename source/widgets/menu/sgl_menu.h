@@ -66,12 +66,14 @@ typedef enum sgl_menu_item_type {
  * @type:   SGL_MENU_TYPE_ACTION or SGL_MENU_TYPE_SUBMENU
  * @action: callback for action items, NULL for submenus
  * @submenu: descriptor of the child page for submenu items, NULL for actions
+ * @icon:   optional icon drawn before the text, NULL for text only items
  */
 typedef struct sgl_menu_item {
     const char             *text;
     uint8_t                 type;
     sgl_menu_action_t       action;
     const sgl_menu_def_t   *submenu;
+    const sgl_icon_pixmap_t *icon;
 } sgl_menu_item_t;
 
 /**
@@ -89,12 +91,22 @@ struct sgl_menu_def {
 /**
  * @brief declare an action item
  */
-#define  SGL_MENU_ITEM(_text, _action)             { (_text), SGL_MENU_TYPE_ACTION, (_action), NULL }
+#define  SGL_MENU_ITEM(_text, _action)             { (_text), SGL_MENU_TYPE_ACTION, (_action), NULL, NULL }
+
+/**
+ * @brief declare an action item with an icon
+ */
+#define  SGL_MENU_ITEM_ICON(_text, _icon, _action) { (_text), SGL_MENU_TYPE_ACTION, (_action), NULL, (_icon) }
 
 /**
  * @brief declare a submenu (cascade) item
  */
-#define  SGL_MENU_SUBMENU(_text, _submenu)         { (_text), SGL_MENU_TYPE_SUBMENU, NULL, (_submenu) }
+#define  SGL_MENU_SUBMENU(_text, _submenu)         { (_text), SGL_MENU_TYPE_SUBMENU, NULL, (_submenu), NULL }
+
+/**
+ * @brief declare a submenu (cascade) item with an icon
+ */
+#define  SGL_MENU_SUBMENU_ICON(_text, _icon, _submenu) { (_text), SGL_MENU_TYPE_SUBMENU, NULL, (_submenu), (_icon) }
 
 /**
  * @brief declare a menu page descriptor from a constant item table

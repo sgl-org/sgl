@@ -26,6 +26,9 @@
 
 #include <sgl.h>
 
+/* icon asset defined in icon_src.c, 30x30 RGBA item icon */
+extern const sgl_icon_pixmap_t menu_icon_volume[1];
+
 /**
  * Menu widget examples: rounded card item style, one per theme
  *  - every item is drawn as a rounded rectangle card
@@ -126,8 +129,8 @@ static void menu_theme_action(sgl_obj_t *menu, int16_t index)
 
 /* child pages are defined before the parent page referencing them */
 static const sgl_menu_item_t menu_theme_network_items[] = {
-    SGL_MENU_ITEM("Wi-Fi",         menu_theme_action),
-    SGL_MENU_ITEM("Bluetooth",     menu_theme_action),
+    SGL_MENU_ITEM_ICON("Wi-Fi",        &menu_icon_volume[0], menu_theme_action),
+    SGL_MENU_ITEM_ICON("Bluetooth",    &menu_icon_volume[0], menu_theme_action),
     SGL_MENU_ITEM("Mobile data",   menu_theme_action),
 };
 SGL_MENU_DEF(menu_theme_network, "Network", menu_theme_network_items);
@@ -150,10 +153,10 @@ static const sgl_menu_item_t menu_theme_media_items[] = {
 SGL_MENU_DEF(menu_theme_media, "Media", menu_theme_media_items);
 
 static const sgl_menu_item_t menu_theme_main_items[] = {
-    SGL_MENU_ITEM("Messages",      menu_theme_action),
-    SGL_MENU_ITEM("Contacts",      menu_theme_action),
-    SGL_MENU_SUBMENU("Settings",   &menu_theme_settings),
-    SGL_MENU_SUBMENU("Media",      &menu_theme_media),
+    SGL_MENU_ITEM_ICON("Messages",     &menu_icon_volume[0], menu_theme_action),
+    SGL_MENU_ITEM_ICON("Contacts",     &menu_icon_volume[0], menu_theme_action),
+    SGL_MENU_SUBMENU_ICON("Settings",  &menu_icon_volume[0], &menu_theme_settings),
+    SGL_MENU_SUBMENU_ICON("Media",     &menu_icon_volume[0], &menu_theme_media),
     SGL_MENU_ITEM("Calendar",      menu_theme_action),
     SGL_MENU_ITEM("Clock",         menu_theme_action),
     SGL_MENU_ITEM("Notes",         menu_theme_action),

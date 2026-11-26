@@ -71,6 +71,7 @@ set(SGL_EXAMPLE_SOURCE
     ${SGL_EXAMPLE_DIR}/launcher/launcher.c           # sgl_launcher_examples
     ${SGL_EXAMPLE_DIR}/led/led.c                # sgl_led_examples
     ${SGL_EXAMPLE_DIR}/menu/menu.c               # sgl_menu_examples
+    ${SGL_EXAMPLE_DIR}/menu/menu_icon.c           # sgl_menu_ext_examples
     ${SGL_EXAMPLE_DIR}/msgbox/msgbox.c             # sgl_msgbox_examples
     ${SGL_EXAMPLE_DIR}/physical_key/physical_key.c       # sgl_physical_key_handler
     ${SGL_EXAMPLE_DIR}/progress/progress.c           # sgl_progress_examples
@@ -115,6 +116,7 @@ set(SGL_EXAMPLE_SOURCE
 #   music_player.c -> music_img_image[]    images/output/music_img.c
 #                     sgl_icon_player32    sgl/demos/music/sgl_icon_player32.c
 #   coverflow.c    -> Icons__8__image[]    examples/coverflow/imgs_pixmap.c
+#   menu.c         -> icon_volume[]        examples/menu/icon_src.c
 #
 # avi.c plays ${SGL_AVI_DEMO_BASE_DIR}/movie.avi at run time and gif_test.c has
 # its GIF embedded, so neither needs an extra translation unit.
@@ -135,6 +137,7 @@ set(SGL_EXAMPLE_EXTRA_music_player
 
 set(SGL_EXAMPLE_EXTRA_SOURCE
     ${SGL_EXAMPLE_EXTRA_coverflow}
+    ${SGL_EXAMPLE_EXTRA_menu}
     ${SGL_EXAMPLE_EXTRA_rect_pixmap}
     ${SGL_EXAMPLE_EXTRA_music_player}
 )
